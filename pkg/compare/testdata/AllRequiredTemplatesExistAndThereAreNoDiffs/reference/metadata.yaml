@@ -1,0 +1,17 @@
+Parts:
+  - name: ExamplePart
+    Components:
+      - name: DemonSets
+        type: Required
+        requiredTemplates:
+          - cm.yaml
+          - cr.yaml
+          - crb.yaml
+          - deploymentDashboard.yaml
+          - deploymentMetrics.yaml
+          - ns.yaml
+          - rb.yaml
+          - role.yaml
+          - sa.yaml
+          - secret.yaml
+          - service.yaml

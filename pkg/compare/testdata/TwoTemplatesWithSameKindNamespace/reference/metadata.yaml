@@ -1,0 +1,9 @@
+Parts:
+  - name: ExamplePart
+    Components:
+      - name: DemonSets
+        type: Required
+        requiredTemplates:
+          - apps.v1.DaemonSet.kube-system.kindnet.yaml
+        optionalTemplates:
+          - apps.v1.DaemonSet.kube-system.kindnet2.yaml

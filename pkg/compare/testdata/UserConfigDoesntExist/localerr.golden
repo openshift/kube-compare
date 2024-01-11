@@ -1,0 +1,1 @@
+error: User Config File not found. error: open testdata/UserConfigDoesntExist/userconfig.yaml: no such file or directory

@@ -1,0 +1,1 @@
+error: An error occurred while parsing the templates specified in the config. error: open testdata/ReferenceContainsTemplatesThatDontExist/reference/apps.v1.DaemonSet.kube-system.kindnet.yaml: no such file or directory

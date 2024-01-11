@@ -1,0 +1,13 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  annotations:
+    deprecated.daemonset.template.generation: "1"
+  creationTimestamp: {{.metadata.creationTimestamp
+  generation: 1
+  labels:
+    app: kindnet
+    k8s-app: kindnet
+    tier: node
+
+

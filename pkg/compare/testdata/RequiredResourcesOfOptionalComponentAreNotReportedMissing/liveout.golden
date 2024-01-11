@@ -1,0 +1,5 @@
+Reference Contains Templates With Types (kind) Not Supported By Cluster: ClusterRole, ClusterRoleBinding, ConfigMap, Deployment, Role, RoleBinding, Secret, Service, ServiceAccount
+
+Summary
+No CRs are missing
+No CRs are unmatched

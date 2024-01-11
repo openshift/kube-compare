@@ -1,0 +1,21 @@
+Parts:
+  - name: ExamplePart
+    Components:
+      - name: Dashboard
+        type: Required
+        requiredTemplates:
+          - deploymentMetrics.yaml
+
+fieldsToOmit:
+  - - "spec"
+    - "selector"
+    - "matchLabels"
+    - "k8s-app"
+  - - "metadata"
+    - "labels"
+    - "k8s-app"
+  - - "spec"
+    - "template"
+    - "metadata"
+    - "labels"
+    - "k8s-app"

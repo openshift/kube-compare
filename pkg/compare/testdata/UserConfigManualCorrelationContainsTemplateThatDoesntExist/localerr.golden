@@ -1,0 +1,1 @@
+error: error in template manual matching for resource: apps.v1.DaemonSet.kube-system.kindnet.yaml no template in the name of TemplateThatDoesn'tExist
