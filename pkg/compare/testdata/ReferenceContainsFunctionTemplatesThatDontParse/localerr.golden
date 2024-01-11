@@ -1,0 +1,1 @@
+error: An error occurred while parsing the template function files specified in the config. error: template: validate_functions:6: unexpected EOF

@@ -1,0 +1,5 @@
+  {{define "validatesize" }}
+    {{- if ne .size nil }}I'm from another file in validatesize. user entered {{ .size }} {{ end -}}
+    {{end}}
+    {{define "validatesizeparttwo"}}
+    # I'm from another file

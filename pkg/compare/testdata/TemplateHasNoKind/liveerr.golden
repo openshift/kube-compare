@@ -1,0 +1,1 @@
+error: error while finding group hash for &{map[apiVersion:apps/v1 metadata:map[annotations:map[deprecated.daemonset.template.generation:1] generation:1 labels:map[app:kindnet k8s-app:kindnet tier:node]]]}. Error: the field kind doesn't exsist in resource
