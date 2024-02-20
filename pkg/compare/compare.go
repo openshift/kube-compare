@@ -3,6 +3,7 @@ package compare
 import (
 	"bytes"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
@@ -179,21 +180,29 @@ func diffError(err error) exec.ExitError {
 
 func (o *Options) Complete(f kcmdutil.Factory, cmd *cobra.Command, args []string) error {
 	var err error
+	var fs fs.FS
 	o.builder = f.NewBuilder()
 
 	if o.templatesDir == "" {
 		return kcmdutil.UsageErrorf(cmd, noReffDirectoryWasPassed)
 	}
-	if _, err := os.Stat(o.templatesDir); os.IsNotExist(err) {
+	if _, err := os.Stat(o.templatesDir); os.IsNotExist(err) && !isURL(o.templatesDir) {
 		return fmt.Errorf(reffDirNotExistsError)
 	}
 
-	o.reff, err = getReference(o.templatesDir)
+	if isURL(o.templatesDir) {
+		fs = HTTPFS{baseURL: o.templatesDir, httpGet: httpgetImpl}
+	} else {
+		rootPath, err := filepath.Abs(o.templatesDir)
+		if err != nil {
+			return err
+		}
+		fs = os.DirFS(rootPath)
+	}
+
+	o.reff, err = getReference(fs)
 	if err != nil {
 		return err
-	}
-	appendDir := func(item string, index int) string {
-		return filepath.Join(o.templatesDir, item)
 	}
 
 	if o.diffConfigFileName != "" {
@@ -202,10 +211,7 @@ func (o *Options) Complete(f kcmdutil.Factory, cmd *cobra.Command, args []string
 			return err
 		}
 	}
-
-	o.templates, err = getTemplates(lo.Map(o.reff.getTemplates(), appendDir), lo.Map(o.reff.TemplateFunctionFiles, func(item string, index int) string {
-		return filepath.Join(o.templatesDir, item)
-	}))
+	o.templates, err = parseTemplates(o.reff.getTemplates(), o.reff.TemplateFunctionFiles, fs)
 	if err != nil {
 		return err
 	}
@@ -390,7 +396,6 @@ func (o *Options) Run() error {
 	}
 
 	err = differ.Run(o.diff)
-	differ.TearDown()
 	a := newSummary(&o.reff, o.corelator)
 	_, _ = o.Out.Write([]byte(a.String()))
 	return err

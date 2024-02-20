@@ -19,7 +19,7 @@ import (
 func Divide[E any, V any, G comparable](elements []E, filterGroupsFor func(element V) ([]int, error), parse func(E) (V, error), groupingFunctions ...func(V) (group G, err error)) ([]map[G][]E, error) {
 	var groups []map[G][]E
 	var errs []error
-	for _, _ = range groupingFunctions {
+	for range groupingFunctions {
 		groups = append(groups, make(map[G][]E))
 	}
 	for _, element := range elements {

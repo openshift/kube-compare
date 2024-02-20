@@ -1,0 +1,5 @@
+correlationSettings:
+  manualCorrelation:
+    correlationPairs:
+      apps/v1_Deployment_kubernetes-dashboard_kubernetes-dashboard: dir/deploymentMetrics.yaml
+

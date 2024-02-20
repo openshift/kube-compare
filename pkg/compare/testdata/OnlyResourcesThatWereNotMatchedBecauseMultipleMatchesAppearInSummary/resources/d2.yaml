@@ -49,4 +49,4 @@ spec:
           effect: NoSchedule
       volumes:
         - name: tmp-volume
-          emptyDir: {}
+          emptyDir: { }

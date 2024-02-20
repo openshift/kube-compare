@@ -1,1 +1,1 @@
-error: User Config File not found. error: open testdata/UserConfigDoesntExist/userconfig.yaml: no such file or directory
+error: User Config File not found. error: open /home/asudakov/go/src/github.com/openshift/oc/pkg/compare/testdata/UserConfigDoesntExist/userconfig.yaml: no such file or directory

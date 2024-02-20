@@ -1,0 +1,3 @@
+error: an error occurred while parsing template: deploymentMetrics.yaml specified in the config. error: template: deploymentMetrics.yaml:19: unexpected {{end}}
+an error occurred while parsing template: secret.yaml specified in the config. error: template: secret.yaml:10: unexpected {{end}}
+an error occurred while parsing template: service.yaml specified in the config. error: template: service.yaml:13: unexpected {{end}}

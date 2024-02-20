@@ -1,7 +1,7 @@
-apiVersion: {{ .apiVersion }}
+apiVersion: { { .apiVersion } }
 kind: ServiceAccount
 metadata:
   labels:
     k8s-app: kubernetes-dashboard
-  name: {{ .metadata.name }}
+  name: { { .metadata.name } }
   namespace: kubernetes-dashboard

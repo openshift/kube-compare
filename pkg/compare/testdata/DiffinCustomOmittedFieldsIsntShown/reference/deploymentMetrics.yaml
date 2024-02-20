@@ -3,7 +3,7 @@ apiVersion: apps/v1
 metadata:
   labels:
     k8s-app: dashboard-metrics-scraper
-  name: {{ .metadata.name }}
+  name: { { .metadata.name } }
   namespace: kubernetes-dashboard
 spec:
   replicas: 1
@@ -16,4 +16,4 @@ spec:
       labels:
         k8s-app: dashboard-metrics-scraper
     spec:
-{{ if .spec.template.spec }}{{ .spec.template.spec | toYaml | indent 5}}{{end}}
+  { { if .spec.template.spec } }{ { .spec.template.spec | toYaml | indent 5 } }{{end}}
