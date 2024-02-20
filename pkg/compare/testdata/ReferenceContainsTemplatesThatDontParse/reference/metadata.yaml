@@ -5,3 +5,4 @@ Parts:
         type: Required
         requiredTemplates:
           - apps.v1.DaemonSet.kube-system.kindnet.yaml
+          - t2.yaml

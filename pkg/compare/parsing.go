@@ -2,13 +2,15 @@ package compare
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
-	"text/template"
-
+	"io/fs"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"os"
+	"path"
+	"path/filepath"
 	"sigs.k8s.io/yaml"
+	"text/template"
 )
 
 type Reference struct {
@@ -96,16 +98,16 @@ var defaultFieldsToOmit = [][]string{{"metadata", "uid"},
 
 const (
 	refConfNotExistsError          = "Reference config file not found. error: "
-	refConfigNotInFormat           = "Reference config file isn't in correct format. error: "
+	refConfigNotInFormat           = "Reference config isn't in correct format. error: "
 	userConfNotExistsError         = "User Config File not found. error: "
 	userConfigNotInFormat          = "User config file isn't in correct format. error: "
-	templatesCantBeParsed          = "An error occurred while parsing the templates specified in the config. error: "
-	templatesFunctionsCantBeParsed = "An error occurred while parsing the template function files specified in the config. error: "
+	templatesCantBeParsed          = "an error occurred while parsing template: %s specified in the config. error: %v"
+	templatesFunctionsCantBeParsed = "an error occurred while parsing the template function files specified in the config. error: %v"
 )
 
-func getReference(ReffDir string) (Reference, error) {
+func getReference(fsys fs.FS) (Reference, error) {
 	result := Reference{}
-	err := parseYaml(filepath.Join(ReffDir, ReferenceFileName), &result, refConfNotExistsError, refConfigNotInFormat)
+	err := parseYaml(fsys, ReferenceFileName, &result, refConfNotExistsError, refConfigNotInFormat)
 	if err != nil {
 		return result, err
 	}
@@ -115,8 +117,8 @@ func getReference(ReffDir string) (Reference, error) {
 	return result, nil
 }
 
-func parseYaml[T any](filePath string, structType *T, fileNotFoundError string, parsingError string) error {
-	file, err := os.ReadFile(filePath)
+func parseYaml[T any](fsys fs.FS, filePath string, structType *T, fileNotFoundError string, parsingError string) error {
+	file, err := fs.ReadFile(fsys, filePath)
 	if err != nil {
 		return fmt.Errorf("%s%v", fileNotFoundError, err)
 	}
@@ -127,25 +129,27 @@ func parseYaml[T any](filePath string, structType *T, fileNotFoundError string, 
 	return nil
 }
 
-func getTemplates(templatePaths []string, functionTemplates []string) ([]*template.Template, error) {
+func parseTemplates(templatePaths []string, functionTemplates []string, fsys fs.FS) ([]*template.Template, error) {
 	var templates []*template.Template
-	ts, err := template.New("base").Funcs(FuncMap()).ParseFiles(templatePaths...)
-	if err != nil {
-		return []*template.Template{}, fmt.Errorf("%s%v", templatesCantBeParsed, err)
-	}
-	for _, temp := range ts.Templates() {
-		if temp.Name() == temp.ParseName {
-			templates = append(templates, temp)
+	var errs []error
+	for _, temp := range templatePaths {
+		parsedTemp, err := template.New(path.Base(temp)).Funcs(FuncMap()).ParseFS(fsys, temp)
+		if err != nil {
+			errs = append(errs, fmt.Errorf(templatesCantBeParsed, temp, err))
+			continue
 		}
+		// recreate template with new name that includes path from reference root:
+		parsedTemp, _ = template.New(temp).Funcs(FuncMap()).AddParseTree(temp, parsedTemp.Tree)
+		if len(functionTemplates) > 0 {
+			parsedTemp, err = parsedTemp.ParseFS(fsys, functionTemplates...)
+			if err != nil {
+				errs = append(errs, fmt.Errorf(templatesFunctionsCantBeParsed, err))
+				continue
+			}
+		}
+		templates = append(templates, parsedTemp)
 	}
-	if len(functionTemplates) == 0 {
-		return templates, nil
-	}
-	ts, err = ts.ParseFiles(functionTemplates...)
-	if err != nil {
-		return templates, fmt.Errorf("%s%v", templatesFunctionsCantBeParsed, err)
-	}
-	return templates, nil
+	return templates, errors.Join(errs...)
 }
 
 type UserConfig struct {
@@ -162,7 +166,8 @@ type ManualCorrelation struct {
 
 func parseDiffConfig(filePath string) (UserConfig, error) {
 	result := UserConfig{}
-	err := parseYaml(filePath, &result, userConfNotExistsError, userConfigNotInFormat)
+	confPath, err := filepath.Abs(filePath)
+	err = parseYaml(os.DirFS("/"), confPath[1:], &result, userConfNotExistsError, userConfigNotInFormat)
 	return result, err
 }
 

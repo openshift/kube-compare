@@ -54,7 +54,7 @@ spec:
           secret:
             secretName: kubernetes-dashboard-certs
         - name: tmp-volume
-          emptyDir: {}
+          emptyDir: { }
       serviceAccountName: kubernetes-dashboard
       nodeSelector:
         "kubernetes.io/os": linux

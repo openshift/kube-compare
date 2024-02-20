@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path"
 	"path/filepath"
@@ -36,14 +37,33 @@ var resourceDirName = "resources"
 var userConfigFileName = "userconfig.yaml"
 var defaultConcurrency = "4"
 
-type Mode string
+type CRSource string
 
 const (
-	Local Mode = "local"
-	Live       = "live"
+	Local CRSource = "local"
+	Live           = "live"
 )
 
-const DefaultMode = Local
+type ReffType string
+
+const (
+	LocalReff ReffType = "LocalReff"
+	URL                = "URL"
+)
+
+type Mode struct {
+	crSource   CRSource
+	reffSource ReffType
+}
+
+func (m *Mode) String() string {
+	if m.reffSource == URL {
+		return fmt.Sprintf("%s-%s", m.crSource, m.reffSource)
+	}
+	return string(m.crSource)
+}
+
+var DefaultMode = Mode{crSource: Local, reffSource: LocalReff}
 
 type Test struct {
 	name                  string
@@ -96,7 +116,7 @@ func TestCompareRun(t *testing.T) {
 		},
 		{
 			name: "Template Has No Kind",
-			mode: []Mode{Live},
+			mode: []Mode{{Live, LocalReff}},
 		},
 		{
 			name: "Two Templates With Same apiVersion Kind Name Namespace",
@@ -123,19 +143,19 @@ func TestCompareRun(t *testing.T) {
 		},
 		{
 			name: "Test Local Resource File Doesnt exist",
-			mode: []Mode{Local},
+			mode: []Mode{{Local, LocalReff}},
 		},
 		{
 			name: "Templates Contain Kind That Is Not Recognizable In Live Cluster",
-			mode: []Mode{Live},
+			mode: []Mode{{Live, LocalReff}, {Live, URL}},
 		},
 		{
 			name: "All Required Templates Exist And There Are No Diffs",
-			mode: []Mode{Live, Local},
+			mode: []Mode{{Live, LocalReff}, {Local, LocalReff}, {Local, URL}, {Live, URL}},
 		},
 		{
 			name: "Diff in Custom Omitted Fields Isnt Shown",
-			mode: []Mode{Live, Local},
+			mode: []Mode{{Live, LocalReff}, {Local, LocalReff}, {Local, URL}},
 		},
 		{
 			name:          "When Using Diff All Flag - All Unmatched Resources Appear In Summary",
@@ -148,20 +168,33 @@ func TestCompareRun(t *testing.T) {
 		},
 		{
 			name:                 "Manual Correlation Matches Are Prioritized Over Group Correlation",
-			mode:                 []Mode{Live, Local},
+			mode:                 []Mode{{Live, LocalReff}, {Local, LocalReff}},
 			shouldPassUserConfig: true,
 		},
 		{
 			name: "Only Required Resources Of Required Component Are Reported Missing (Optional Resources Not Reported)",
-			mode: []Mode{Live, Local},
+			mode: []Mode{{Live, LocalReff}, {Local, LocalReff}},
 		},
 		{
 			name: "Required Resources Of Optional Component Are Not Reported Missing",
-			mode: []Mode{Live, Local},
+			mode: []Mode{{Live, LocalReff}, {Local, LocalReff}},
 		},
 		{
 			name: "Required Resources Of Optional Component Are Reported Missing If At Least One Of Resources In Group Is Included",
-			mode: []Mode{Live, Local},
+			mode: []Mode{{Live, LocalReff}, {Local, LocalReff}},
+		},
+		{
+			name: "Reff Template In Sub Dir Not Reported Missing",
+			mode: []Mode{{Live, LocalReff}, {Local, LocalReff}, {Local, URL}},
+		},
+		{
+			name:                 "Reff Template In Sub Dir Works With Manual Correlation",
+			mode:                 []Mode{{Live, LocalReff}, {Local, LocalReff}, {Local, URL}},
+			shouldPassUserConfig: true,
+		},
+		{
+			name: "Reff With Template Functions Renders As Expected",
+			mode: []Mode{{Live, LocalReff}, {Local, LocalReff}, {Local, URL}},
 		},
 	}
 	tf := cmdtesting.NewTestFactory()
@@ -170,18 +203,18 @@ func TestCompareRun(t *testing.T) {
 	klog.LogToStderr(false)
 	_ = testFlags.Parse([]string{"--skip_headers"})
 	for _, test := range tests {
-		for _, mode := range test.mode {
-			t.Run(test.name+string(mode), func(t *testing.T) {
+		for i, mode := range test.mode {
+			t.Run(test.name+mode.String(), func(t *testing.T) {
 				IOStream, _, out, _ := genericiooptions.NewTestIOStreams()
 				klog.SetOutputBySeverity("INFO", out)
-				cmd := getCommand(t, &test, mode, tf, &IOStream)
+				cmd := getCommand(t, &test, i, tf, &IOStream)
 				cmdutil.BehaviorOnFatal(func(str string, code int) {
-					getGoldenValue(t, path.Join(test.getTestDir(), fmt.Sprintf("%serr.golden", mode)), []byte(str+string(rune(code))))
+					getGoldenValue(t, path.Join(test.getTestDir(), fmt.Sprintf("%serr.golden", mode.crSource)), []byte(str+string(rune(code))))
 					panic("Expected Error Test Case")
 				})
 				defer func() {
 					_ = recover()
-					getGoldenValue(t, path.Join(test.getTestDir(), fmt.Sprintf("%sout.golden", mode)), removeInconsistentInfo(out.String()))
+					getGoldenValue(t, path.Join(test.getTestDir(), fmt.Sprintf("%sout.golden", mode.crSource)), removeInconsistentInfo(out.String()))
 				}()
 				cmd.Run(cmd, []string{})
 			})
@@ -213,12 +246,10 @@ func getGoldenValue(t *testing.T, fileName string, value []byte) {
 	return
 }
 
-func getCommand(t *testing.T, test *Test, mode Mode, tf *cmdtesting.TestFactory, streams *genericiooptions.IOStreams) *cobra.Command {
+func getCommand(t *testing.T, test *Test, modeIndex int, tf *cmdtesting.TestFactory, streams *genericiooptions.IOStreams) *cobra.Command {
+	mode := test.mode[modeIndex]
 	cmd := NewCmd(tf, *streams)
 	require.NoError(t, cmd.Flags().Set("concurrency", defaultConcurrency))
-	if !test.leaveTemplateDirEmpty {
-		require.NoError(t, cmd.Flags().Set("reference", path.Join(test.getTestDir(), TestRefDirName)))
-	}
 	if test.shouldDiffAll {
 		require.NoError(t, cmd.Flags().Set("all-resources", "true"))
 	}
@@ -226,7 +257,7 @@ func getCommand(t *testing.T, test *Test, mode Mode, tf *cmdtesting.TestFactory,
 		require.NoError(t, cmd.Flags().Set("diff-config", path.Join(test.getTestDir(), userConfigFileName)))
 	}
 	resourcesDir := path.Join(test.getTestDir(), resourceDirName)
-	switch mode {
+	switch mode.crSource {
 	case Local:
 		require.NoError(t, cmd.Flags().Set("filename", resourcesDir))
 		require.NoError(t, cmd.Flags().Set("recursive", "true"))
@@ -236,6 +267,24 @@ func getCommand(t *testing.T, test *Test, mode Mode, tf *cmdtesting.TestFactory,
 		updateTestDiscoveryClient(tf, discoveryResources)
 		setClient(t, resources, tf)
 		break
+	}
+	switch mode.reffSource {
+	case URL:
+		svr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			body, err := os.ReadFile(path.Join(test.getTestDir(), TestRefDirName, r.RequestURI))
+			require.NoError(t, err)
+			_, err = fmt.Fprintf(w, string(body))
+			require.NoError(t, err)
+		}))
+		require.NoError(t, cmd.Flags().Set("reference", svr.URL))
+		t.Cleanup(func() {
+			svr.Close()
+		})
+
+	case LocalReff:
+		if !test.leaveTemplateDirEmpty {
+			require.NoError(t, cmd.Flags().Set("reference", path.Join(test.getTestDir(), TestRefDirName)))
+		}
 	}
 	return cmd
 }

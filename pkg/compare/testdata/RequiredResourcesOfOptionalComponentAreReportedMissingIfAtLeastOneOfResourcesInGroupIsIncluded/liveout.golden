@@ -1,8 +1,0 @@
-Reference Contains Templates With Types (kind) Not Supported By Cluster: ClusterRole, ClusterRoleBinding, ConfigMap, Deployment, Role, RoleBinding, Secret, Service, ServiceAccount
-
-Summary
-Missing required CRs: 1 
-ExamplePart1:
-  Dashboard1:
-  - cm.yaml
-No CRs are unmatched

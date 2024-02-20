@@ -3,13 +3,13 @@ apiVersion: v1
 metadata:
   labels:
     k8s-app: {{if .metadata.labels}}{{ index .metadata.labels "k8s-app" }}{{end}}
-  name: {{ .metadata.name }}
+  name: { { .metadata.name } }
   namespace: kubernetes-dashboard
 spec:
   ports:
-    {{- range .spec.ports }}
-    - port: {{ .port }}
-      targetPort: {{ .targetPort }}
+    { { - range .spec.ports } }
+    - port: { { .port } }
+      targetPort: { { .targetPort } }
     {{end}}
   selector:
     k8s-app: {{if .spec.selector}}{{ index .spec.selector "k8s-app" }}{{end}}

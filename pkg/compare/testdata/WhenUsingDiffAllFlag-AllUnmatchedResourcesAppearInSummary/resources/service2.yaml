@@ -99,24 +99,24 @@ metadata:
   namespace: kubernetes-dashboard
 rules:
   # Allow Dashboard to get, update and delete Dashboard exclusive secrets.
-  - apiGroups: [""]
-    resources: ["secrets"]
-    resourceNames: ["kubernetes-dashboard-key-holder", "kubernetes-dashboard-certs", "kubernetes-dashboard-csrf"]
-    verbs: ["get", "update", "delete"]
+  - apiGroups: [ "" ]
+    resources: [ "secrets" ]
+    resourceNames: [ "kubernetes-dashboard-key-holder", "kubernetes-dashboard-certs", "kubernetes-dashboard-csrf" ]
+    verbs: [ "get", "update", "delete" ]
     # Allow Dashboard to get and update 'kubernetes-dashboard-settings' config map.
-  - apiGroups: [""]
-    resources: ["configmaps"]
-    resourceNames: ["kubernetes-dashboard-settings"]
-    verbs: ["get", "update"]
+  - apiGroups: [ "" ]
+    resources: [ "configmaps" ]
+    resourceNames: [ "kubernetes-dashboard-settings" ]
+    verbs: [ "get", "update" ]
     # Allow Dashboard to get metrics.
-  - apiGroups: [""]
-    resources: ["services"]
-    resourceNames: ["heapster", "dashboard-metrics-scraper"]
-    verbs: ["proxy"]
-  - apiGroups: [""]
-    resources: ["services/proxy"]
-    resourceNames: ["heapster", "http:heapster:", "https:heapster:", "dashboard-metrics-scraper", "http:dashboard-metrics-scraper"]
-    verbs: ["get"]
+  - apiGroups: [ "" ]
+    resources: [ "services" ]
+    resourceNames: [ "heapster", "dashboard-metrics-scraper" ]
+    verbs: [ "proxy" ]
+  - apiGroups: [ "" ]
+    resources: [ "services/proxy" ]
+    resourceNames: [ "heapster", "http:heapster:", "https:heapster:", "dashboard-metrics-scraper", "http:dashboard-metrics-scraper" ]
+    verbs: [ "get" ]
 
 ---
 
@@ -128,9 +128,9 @@ metadata:
   name: kubernetes-dashboard
 rules:
   # Allow Metrics Scraper to get metrics from the Metrics server
-  - apiGroups: ["metrics.k8s.io"]
-    resources: ["pods", "nodes"]
-    verbs: ["get", "list", "watch"]
+  - apiGroups: [ "metrics.k8s.io" ]
+    resources: [ "pods", "nodes" ]
+    verbs: [ "get", "list", "watch" ]
 
 ---
 
@@ -225,7 +225,7 @@ spec:
           secret:
             secretName: kubernetes-dashboard-certs
         - name: tmp-volume
-          emptyDir: {}
+          emptyDir: { }
       serviceAccountName: kubernetes-dashboard
       nodeSelector:
         "kubernetes.io/os": linux
@@ -303,4 +303,4 @@ spec:
           effect: NoSchedule
       volumes:
         - name: tmp-volume
-          emptyDir: {}
+          emptyDir: { }

@@ -79,10 +79,13 @@ type ExactMatchCorelator struct {
 func NewExactMatchCorelator(crToTemplate map[string]string, templates []*template.Template) (*ExactMatchCorelator, error) {
 	core := ExactMatchCorelator{}
 	core.apiKindNamespaceName = make(map[string]*template.Template)
-
+	nameToTemplate := make(map[string]*template.Template)
+	for _, temp := range templates {
+		nameToTemplate[temp.Name()] = temp
+	}
 	for cr, temp := range crToTemplate {
-		templateObj := templates[0].Lookup(temp)
-		if templateObj == nil {
+		templateObj, ok := nameToTemplate[temp]
+		if !ok {
 			return nil, fmt.Errorf("error in template manual matching for resource: %s no template in the name of %s", cr, temp)
 		}
 		core.apiKindNamespaceName[cr] = templateObj

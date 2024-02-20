@@ -1,1 +1,2 @@
-error: An error occurred while parsing the templates specified in the config. error: template: apps.v1.DaemonSet.kube-system.kindnet.yaml:7: function "generation" not defined
+error: an error occurred while parsing template: apps.v1.DaemonSet.kube-system.kindnet.yaml specified in the config. error: template: apps.v1.DaemonSet.kube-system.kindnet.yaml:7: function "generation" not defined
+an error occurred while parsing template: t2.yaml specified in the config. error: template: t2.yaml:7: function "generation" not defined

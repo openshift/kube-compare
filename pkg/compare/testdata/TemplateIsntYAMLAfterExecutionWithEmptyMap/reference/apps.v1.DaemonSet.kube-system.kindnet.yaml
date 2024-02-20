@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   annotations:
-    deprecated.daemonset.template.generation: "1" {{- if ne (len .spec.annotations) 1 }} Sorry. cant have more than one entry {{- end }}
+    deprecated.daemonset.template.generation: "1" { { - if ne (len .spec.annotations) 1 } } Sorry. cant have more than one entry {{- end }}
   generation: 1
   labels:
     app: kindnet

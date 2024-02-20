@@ -1,0 +1,10 @@
+Parts:
+  - name: ExamplePart
+    Components:
+      - name: DemonSets
+        type: Required
+        requiredTemplates:
+          - cm.yaml
+
+templateFunctionFiles:
+  - validate_functions
