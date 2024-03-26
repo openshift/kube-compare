@@ -292,35 +292,37 @@ func (o *Options) setupCorelators() error {
 // types supported by the live cluster in order to not raise errors by the visitor. In a case the reference includes types that
 // are not supported by the user a warning will be created.
 func (o *Options) setLiveSearchTypes(f kcmdutil.Factory) error {
-	types, err := groups.Divide(o.templates, func(element *unstructured.Unstructured) ([]int, error) {
+	requestedTypes, err := groups.Divide(o.templates, func(element *unstructured.Unstructured) ([]int, error) {
 		return []int{0}, nil
 	}, extractMetadata, createGroupHashFunc([][]string{{"kind"}}))
 	if err != nil {
 		return err
 	}
 	c, err := f.ToDiscoveryClient()
-	resources, _ := getSupportedResourceTypes(c)
-	o.types = lo.Filter(lo.Keys(types[0]), func(x string, index int) bool {
-		_, ok := resources[x]
-		return ok
-	})
-	if len(o.types) != len(lo.Keys(types[0])) {
-		notSupportedTypes := lo.Filter(lo.Keys(types[0]), func(x string, index int) bool {
-			_, ok := resources[x]
-			return !ok
-		})
-		sort.Strings(notSupportedTypes)
-		klog.Warningf("Reference Contains Templates With Types (kind) Not Supported By Cluster: %s", strings.Join(notSupportedTypes, ", "))
+	if err != nil {
+		return err
 	}
+	SupportedTypes, err := getSupportedResourceTypes(c)
+	if err != nil {
+		return err
+	}
+	var notSupportedTypes []string
+	o.types, notSupportedTypes = findAllRequestedSupportedTypes(SupportedTypes, requestedTypes[0])
 	if len(o.types) == 0 {
 		return fmt.Errorf(emptyTypes)
 	}
+	if len(notSupportedTypes) > 0 {
+		sort.Strings(notSupportedTypes)
+		klog.Warningf("Reference Contains Templates With Types (kind) Not Supported By Cluster: %s", strings.Join(notSupportedTypes, ", "))
+	}
+
 	return nil
 }
 
-// setLiveSearchTypes retrieves a set of resource types that are supported by the cluster.
-func getSupportedResourceTypes(client discovery.CachedDiscoveryInterface) (map[string]bool, error) {
-	resources := make(map[string]bool)
+// getSupportedResourceTypes retrieves a set of resource types that are supported by the cluster. For each supported
+// resource type it will specify a list of groups where it exists.
+func getSupportedResourceTypes(client discovery.CachedDiscoveryInterface) (map[string][]string, error) {
+	resources := make(map[string][]string)
 	lists, err := client.ServerPreferredResources()
 	if err != nil {
 		return resources, err
@@ -328,12 +330,29 @@ func getSupportedResourceTypes(client discovery.CachedDiscoveryInterface) (map[s
 	for _, list := range lists {
 		if len(list.APIResources) != 0 {
 			for _, res := range list.APIResources {
-				resources[res.Kind] = true
+				resources[res.Kind] = append(resources[res.Kind], res.Group)
 			}
 		}
 	}
 	return resources, nil
 
+}
+
+// findAllRequestedSupportedTypes divides the requested types in to two groups: supported types and unsupported types based on if they are specified as supported.
+// The list of supported types will include the types in the form of {kind}.{group}.
+func findAllRequestedSupportedTypes(supportedTypesWithGroups map[string][]string, requestedTypes map[string][]*template.Template) ([]string, []string) {
+	var typesIncludingGroup []string
+	var notSupportedTypes []string
+	for kind, _ := range requestedTypes {
+		if _, ok := supportedTypesWithGroups[kind]; ok {
+			for _, group := range supportedTypesWithGroups[kind] {
+				typesIncludingGroup = append(typesIncludingGroup, strings.Join([]string{kind, group}, "."))
+			}
+		} else {
+			notSupportedTypes = append(notSupportedTypes, kind)
+		}
+	}
+	return typesIncludingGroup, notSupportedTypes
 }
 
 // Run uses the factory to parse file arguments (in case of local mode) or gather all cluster resources matching
