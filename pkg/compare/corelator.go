@@ -19,7 +19,7 @@ import (
 var fieldSeparator = "_"
 
 // Corelator provides an abstraction that allow the usage of different Resource correlation logics
-// in the oc adm compare. The correlation process Matches for each Resource a template.
+// in the kubectl cluster-compare. The correlation process Matches for each Resource a template.
 type Corelator interface {
 	Match(*unstructured.Unstructured) (*template.Template, error)
 }
