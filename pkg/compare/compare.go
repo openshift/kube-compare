@@ -65,7 +65,7 @@ var (
 		 By default, the "diff" command available in your path will be run with the "-u"
 		(unified diff) and "-N" (treat absent files as empty) options.
 		
-		 Exit status: 0 No differences were found. 1 Differences were found. >1 oc
+		 Exit status: 0 No differences were found. 1 Differences were found. >1 kubectl
 		or diff failed with an error.
 		
 		 Note: KUBECTL_EXTERNAL_DIFF, if used, is expected to follow that convention.
@@ -75,16 +75,16 @@ var (
 
 	compareExample = templates.Examples(`
 		# Compare a known valid reference configuration with a live cluster:
-		oc adm compare -r ./reference
+		kubectl cluster-compare -r ./reference
 		
 		# Compare a known valid reference configuration with a local set of CRs:
-		oc adm compare -r ./reference -f ./crsdir -R
+		kubectl cluster-compare -r ./reference -f ./crsdir -R
 
 		# Compare a known valid reference configuration with a live cluster and with a user config:
-		oc adm compare -r ./reference -c ./user_config
+		kubectl cluster-compare -r ./reference -c ./user_config
 
 		# Run a known valid reference configuration with a must-gather output:
-		oc adm compare -r ./reference -f "must-gather*/*/cluster-scoped-resources","must-gather*/*/namespaces" -R
+		kubectl cluster-compare -r ./reference -f "must-gather*/*/cluster-scoped-resources","must-gather*/*/namespaces" -R
 	`)
 )
 
@@ -124,12 +124,12 @@ func NewCmd(f kcmdutil.Factory, streams genericiooptions.IOStreams) *cobra.Comma
 		Example:               compareExample,
 		Run: func(cmd *cobra.Command, args []string) {
 			kcmdutil.CheckDiffErr(options.Complete(f, cmd, args))
-			// `oc compare` propagates the error code from
+			// `kubectl cluster-compare` propagates the error code from
 			//`kubectl diff` that propagates the error code from
 			// diff or `KUBECTL_EXTERNAL_DIFF`. Also, we
 			// don't want to print an error if diff returns
 			// error code 1, which simply means that changes
-			// were found. We also don't want oc to
+			// were found. We also don't want kubectl to
 			// return 1 if there was a problem.
 			if err := options.Run(); err != nil {
 				if exitErr := diffError(err); exitErr != nil {

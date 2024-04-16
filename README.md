@@ -2,7 +2,7 @@
 
 ## Summary
 
-The “oc adm compare” subcommand is capable of performing an intelligent diff between a reference configuration and the
+The “kubectl cluster-compare” command is capable of performing an intelligent diff between a reference configuration and the
 specific configuration applied to a cluster. The comparison is capable of suppressing diffs of content which is expected
 to be user variable, validating required and optional configuration, and ignoring known runtime variable fields. With
 these capabilities a cluster administrator, solutions architect, support engineers, and others can validate a cluster’s
@@ -25,7 +25,7 @@ with these clusters across their lifetimes it is important to be able to validat
 against the known valid reference configuration to identify potential issues before they impact end
 users, service level agreements, or cluster uptime.
 
-This oc subcommand is capable of doing an "intelligent" diff between a reference
+This kubectl cluster-compare command is capable of doing an "intelligent" diff between a reference
 configuration and a set of CRs representative of a deployed production cluster. These CRs may derive
 from many potential sources such as being pulled from a live cluster, extracted from a support archive, or shared
 directly by the customer. The reference configuration is the engineered set of configuration CRs for the use case and
@@ -62,14 +62,14 @@ expected user variations versus required content.
 
 Existing tools meet some of this need but fall short of the goals
 
-- kubectl/oc diff: This subcommand allows comparison of a live cluster against a known configuration.
+- kubectl diff: This subcommand allows comparison of a live cluster against a known configuration.
   There are three shortcomings we need to address:
     - Ability to handle expected user variation and optional versus required content.
     - Ability to handle 1 to N mappings where users have multiple instances of a CR which should be validated
     - Consumption of an offline representation of the cluster configuration.
 - `<get cr> | <key sorting> | diff` : There are various ways of chaining together existing tools
   to obtain, correlate, and compare/diff two YAML objects. These methods fall short in similar ways as
-  the `kubectl/oc diff`
+  the `kubectl diff`
 
 ### Goals
 
@@ -110,7 +110,7 @@ set of inputs (eg two trees of input). The left hand side of the diff will be a 
 configuration (see below for structure/contents of the reference) and the right hand side will be a
 collection of the user’s configuration CRs. The logical flow of the tool will be:
 
-1. User invokes the tool with the two inputs: `oc adm compare <referenceConfig> <userConfig>`
+1. User invokes the tool with the two inputs: `kubectl cluster-compare <referenceConfig> <userConfig>`
     1. When the tool is run against a live cluster the `<userConfig>` input is made up of the set of
        CRs pulled from the cluster based on the reference configuration. Only those CRs included in
        the reference configuration are pulled from the live cluster. Where the reference
@@ -150,15 +150,15 @@ filesystem. Otherwise the user configuration will be pulled from a live cluster.
 
 #### Correlating CRs
 
-`oc adm compare` must correlate CRs between reference and input configurations to perform the
-comparisons. `oc adm compare` correlates CRs by using the apiVersion, kind, namespace and name fields of the CRs to
+`kubectl cluster-compare` must correlate CRs between reference and input configurations to perform the
+comparisons. `kubectl cluster-compare` correlates CRs by using the apiVersion, kind, namespace and name fields of the CRs to
 perform a nearest match correlation. Optionally the user may provide a manual override of the correlation to identify a
 specific reference configuration CR to be used for a given user input CR. Manual matches are prioritized over the
 automatic of correlation, meaning manual matches override matches by similar values in the specified group of fields.
 
 ##### Correlation by manual matches
 
-`oc adm compare` gets as input a diff config that contains an option to specify manual matches between cluster resources
+`kubectl cluster-compare` gets as input a diff config that contains an option to specify manual matches between cluster resources
 and resource templates. The matches can be added to the config as pairs of
 apiVersion_kind_namespace_name: <Template File Name>. For cluster scoped CRs that don't have a namespace the matches can
 be added as pairs of apiVersion_kind_name: <Template File Name>.
@@ -319,7 +319,7 @@ The 2 most common cases
 
 To Compare a known valid reference configuration with a local set of CRs:
 
-`oc compare adm -r <referenceConfigurationDirecotry> -f <inputConfiguration>`
+`kubectl cluster-compare -r <referenceConfigurationDirecotry> -f <inputConfiguration>`
 
 #### Reference Configuration Directory
 
@@ -389,7 +389,7 @@ correlationSettings:
 
 ### Implementation Details
 
-oc adm compare implementation includes usage of parts of code from the K8s built-in `diff` command which combines
+kubectl cluster-compare implementation includes usage of parts of code from the K8s built-in `diff` command which combines
 patching and an external diff tool via
 `KUBECTL_EXTERNAL_DIFF`.
 The command implementation includes parsing of the reference and other user passed arguments, correlation logic,
@@ -441,9 +441,9 @@ expected variations, optional content, and detection of missing/unmatched conten
 
 ## Design Details
 
-###Corelators Design:
+### Corelators Design
 
-The oc adm compare uses Different Corelators to correlate between custer resources and their matching reference
+The kubectl cluster-compare uses Different Corelators to correlate between custer resources and their matching reference
 template.
 When Designing the structure of the corealtors we tried to come up with a design that will be: easy to add additional
 correlation logics, and will allow chaining of different corelators.
@@ -475,7 +475,7 @@ In this Version the corealtors are created and initialized in the following chai
                                                                └─────────────────────┘
 ```
 
-####MultiCorealtor:
+#### MultiCorealtor
 
 The MultiCorealtor aggregates multiple corelators while implementing the correlator interface.
 The multiCorelator stores a list of correlators. It Matches resources to templates by iterating over the list of
@@ -483,18 +483,18 @@ corelators and for each subcorealeator attempts to find a match for the requeste
 In case a match is found for one of the corelators, it will be returned without any errors.
 If no match is found a joined error including all sub corealtors errors will be returned.
 
-####MetricsCorelatorDecorator:
+#### MetricsCorelatorDecorator
 
 Wraps a single correlator, And collects metrics about the correlation. The metrics can be later retrieved and then can
 be used to create a summary output. The MetricsCorelatorDecorator gathers metrics on which resource templates that have
 been matched and with cluster CRs were not matched.
 
-####ExactMatchCorelator:
+#### ExactMatchCorelator
 
 Matches templates by exact match between a predefined config including pairs of Resource names and their equivalent
 template.The exact behavior of this corelator is described in Correlation by manual matches section.
 
-####GroupCorelator
+#### GroupCorelator
 
 The group corelator implements the correlation behavior explained in Correlation by group of fields (apiVersion, kind,
 namespace and name). The correlation behavior in this version is: “Each CR will be correlated to a template with an
@@ -505,9 +505,9 @@ to allow more flexibility in group correlating.
 
 ## Alternatives
 
-### kubectl/oc diff
+### kubectl diff
 
-The existing kubectl/oc diff works well for validation of a CR (or set of CRs) on a cluster against
+The existing kubectl diff works well for validation of a CR (or set of CRs) on a cluster against
 a known valid configuration. This tool does a good job of suppressing diffs in known managed fields
 (eg metadata, status, etc), however it is lacking in several critical features for the use cases in
 this enhancement:
