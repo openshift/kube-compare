@@ -1,3 +1,5 @@
+// SPDX-License-Identifier:Apache-2.0
+
 package compare
 
 import (
@@ -11,7 +13,7 @@ import (
 	"text/template"
 
 	"github.com/gosimple/slug"
-	"github.com/openshift/oc/pkg/compare/groups"
+	"github.com/openshift/kube-compare/pkg/groups"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
