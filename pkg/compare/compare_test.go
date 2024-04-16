@@ -1,3 +1,5 @@
+// SPDX-License-Identifier:Apache-2.0
+
 package compare
 
 import (
@@ -14,7 +16,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/openshift/oc/pkg/compare/groups"
+	"github.com/openshift/kube-compare/pkg/groups"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
@@ -209,12 +211,13 @@ func TestCompareRun(t *testing.T) {
 				klog.SetOutputBySeverity("INFO", out)
 				cmd := getCommand(t, &test, i, tf, &IOStream)
 				cmdutil.BehaviorOnFatal(func(str string, code int) {
-					getGoldenValue(t, path.Join(test.getTestDir(), fmt.Sprintf("%serr.golden", mode.crSource)), []byte(str+string(rune(code))))
+					errorStr := fmt.Sprintf("%s \nerror code:%d", removeInconsistentInfo(t, str), code)
+					getGoldenValue(t, path.Join(test.getTestDir(), fmt.Sprintf("%serr.golden", mode.crSource)), []byte(errorStr))
 					panic("Expected Error Test Case")
 				})
 				defer func() {
 					_ = recover()
-					getGoldenValue(t, path.Join(test.getTestDir(), fmt.Sprintf("%sout.golden", mode.crSource)), removeInconsistentInfo(out.String()))
+					getGoldenValue(t, path.Join(test.getTestDir(), fmt.Sprintf("%sout.golden", mode.crSource)), removeInconsistentInfo(t, out.String()))
 				}()
 				cmd.Run(cmd, []string{})
 			})
@@ -222,13 +225,16 @@ func TestCompareRun(t *testing.T) {
 	}
 }
 
-func removeInconsistentInfo(text string) []byte {
+func removeInconsistentInfo(t *testing.T, text string) []byte {
 	//remove diff tool generated temp directory path
 	re := regexp.MustCompile("\\/tmp\\/(?:LIVE|MERGED)-[0-9]*")
 	text = re.ReplaceAllString(text, "TEMP")
 	//remove diff datetime
 	re = regexp.MustCompile("(\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}\\.\\d{9} [+-]\\d{4})")
-	return []byte(re.ReplaceAllString(text, "DATE"))
+	text = re.ReplaceAllString(text, "DATE")
+	pwd, err := os.Getwd()
+	require.NoError(t, err)
+	return []byte(strings.ReplaceAll(text, pwd, "."))
 }
 
 func getGoldenValue(t *testing.T, fileName string, value []byte) {

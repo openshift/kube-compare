@@ -1,3 +1,5 @@
+// SPDX-License-Identifier:Apache-2.0
+
 package compare
 
 import (
@@ -9,7 +11,7 @@ import (
 	"sync"
 	"text/template"
 
-	"github.com/openshift/oc/pkg/compare/groups"
+	"github.com/openshift/kube-compare/pkg/groups"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/klog/v2"
 )

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier:Apache-2.0
+
 // Package groups provides a set of utilities for dividing and dealing with groups of elements.
 package groups
 
