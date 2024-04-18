@@ -1,0 +1,31 @@
+Parts:
+  - name: ExamplePart1
+    Components:
+      - name: Dashboard1
+        type: Optional
+        requiredTemplates:
+          - cm.yaml
+          - ns.yaml
+        optionalTemplates:
+          - sa.yaml
+          - secret.yaml
+          - service.yaml
+      - name: Dashboard2
+        type: Optional
+        requiredTemplates:
+          - deploymentDashboard.yaml
+          - deploymentMetrics.yaml
+  - name: ExamplePart2
+    Components:
+      - name: Dashboard1
+        type: Optional
+        requiredTemplates:
+          - cr.yaml
+        optionalTemplates:
+          - rb.yaml
+          - role.yaml
+      - name: Dashboard2
+        type: Optional
+        requiredTemplates:
+          - crb.yaml
+

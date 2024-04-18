@@ -1,0 +1,15 @@
+diff -u -N TEMP/v1_configmap_kubernetes-dashboard_kubernetes-dashboard-settings2 TEMP/v1_configmap_kubernetes-dashboard_kubernetes-dashboard-settings2
+--- TEMP/v1_configmap_kubernetes-dashboard_kubernetes-dashboard-settings2	DATE
++++ TEMP/v1_configmap_kubernetes-dashboard_kubernetes-dashboard-settings2	DATE
+@@ -2,6 +2,6 @@
+ kind: ConfigMap
+ metadata:
+   labels:
+-    k8s-app: kubernetes-dashboard-diff
++    k8s-app: kubernetes-dashboard
+   name: kubernetes-dashboard-settings2
+   namespace: kubernetes-dashboard
+
+Summary
+No CRs are missing
+No CRs are unmatched

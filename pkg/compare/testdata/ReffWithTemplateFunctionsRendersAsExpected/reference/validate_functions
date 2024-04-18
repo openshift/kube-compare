@@ -1,0 +1,5 @@
+{{- define "addBlob" -}}
+ function was called successfully from different file
+{{- end -}}
+
+

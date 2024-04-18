@@ -1,0 +1,9 @@
+Parts:
+  - name: ExamplePart1
+    Components:
+      - name: Dashboard1
+        type: Required
+        requiredTemplates:
+          - a/g.yaml
+
+

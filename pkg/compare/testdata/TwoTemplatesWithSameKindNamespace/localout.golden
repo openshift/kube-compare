@@ -1,0 +1,9 @@
+More then one template with same apiVersion, metadata_namespace, kind. These templates wont be used for corelation. To use them use different corelator (manual matching) or remove one of them from the reference.  Template names are: apps.v1.DaemonSet.kube-system.kindnet.yaml, apps.v1.DaemonSet.kube-system.kindnet2.yaml
+
+Summary
+Missing required CRs: 1 
+ExamplePart:
+  DemonSets:
+  - apps.v1.DaemonSet.kube-system.kindnet.yaml
+CRs are unmatched: 1
+- apps/v1_DaemonSet_SomeNS_Name
