@@ -5,8 +5,8 @@ diff -u -N TEMP/v1_configmap_kubernetes-dashboard_kubernetes-dashboard-settings2
  kind: ConfigMap
  metadata:
    labels:
--    k8s-app: kubernetes-dashboard-diff
-+    k8s-app: kubernetes-dashboard
+-    k8s-app: kubernetes-dashboard
++    k8s-app: kubernetes-dashboard-diff
    name: kubernetes-dashboard-settings2
    namespace: kubernetes-dashboard
 
