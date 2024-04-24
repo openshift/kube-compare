@@ -1,0 +1,31 @@
+diff -u -N TEMP/apps-v1_deployment_kubernetes-dashboard_kubernetes-dashboard TEMP/apps-v1_deployment_kubernetes-dashboard_kubernetes-dashboard
+--- TEMP/apps-v1_deployment_kubernetes-dashboard_kubernetes-dashboard	DATE
++++ TEMP/apps-v1_deployment_kubernetes-dashboard_kubernetes-dashboard	DATE
+@@ -2,19 +2,19 @@
+ kind: Deployment
+ metadata:
+   labels:
+-    k8s-app: kubernetes-dashboard
+-  name: kubernetes-dashboard
++    k8s-app: dashboard-metrics-scraper
++  name: dashboard-metrics-scraper
+   namespace: kubernetes-dashboard
+ spec:
+   replicas: 1
+   revisionHistoryLimit: 10
+   selector:
+     matchLabels:
+-      k8s-app: kubernetes-dashboard
++      k8s-app: dashboard-metrics-scraper
+   template:
+     metadata:
+       labels:
+-        k8s-app: kubernetes-dashboard
++        k8s-app: dashboard-metrics-scraper
+     spec:
+       containers:
+       - args:
+
+Summary
+No CRs are missing
+No CRs are unmatched
