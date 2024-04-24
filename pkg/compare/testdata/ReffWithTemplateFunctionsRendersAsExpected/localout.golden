@@ -1,4 +1,9 @@
-diff -u -N TEMP/v1_configmap_kubernetes-dashboard_kubernetes-dashboard-settings TEMP/v1_configmap_kubernetes-dashboard_kubernetes-dashboard-settings
+
+**********************************
+
+Cluster CR: v1_ConfigMap_kubernetes-dashboard_kubernetes-dashboard-settings
+Reference File: cm.yaml
+Diff Output: diff -u -N TEMP/v1_configmap_kubernetes-dashboard_kubernetes-dashboard-settings TEMP/v1_configmap_kubernetes-dashboard_kubernetes-dashboard-settings
 --- TEMP/v1_configmap_kubernetes-dashboard_kubernetes-dashboard-settings	DATE
 +++ TEMP/v1_configmap_kubernetes-dashboard_kubernetes-dashboard-settings	DATE
 @@ -2,6 +2,6 @@
@@ -10,6 +15,9 @@ diff -u -N TEMP/v1_configmap_kubernetes-dashboard_kubernetes-dashboard-settings 
    name: kubernetes-dashboard-settings
    namespace: kubernetes-dashboard
 
+**********************************
+
 Summary
-No CRs are missing
-No CRs are unmatched
+CRs with diffs: 1
+No CRs are missing from the cluster
+No CRs are unmatched to reference CRs

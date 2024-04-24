@@ -93,6 +93,8 @@ const (
 	noReffDirectoryWasPassed = "\"Reference directory is required\""
 	reffDirNotExistsError    = "\"Reference directory doesnt exist\""
 	emptyTypes               = "Templates don't contain any types (kind) of resources that are supported by the cluster"
+	DiffSeparator            = "**********************************"
+	ShowManagedFields        = false
 )
 
 type Options struct {
@@ -357,19 +359,34 @@ func findAllRequestedSupportedTypes(supportedTypesWithGroups map[string][]string
 	return typesIncludingGroup, notSupportedTypes
 }
 
+func runDiff(obj diff.Object, streams genericiooptions.IOStreams) (*bytes.Buffer, error) {
+	differ, err := diff.NewDiffer("MERGED", "LIVE")
+	diffOutput := new(bytes.Buffer)
+	if err != nil {
+		return diffOutput, err
+	}
+	defer differ.TearDown()
+
+	err = differ.Diff(obj, diff.Printer{}, ShowManagedFields)
+	if err != nil {
+		return diffOutput, err
+	}
+	err = differ.Run(&diff.DiffProgram{Exec: exec.New(), IOStreams: genericiooptions.IOStreams{In: streams.In, Out: diffOutput, ErrOut: streams.ErrOut}})
+
+	// If the diff tool runs without issues and detects differences at this level of the code, we would like to report that there are no issues
+	if err, ok := err.(exec.ExitError); ok && err.ExitStatus() <= 1 {
+		return diffOutput, nil
+	}
+	return diffOutput, err
+}
+
 // Run uses the factory to parse file arguments (in case of local mode) or gather all cluster resources matching
 // templates types. For each Resource it finds the matching Resource template and
 // injects, compares, and runs against differ.
 func (o *Options) Run() error {
-	showManagedFields := false
+	var diffs []DiffSum
+	numDiffCRs := 0
 
-	differ, err := diff.NewDiffer("MERGED", "LIVE")
-	if err != nil {
-		return err
-	}
-	defer differ.TearDown()
-
-	printer := diff.Printer{}
 	r := o.builder.
 		Unstructured().
 		VisitorConcurrency(o.Concurrency).
@@ -387,7 +404,8 @@ func (o *Options) Run() error {
 	r.IgnoreErrors(func(err error) bool {
 		return containOnly(err, []error{MultipleMatches{}, UnknownMatch{}})
 	})
-	err = r.Visit(func(info *resource.Info, err error) error {
+
+	err := r.Visit(func(info *resource.Info, err error) error {
 		clusterCRMapping, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(info.Object)
 		clusterCR := unstructured.Unstructured{Object: clusterCRMapping}
 
@@ -406,20 +424,28 @@ func (o *Options) Run() error {
 			clusterobj:              &clusterCR,
 			FieldsToOmit:            o.reff.FieldsToOmit,
 		}
-
-		err = differ.Diff(obj, printer, showManagedFields)
-
+		diffOutput, err := runDiff(obj, o.IOStreams)
+		if err != nil {
+			return err
+		}
+		if diffOutput.Len() > 0 {
+			numDiffCRs += 1
+		}
+		diffs = append(diffs, DiffSum{DiffOutput: diffOutput.String(), CorrelatedTemplate: temp.Name(), CRName: apiKindNamespaceName(&clusterCR)})
 		return err
 	})
-
 	if err != nil {
 		return err
 	}
+	sum := newSummary(&o.reff, o.corelator, numDiffCRs)
+	o.Out.Write([]byte(Output{Summary: sum, Diffs: &diffs}.String()))
 
-	err = differ.Run(o.diff)
-	a := newSummary(&o.reff, o.corelator)
-	_, _ = o.Out.Write([]byte(a.String()))
-	return err
+	// We will return exit code 1 in case there are differences between the reference CRs and cluster CRs.
+	//The differences can be differences found in specific CRs or the absence of CRs from the cluster.
+	if numDiffCRs != 0 || sum.NumMissing != 0 {
+		return exec.CodeExitError{Err: fmt.Errorf("there are differences between the cluster CRs and the reference CRs"), Code: 1}
+	}
+	return nil
 }
 
 // InfoObject matches the diff.Object interface, it contains the objects that shall be compared.
@@ -458,15 +484,38 @@ func (obj InfoObject) Name() string {
 	return slug.Make(apiKindNamespaceName(obj.clusterobj))
 }
 
-// summary Contains all info included in the summary output of the compare command
-type summary struct {
+// DiffSum Contains the diff output and correlation info of a specific CR
+type DiffSum struct {
+	DiffOutput         string
+	CorrelatedTemplate string
+	CRName             string
+}
+
+func (s DiffSum) String() string {
+	t := `Cluster CR: {{ .CRName }}
+Reference File: {{ .CorrelatedTemplate }}
+{{- if ne (len  .DiffOutput) 0 }}
+Diff Output: {{ .DiffOutput }}
+{{- else}}
+Diff Output: None
+{{end }}
+`
+	var buf bytes.Buffer
+	tmpl, _ := template.New("DiffSummary").Parse(t)
+	_ = tmpl.Execute(&buf, s)
+	return buf.String()
+}
+
+// Summary Contains all info included in the Summary output of the compare command
+type Summary struct {
 	RequiredCRS  map[string]map[string][]string
 	NumMissing   int
 	UnmatchedCRS []string
+	NumDiffCRs   int
 }
 
-func newSummary(reference *Reference, c *MetricsCorelatorDecorator) *summary {
-	s := summary{}
+func newSummary(reference *Reference, c *MetricsCorelatorDecorator, numDiffCRs int) *Summary {
+	s := Summary{NumDiffCRs: numDiffCRs}
 	s.RequiredCRS, s.NumMissing = reference.getMissingCRs(c.MatchedTemplatesNames)
 	s.UnmatchedCRS = lo.Map(c.UnMatchedCRs, func(r *unstructured.Unstructured, i int) string {
 		return apiKindNamespaceName(r)
@@ -474,24 +523,42 @@ func newSummary(reference *Reference, c *MetricsCorelatorDecorator) *summary {
 	return &s
 }
 
-func (s summary) String() string {
+func (s Summary) String() string {
 	t := `
 Summary
+CRs with diffs: {{ .NumDiffCRs }}
 {{- if ne (len  .RequiredCRS) 0 }}
-Missing required CRs: {{.NumMissing}} 
+CRs in reference missing from the cluster: {{.NumMissing}} 
 {{ toYaml .RequiredCRS}}
 {{- else}}
-No CRs are missing
+No CRs are missing from the cluster
 {{- end }}
 {{- if ne (len  .UnmatchedCRS) 0 }}
-CRs are unmatched: {{len  .UnmatchedCRS}}
+Cluster CRs unmatched to reference CRs: {{len  .UnmatchedCRS}}
 {{ toYaml .UnmatchedCRS}}
 {{- else}}
-No CRs are unmatched
+No CRs are unmatched to reference CRs
 {{- end }}
 `
 	var buf bytes.Buffer
-	tmpl, _ := template.New("summary").Funcs(template.FuncMap{"toYaml": toYAML}).Parse(t)
+	tmpl, _ := template.New("Summary").Funcs(template.FuncMap{"toYaml": toYAML}).Parse(t)
 	_ = tmpl.Execute(&buf, s)
 	return buf.String()
+}
+
+// Output Contains the complete output of the command
+type Output struct {
+	Summary *Summary
+	Diffs   *[]DiffSum
+}
+
+func (o Output) String() string {
+	var str string
+	sort.Slice(*o.Diffs, func(i, j int) bool {
+		return (*o.Diffs)[i].CorrelatedTemplate+(*o.Diffs)[i].CRName < (*o.Diffs)[j].CorrelatedTemplate+(*o.Diffs)[j].CRName
+	})
+	for _, diffSum := range *o.Diffs {
+		str += fmt.Sprintf("\n%s%s\n", diffSum.String(), DiffSeparator)
+	}
+	return fmt.Sprintf("\n%s\n%s%s", DiffSeparator, str, o.Summary.String())
 }
