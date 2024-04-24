@@ -5,23 +5,23 @@ diff -u -N TEMP/apps-v1_deployment_kubernetes-dashboard_kubernetes-dashboard TEM
  kind: Deployment
  metadata:
    labels:
--    k8s-app: kubernetes-dashboard
--  name: kubernetes-dashboard
-+    k8s-app: dashboard-metrics-scraper
-+  name: dashboard-metrics-scraper
+-    k8s-app: dashboard-metrics-scraper
+-  name: dashboard-metrics-scraper
++    k8s-app: kubernetes-dashboard
++  name: kubernetes-dashboard
    namespace: kubernetes-dashboard
  spec:
    replicas: 1
    revisionHistoryLimit: 10
    selector:
      matchLabels:
--      k8s-app: kubernetes-dashboard
-+      k8s-app: dashboard-metrics-scraper
+-      k8s-app: dashboard-metrics-scraper
++      k8s-app: kubernetes-dashboard
    template:
      metadata:
        labels:
--        k8s-app: kubernetes-dashboard
-+        k8s-app: dashboard-metrics-scraper
+-        k8s-app: dashboard-metrics-scraper
++        k8s-app: kubernetes-dashboard
      spec:
        containers:
        - args:

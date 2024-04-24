@@ -5,8 +5,8 @@ diff -u -N TEMP/v1_configmap_kubernetes-dashboard_kubernetes-dashboard-settings 
  kind: ConfigMap
  metadata:
    labels:
--    k8s-app: kubernetes-dashboard
-+    k8s-app: kubernetes-dashboardfunction was called successfully from different file
+-    k8s-app: kubernetes-dashboardfunction was called successfully from different file
++    k8s-app: kubernetes-dashboard
    name: kubernetes-dashboard-settings
    namespace: kubernetes-dashboard
 

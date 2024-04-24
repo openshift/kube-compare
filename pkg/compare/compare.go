@@ -363,7 +363,7 @@ func findAllRequestedSupportedTypes(supportedTypesWithGroups map[string][]string
 func (o *Options) Run() error {
 	showManagedFields := false
 
-	differ, err := diff.NewDiffer("LIVE", "MERGED")
+	differ, err := diff.NewDiffer("MERGED", "LIVE")
 	if err != nil {
 		return err
 	}
