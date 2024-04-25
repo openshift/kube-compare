@@ -1,5 +1,4 @@
 
-
 # Rationale
 
 The “kubectl cluster-compare” command is capable of performing an intelligent diff between a reference configuration and
@@ -33,9 +32,9 @@ fields.
 #### Correlation by manual matches
 
 `kubectl cluster-compare` gets as input a diff config that contains an option to specify manual matches between cluster
-resources and resource templates. The matches can be added to the config as pairs of apiVersion_kind_namespace_name:
-<Template File Name>. For cluster scoped CRs that don't have a namespace the matches can be added as pairs of
-apiVersion_kind_name: <Template File Name>.
+resources and resource templates. The matches can be added to the config as pairs of `apiVersion_kind_namespace_name:
+<Template File Name>`. For cluster scoped CRs that don't have a namespace the matches can be added as pairs of
+`apiVersion_kind_name: <Template File Name>`.
 
 #### Correlation by group of fields (apiVersion, kind, namespace and name)
 
@@ -64,16 +63,20 @@ For each resource the group correlation will be done by the next logic:
 We can phrase this logic in a more general form. Each CR will be correlated to a template with an exact match in the
 largest number of fields from this group:  apiVersion, kind, namespace, name.
 
-## How it works 
+## How it works
+
 * eg how templates pull content into reference prior to compare
 
 ## Limits
+
 ## Single CR scope
+
 This tool provides a context aware diff function. In some cases the reference may further provide validation of values
 in the CRs. This validation operates within the scope of a the current CR. Any validation of values across multiple CRs
 is out of scope.
 
 ## CR validation
+
 This tool performs a diff of a CR against the reference. It does not have access to resources outside the scope of what
 is available through the cluster's API. This places validation of the configuration against underlying platform
 hardware, os configuratoin, etc (unless available through the api) out of scope.
