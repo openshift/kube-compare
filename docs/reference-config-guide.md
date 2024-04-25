@@ -70,4 +70,3 @@ spec:
     tier: frontend
     {{- end }}
 ```
-

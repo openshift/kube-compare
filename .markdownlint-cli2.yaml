@@ -1,0 +1,13 @@
+# See https://github.com/DavidAnson/markdownlint#optionsconfig
+# and https://github.com/DavidAnson/markdownlint-cli2
+
+config:
+  line-length:
+    line_length: 300
+    code_blocks: false
+
+  ul-style: consistent
+  emphasis-style: true
+  strong-style: true
+  no-space-in-emphasis: true
+  no-blanks-blockquote: false

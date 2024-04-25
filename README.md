@@ -32,7 +32,7 @@ directly by the customer. The reference configuration is the engineered set of c
 has been sufficiently annotated to describe
 expected user variations versus required content.
 
-```
+```shell
 ┌──────────────────┐                 ┌──────────────────┐
 │                  │ Adaptation to   │                  │
 │     Published    │    user env     │   Deployed user  │
@@ -64,9 +64,9 @@ Existing tools meet some of this need but fall short of the goals
 
 - kubectl diff: This subcommand allows comparison of a live cluster against a known configuration.
   There are three shortcomings we need to address:
-    - Ability to handle expected user variation and optional versus required content.
-    - Ability to handle 1 to N mappings where users have multiple instances of a CR which should be validated
-    - Consumption of an offline representation of the cluster configuration.
+  - Ability to handle expected user variation and optional versus required content.
+  - Ability to handle 1 to N mappings where users have multiple instances of a CR which should be validated
+  - Consumption of an offline representation of the cluster configuration.
 - `<get cr> | <key sorting> | diff` : There are various ways of chaining together existing tools
   to obtain, correlate, and compare/diff two YAML objects. These methods fall short in similar ways as
   the `kubectl diff`
@@ -100,7 +100,7 @@ The design and implementation of this subcommand is guided by the following goal
 
 ### Terminology
 
-* **drift** -- A significant delta/difference which needs to be brought into compliance or undergo further
+- **drift** -- A significant delta/difference which needs to be brought into compliance or undergo further
   review/assessment
 
 ### Validation Tool Implementation
@@ -132,9 +132,9 @@ of variability as defined by the reference configuration (ie the "drift"). The t
 this drift for additional analysis/review by the user. In addition to the CR comparison output the tool will output a
 report detailing:
 
-* Input configuration CRs with no match in the reference
-* Required reference CRs with no match in the input configuration
-* Number of drifts found
+- Input configuration CRs with no match in the reference
+- Required reference CRs with no match in the input configuration
+- Number of drifts found
 
 #### Inputs
 
@@ -160,8 +160,8 @@ automatic of correlation, meaning manual matches override matches by similar val
 
 `kubectl cluster-compare` gets as input a diff config that contains an option to specify manual matches between cluster resources
 and resource templates. The matches can be added to the config as pairs of
-apiVersion_kind_namespace_name: <Template File Name>. For cluster scoped CRs that don't have a namespace the matches can
-be added as pairs of apiVersion_kind_name: <Template File Name>.
+`apiVersion_kind_namespace_name: <Template File Name>`. For cluster scoped CRs that don't have a namespace the matches can
+be added as pairs of `apiVersion_kind_name: <Template File Name>`.
 
 ##### Correlation by group of fields (apiVersion, kind, namespace and name)
 
@@ -300,8 +300,8 @@ is specific to the users cluster (not like the metadata.yaml that includes only 
 reference).
 
 In the version the diff config includes an option to specify manual matches between cluster resources and resource
-templates. The matches can be added to the config as pairs of apiVersion_kind_namespace_name: <Template File Name>. For
-resources that don't have a namespace the matches can be added as pairs of apiVersion_kind_name: <Template File Name>.
+templates. The matches can be added to the config as pairs of `apiVersion_kind_namespace_name: <Template File Name>`. For
+resources that don't have a namespace the matches can be added as pairs of `apiVersion_kind_name: <Template File Name>`.
 The pairs are listed in the config under correlationSettings.manualCorrelation.correlationPairs as can be seen in the
 example below.
 
@@ -384,7 +384,7 @@ To allow easy chaining all the corealtors match the corelator interface: (includ
 
 In this Version the corealtors are created and initialized in the following chain:
 
-```
+```shell
                                                                ┌─────────────────────┐
                                                     <<use>>    │                     │
                                                   ┌──────────► │                     │
@@ -439,9 +439,9 @@ a known valid configuration. This tool does a good job of suppressing diffs in k
 (eg metadata, status, etc), however it is lacking in several critical features for the use cases in
 this enhancement:
 
-* Suppression of expected user variations
-* Handling of one-to-many matches
-* Comparison of two offline files
+- Suppression of expected user variations
+- Handling of one-to-many matches
+- Comparison of two offline files
 
 ### Command line utilities
 
