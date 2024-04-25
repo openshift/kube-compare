@@ -1,10 +1,10 @@
 kind: Role
-apiVersion: { { .apiVersion } }
+apiVersion: {{ .apiVersion }}
 metadata:
   labels:
     k8s-app: kubernetes-dashboard
-  name: { { .metadata.name } }
-  namespace: { { .metadata.namespace } }
+  name: {{ .metadata.name }}
+  namespace: {{ .metadata.namespace }}
 rules:
   # Allow Dashboard to get, update and delete Dashboard exclusive secrets.
   - apiGroups: [ "" ]
