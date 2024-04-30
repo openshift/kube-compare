@@ -1,0 +1,16 @@
+Diffs:
+- CRName: apps/v1_Deployment_kubernetes-dashboard_kubernetes-dashboard
+  CorrelatedTemplate: deploymentDashboard.yaml
+  DiffOutput: "diff -u -N TEMP/apps-v1_deployment_kubernetes-dashboard_kubernetes-dashboard
+    TEMP/apps-v1_deployment_kubernetes-dashboard_kubernetes-dashboard\n---
+    TEMP/apps-v1_deployment_kubernetes-dashboard_kubernetes-dashboard\tDATE\n+++ TEMP/apps-v1_deployment_kubernetes-dashboard_kubernetes-dashboard\tDATE\n@@ -14,7 +14,7 @@\n   template:\n     metadata:\n       labels:\n-
+    \       k8s-app: kubernetes-dashboard\n+        k8s-app: kubernetes-dashboard-diff\n
+    \    spec:\n       containers:\n       - args:\n"
+Summary:
+  NumDiffCRs: 1
+  NumMissing: 1
+  RequiredCRS:
+    ExamplePart:
+      Dashboard:
+      - deploymentMetrics.yaml
+  UnmatchedCRS: []
