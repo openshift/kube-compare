@@ -33,6 +33,41 @@ the required CRs in the group are included then no report of "missing content" f
 In this version Parts only help with organization of the components into groups and don't have any affection on the diff
 process.
 
+Thus, the file `metadata.yaml` includes an array denoted by `Parts` of one or more objects. Each object includes:
+
+- a key "name" with a value of a string typically identifying a workload or a set of workloads
+- a key "Components" defined as an array of objects
+
+```yaml
+# Every part denotes typically denotes a workload or set of workloads
+ Parts:
+  - name: ExamplePart1 
+    Components:
+      - name: ExampleComponent1
+        ---- here goes ExampleComponent1 configuration ----
+  - name: ExamplePart2
+    ---- here goes Part2 configuration ----
+```
+
+"Components" array includes:
+
+- a pair at key "name" with a value of a string identifying a component required for the part
+- a pair at key "type" with a value of:
+  - `Optional` for optional components; or
+  - `Required` for mandatory components
+- the key "requiredTemplates" defined by:
+  - an array of at least one template `YAML` files. Each template `YAML` file has one Reference Configuration CR.
+
+```yaml
+# requiredTemplates contains all needed reference CRs to comply with ExampleComponent1
+Components:
+  - name: ExampleComponent1
+    type: Optional
+    requiredTemplates:
+      - RequiredTemplate1.yaml
+      - RequiredTemplate2.yaml
+```
+
 ### Example Reference Configuration CR
 
 User variable content is handled by golang formatted templating within the reference configuration

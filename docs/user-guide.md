@@ -10,6 +10,19 @@ support engineers, and others can validate a cluster’s configuration against a
 
 # Concepts
 
+## Reference Configuration
+
+The target of `kubectl cluster compare` tool is to detect deviations from a live or local set of CRs with respect to a Reference Configuration specified by a set of recommended Custom Resources (CRs).
+
+But first, what do we understand by Reference Configuration? The Reference Configuration consists of a set of CRs and an entry-point which defines the expected mandatory and optional components. This entrypoint is a YAML file called `metadata.yaml`.
+
+- A Reference Configuration is typically versioned to account for necessary differences in the configuration based on the specific cluster version.
+- The top level (entry point) of the reference configuration is the metadata descriptor YAML file (`metadata.yaml`). This file defines the Reference Configuration.
+- A published `metadata.yaml` identifies the set of compliant Reference Configuration CR objects for the covered use case. Any differences in cluster configuration found when running the `kubectl cluster compare` tool shall be identified as a deviation from the expected Reference Configuration.  
+
+For guidance on the Reference Configuration defined by `metadata.yaml` see
+[this guide](./ReferenceConfigGuide.md).
+
 ## Optional vs required
 
 ## CR selection (correlation)
@@ -65,7 +78,7 @@ largest number of fields from this group:  apiVersion, kind, namespace, name.
 
 ## How it works
 
-* eg how templates pull content into reference prior to compare
+- eg how templates pull content into reference prior to compare
 
 ## Limits
 
@@ -84,6 +97,18 @@ hardware, os configuratoin, etc (unless available through the api) out of scope.
 # Example use cases
 
 # Understanding the output
+
+## States of a Reference Configuration CR after running the tool
+
+After running `kubectl cluster-compare` tool, the reference configuration CRs will be identified in one of the following states: missing and present in the live cluster.
+
+1. Missing CR. A `missing` reference CR can be in the following state:
+    1. Required: Reference CR is required and does not appear in the target cluster CRs. Note that a missed reference CRs declared as optional is not going to be reported as missed.
+
+2. Present CR. A `present` reference CR can be in one of the following states:
+    1. Matched once: The reference CR has one correlated instance in the live cluster.
+    2. Matched more than once: The reference CR has more than one correlated instance in the live cluster. There are additional reference CRs in the live cluster with equivalent apiVersion-kind-namespace-name.
+    3. Present and unmatched: The reference configuration CR is present, which means that there is a match for api-kind-name-namespace, in the target cluster but does not follow some configuration value specific to the live cluster. This should be identified as a deviation.
 
 # Options and advanced usage
 
