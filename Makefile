@@ -14,6 +14,14 @@ build:
 test:
 	go test --race ./pkg/*
 
+.PHONY: test-report-creator
+test-report-creator:
+	go test --race ./addon-tools/report-creator/report
+
+.PHONY: build-report-creator
+build-report-creator:
+	go build ./addon-tools/report-creator/create-report.go
+
 # markdownlint rules, following: https://github.com/openshift/enhancements/blob/master/Makefile
 .PHONY: markdownlint-image
 markdownlint-image:  ## Build local container markdownlint-image

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="Comparison results of known valid reference configuration and a set of specific cluster CRs" tests="3" failures="1" errors="0" TIME>
+	<testsuite tests="1" failures="1" TIME name="Detected Differences Between Cluster CRs and Expected CRs" TIME>
+		<properties></properties>
+		<testcase classname="Matching Reference CR: cm.yaml" name="CR: v1_ConfigMap_kubernetes-dashboard_kubernetes-dashboard-settings" TIME>
+			<properties></properties>
+			<failure message="Differences found in CR: v1_ConfigMap_kubernetes-dashboard_kubernetes-dashboard-settings, Compared To Refernce CR: cm.yaml" type="Difference">diff -u -N /tmp/MERGED-3521814729/v1_configmap_kubernetes-dashboard_kubernetes-dashboard-settings /tmp/LIVE-239919847/v1_configmap_kubernetes-dashboard_kubernetes-dashboard-settings&#xA;--- /tmp/MERGED-3521814729/v1_configmap_kubernetes-dashboard_kubernetes-dashboard-settings&#x9;2024-05-23 16:07:40.007766206 +0300&#xA;+++ /tmp/LIVE-239919847/v1_configmap_kubernetes-dashboard_kubernetes-dashboard-settings&#x9;2024-05-23 16:07:40.007766206 +0300&#xA;@@ -2,6 +2,6 @@&#xA; kind: ConfigMap&#xA; metadata:&#xA;   labels:&#xA;-    k8s-app: kubernetes-dashboardfunction was called successfully from different file&#xA;+    k8s-app: kubernetes-dashboard&#xA;   name: kubernetes-dashboard-settings&#xA;   namespace: kubernetes-dashboard&#xA;</failure>
+		</testcase>
+	</testsuite>
+	<testsuite tests="1" failures="0" TIME name="Missing Cluster Resources" TIME>
+		<properties></properties>
+		<testcase classname="" name="All expected CRs exist in the cluster" TIME>
+			<properties></properties>
+		</testcase>
+	</testsuite>
+	<testsuite tests="1" failures="0" TIME name="Unmatched Cluster Resources" TIME>
+		<properties></properties>
+		<testcase classname="" name="All CLuster CRs are matched to reference CRs " TIME>
+			<properties></properties>
+		</testcase>
+	</testsuite>
+</testsuites>
