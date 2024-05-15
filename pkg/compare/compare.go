@@ -94,7 +94,6 @@ const (
 	reffDirNotExistsError    = "\"Reference directory doesnt exist\""
 	emptyTypes               = "Templates don't contain any types (kind) of resources that are supported by the cluster"
 	DiffSeparator            = "**********************************"
-	ShowManagedFields        = false
 )
 
 type Options struct {
@@ -102,6 +101,7 @@ type Options struct {
 	templatesDir       string
 	diffConfigFileName string
 	diffAll            bool
+	ShowManagedFields  bool
 
 	builder     *resource.Builder
 	corelator   *MetricsCorelatorDecorator
@@ -156,6 +156,7 @@ func NewCmd(f kcmdutil.Factory, streams genericiooptions.IOStreams) *cobra.Comma
 	kcmdutil.AddFilenameOptionFlags(cmd, &options.CRs, "contains the configuration to diff")
 	cmd.Flags().StringVarP(&options.diffConfigFileName, "diff-config", "c", "", "Path to the user config file")
 	cmd.Flags().StringVarP(&options.templatesDir, "reference", "r", "", "Path to directory including reference.")
+	cmd.Flags().BoolVar(&options.ShowManagedFields, "show-managed-fields", options.ShowManagedFields, "If true, include managed fields in the diff.")
 	cmd.Flags().BoolVarP(&options.diffAll, "all-resources", "A", options.diffAll,
 		"If present, In live mode will try to match all resources that are from the types mentioned in the reference. "+
 			"In local mode will try to match all resources passed to the command")
@@ -359,7 +360,7 @@ func findAllRequestedSupportedTypes(supportedTypesWithGroups map[string][]string
 	return typesIncludingGroup, notSupportedTypes
 }
 
-func runDiff(obj diff.Object, streams genericiooptions.IOStreams) (*bytes.Buffer, error) {
+func runDiff(obj diff.Object, streams genericiooptions.IOStreams, showManagedFields bool) (*bytes.Buffer, error) {
 	differ, err := diff.NewDiffer("MERGED", "LIVE")
 	diffOutput := new(bytes.Buffer)
 	if err != nil {
@@ -367,7 +368,7 @@ func runDiff(obj diff.Object, streams genericiooptions.IOStreams) (*bytes.Buffer
 	}
 	defer differ.TearDown()
 
-	err = differ.Diff(obj, diff.Printer{}, ShowManagedFields)
+	err = differ.Diff(obj, diff.Printer{}, showManagedFields)
 	if err != nil {
 		return diffOutput, err
 	}
@@ -424,7 +425,7 @@ func (o *Options) Run() error {
 			clusterobj:              &clusterCR,
 			FieldsToOmit:            o.reff.FieldsToOmit,
 		}
-		diffOutput, err := runDiff(obj, o.IOStreams)
+		diffOutput, err := runDiff(obj, o.IOStreams, o.ShowManagedFields)
 		if err != nil {
 			return err
 		}
