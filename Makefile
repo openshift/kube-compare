@@ -2,6 +2,10 @@
 ENGINE ?= docker
 IMAGE_NAME=kube-compare
 
+PACKAGE_NAME          := github.com/openshift/kube-compare
+GOLANG_CROSS_VERSION  ?= v1.22.3
+
+
 .PHONY: build
 build:
 	go build ./cmd/kubectl-cluster_compare.go
@@ -28,3 +32,27 @@ markdownlint: markdownlint-image  ## run the markdown linter
 		--env PULL_BASE_SHA=$(PULL_BASE_SHA) \
 		-v $$(pwd):/workdir:Z \
 		$(IMAGE_NAME)-markdownlint:latest
+
+
+.PHONY: release-dry-run
+release-dry-run:
+	@$(ENGINE) run \
+		--rm \
+		-e CGO_ENABLED=1 \
+		-v /var/run/docker.sock:/var/run/docker.sock \
+		-v `pwd`:/go/src/$(PACKAGE_NAME) \
+		-w /go/src/$(PACKAGE_NAME) \
+		ghcr.io/goreleaser/goreleaser-cross:${GOLANG_CROSS_VERSION} \
+		release --clean --skip=validate --skip=publish
+
+.PHONY: release
+release:
+	@$(ENGINE) run \
+		--rm \
+		-e GITHUB_TOKEN=$(GITHUB_TOKEN) \
+		-e CGO_ENABLED=1 \
+		-v /var/run/docker.sock:/var/run/docker.sock \
+		-v `pwd`:/go/src/$(PACKAGE_NAME) \
+		-w /go/src/$(PACKAGE_NAME) \
+		ghcr.io/goreleaser/goreleaser-cross:${GOLANG_CROSS_VERSION} \
+		release --clean
