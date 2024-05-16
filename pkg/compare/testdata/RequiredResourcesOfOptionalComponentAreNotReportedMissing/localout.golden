@@ -1,4 +1,13 @@
 
+**********************************
+
+Cluster CR: v1_Namespace_kubernetes-dashboard
+Reference File: ns.yaml
+Diff Output: None
+
+**********************************
+
 Summary
-No CRs are missing
-No CRs are unmatched
+CRs with diffs: 0
+No CRs are missing from the cluster
+No CRs are unmatched to reference CRs

@@ -1,8 +1,17 @@
 Reference Contains Templates With Types (kind) Not Supported By Cluster: KindNotSupportedByCluster
 
+**********************************
+
+Cluster CR: apps/v1_DaemonSet_
+Reference File: apps.v1.DaemonSet.kube-system.kindnet.yaml
+Diff Output: None
+
+**********************************
+
 Summary
-Missing required CRs: 1 
+CRs with diffs: 0
+CRs in reference missing from the cluster: 1 
 ExamplePart:
   DemonSets:
   - apps.v1.KindNotSupportedByCluster.kube-system.kindnet.yaml
-No CRs are unmatched
+No CRs are unmatched to reference CRs

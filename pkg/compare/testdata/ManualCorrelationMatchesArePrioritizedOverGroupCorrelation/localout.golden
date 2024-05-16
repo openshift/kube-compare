@@ -1,4 +1,15 @@
-diff -u -N TEMP/apps-v1_deployment_kubernetes-dashboard_kubernetes-dashboard TEMP/apps-v1_deployment_kubernetes-dashboard_kubernetes-dashboard
+
+**********************************
+
+Cluster CR: apps/v1_Deployment_kubernetes-dashboard_dashboard-metrics-scraper
+Reference File: deploymentMetrics.yaml
+Diff Output: None
+
+**********************************
+
+Cluster CR: apps/v1_Deployment_kubernetes-dashboard_kubernetes-dashboard
+Reference File: deploymentMetrics.yaml
+Diff Output: diff -u -N TEMP/apps-v1_deployment_kubernetes-dashboard_kubernetes-dashboard TEMP/apps-v1_deployment_kubernetes-dashboard_kubernetes-dashboard
 --- TEMP/apps-v1_deployment_kubernetes-dashboard_kubernetes-dashboard	DATE
 +++ TEMP/apps-v1_deployment_kubernetes-dashboard_kubernetes-dashboard	DATE
 @@ -2,19 +2,19 @@
@@ -26,9 +37,12 @@ diff -u -N TEMP/apps-v1_deployment_kubernetes-dashboard_kubernetes-dashboard TEM
        containers:
        - args:
 
+**********************************
+
 Summary
-Missing required CRs: 1 
+CRs with diffs: 1
+CRs in reference missing from the cluster: 1 
 ExamplePart:
   Dashboard:
   - deploymentDashboard.yaml
-No CRs are unmatched
+No CRs are unmatched to reference CRs
