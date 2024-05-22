@@ -222,7 +222,7 @@ func TestCompareRun(t *testing.T) {
 				klog.SetOutputBySeverity("INFO", out)
 				cmd := getCommand(t, &test, i, tf, &IOStream)
 				cmdutil.BehaviorOnFatal(func(str string, code int) {
-					errorStr := fmt.Sprintf("%s \nerror code:%d", removeInconsistentInfo(t, str), code)
+					errorStr := fmt.Sprintf("%s \nerror code:%d\n", removeInconsistentInfo(t, str), code)
 					getGoldenValue(t, path.Join(test.getTestDir(), fmt.Sprintf("%serr.golden", mode.crSource)), []byte(errorStr))
 					panic("Expected Error Test Case")
 				})
