@@ -73,6 +73,7 @@ type Test struct {
 	mode                  []Mode
 	shouldPassUserConfig  bool
 	shouldDiffAll         bool
+	outputFormat          string
 }
 
 func (test *Test) getTestDir() string {
@@ -198,6 +199,16 @@ func TestCompareRun(t *testing.T) {
 			name: "Reff With Template Functions Renders As Expected",
 			mode: []Mode{{Live, LocalReff}, {Local, LocalReff}, {Local, URL}},
 		},
+		{
+			name:         "YAML Output",
+			mode:         []Mode{DefaultMode},
+			outputFormat: string(Yaml),
+		},
+		{
+			name:         "JSON Output",
+			mode:         []Mode{DefaultMode},
+			outputFormat: string(Json),
+		},
 	}
 	tf := cmdtesting.NewTestFactory()
 	testFlags := flag.NewFlagSet("test", flag.ContinueOnError)
@@ -211,7 +222,7 @@ func TestCompareRun(t *testing.T) {
 				klog.SetOutputBySeverity("INFO", out)
 				cmd := getCommand(t, &test, i, tf, &IOStream)
 				cmdutil.BehaviorOnFatal(func(str string, code int) {
-					errorStr := fmt.Sprintf("%s \nerror code:%d", removeInconsistentInfo(t, str), code)
+					errorStr := fmt.Sprintf("%s \nerror code:%d\n", removeInconsistentInfo(t, str), code)
 					getGoldenValue(t, path.Join(test.getTestDir(), fmt.Sprintf("%serr.golden", mode.crSource)), []byte(errorStr))
 					panic("Expected Error Test Case")
 				})
@@ -230,7 +241,7 @@ func removeInconsistentInfo(t *testing.T, text string) []byte {
 	re := regexp.MustCompile("\\/tmp\\/(?:LIVE|MERGED)-[0-9]*")
 	text = re.ReplaceAllString(text, "TEMP")
 	//remove diff datetime
-	re = regexp.MustCompile("(\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}\\.\\d{9} [+-]\\d{4})")
+	re = regexp.MustCompile("(\\d{4}-\\d{2}-\\d{2}\\s*\\d{2}:\\d{2}:\\d{2}\\.\\d{9} [+-]\\d{4})")
 	text = re.ReplaceAllString(text, "DATE")
 	pwd, err := os.Getwd()
 	require.NoError(t, err)
@@ -261,6 +272,9 @@ func getCommand(t *testing.T, test *Test, modeIndex int, tf *cmdtesting.TestFact
 	}
 	if test.shouldPassUserConfig {
 		require.NoError(t, cmd.Flags().Set("diff-config", path.Join(test.getTestDir(), userConfigFileName)))
+	}
+	if test.outputFormat != "" {
+		require.NoError(t, cmd.Flags().Set("output", test.outputFormat))
 	}
 	resourcesDir := path.Join(test.getTestDir(), resourceDirName)
 	switch mode.crSource {

@@ -4,7 +4,9 @@ package compare
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -27,6 +29,7 @@ import (
 	"k8s.io/kubectl/pkg/util/i18n"
 	"k8s.io/kubectl/pkg/util/templates"
 	"k8s.io/utils/exec"
+	"sigs.k8s.io/yaml"
 )
 
 var (
@@ -96,12 +99,20 @@ const (
 	DiffSeparator            = "**********************************"
 )
 
+const (
+	Json string = "json"
+	Yaml        = "yaml"
+)
+
+var OutputFormats = []string{Json, Yaml}
+
 type Options struct {
 	CRs                resource.FilenameOptions
 	templatesDir       string
 	diffConfigFileName string
 	diffAll            bool
 	ShowManagedFields  bool
+	OutputFormat       string
 
 	builder     *resource.Builder
 	corelator   *MetricsCorelatorDecorator
@@ -149,7 +160,6 @@ func NewCmd(f kcmdutil.Factory, streams genericiooptions.IOStreams) *cobra.Comma
 		kcmdutil.CheckDiffErr(kcmdutil.UsageErrorf(cmd, err.Error()))
 		return nil
 	})
-
 	cmd.Flags().IntVar(&options.Concurrency, "concurrency", 4,
 		"Number of objects to process in parallel when diffing against the live version. Larger number = faster,"+
 			" but more memory, I/O and CPU over that shorter period of time.")
@@ -160,6 +170,20 @@ func NewCmd(f kcmdutil.Factory, streams genericiooptions.IOStreams) *cobra.Comma
 	cmd.Flags().BoolVarP(&options.diffAll, "all-resources", "A", options.diffAll,
 		"If present, In live mode will try to match all resources that are from the types mentioned in the reference. "+
 			"In local mode will try to match all resources passed to the command")
+
+	cmd.Flags().StringVarP(&options.OutputFormat, "output", "o", "", fmt.Sprintf(`Output format. One of: (%s)`, strings.Join(OutputFormats, ", ")))
+	kcmdutil.CheckErr(cmd.RegisterFlagCompletionFunc(
+		"output",
+		func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			var comps []string
+			for _, format := range OutputFormats {
+				if strings.HasPrefix(format, toComplete) {
+					comps = append(comps, format)
+				}
+			}
+			return comps, cobra.ShellCompDirectiveNoFileComp
+		},
+	))
 
 	return cmd
 }
@@ -439,7 +463,11 @@ func (o *Options) Run() error {
 		return err
 	}
 	sum := newSummary(&o.reff, o.corelator, numDiffCRs)
-	o.Out.Write([]byte(Output{Summary: sum, Diffs: &diffs}.String()))
+
+	_, err = Output{Summary: sum, Diffs: &diffs}.Print(o.OutputFormat, o.Out)
+	if err != nil {
+		return err
+	}
 
 	// We will return exit code 1 in case there are differences between the reference CRs and cluster CRs.
 	//The differences can be differences found in specific CRs or the absence of CRs from the cluster.
@@ -487,9 +515,9 @@ func (obj InfoObject) Name() string {
 
 // DiffSum Contains the diff output and correlation info of a specific CR
 type DiffSum struct {
-	DiffOutput         string
-	CorrelatedTemplate string
-	CRName             string
+	DiffOutput         string `json:"DiffOutput"`
+	CorrelatedTemplate string `json:"CorrelatedTemplate"`
+	CRName             string `json:"CRName"`
 }
 
 func (s DiffSum) String() string {
@@ -509,10 +537,10 @@ Diff Output: None
 
 // Summary Contains all info included in the Summary output of the compare command
 type Summary struct {
-	RequiredCRS  map[string]map[string][]string
-	NumMissing   int
-	UnmatchedCRS []string
-	NumDiffCRs   int
+	RequiredCRS  map[string]map[string][]string `json:"RequiredCRS"`
+	NumMissing   int                            `json:"NumMissing"`
+	UnmatchedCRS []string                       `json:"UnmatchedCRS"`
+	NumDiffCRs   int                            `json:"NumDiffCRs"`
 }
 
 func newSummary(reference *Reference, c *MetricsCorelatorDecorator, numDiffCRs int) *Summary {
@@ -549,8 +577,8 @@ No CRs are unmatched to reference CRs
 
 // Output Contains the complete output of the command
 type Output struct {
-	Summary *Summary
-	Diffs   *[]DiffSum
+	Summary *Summary   `json:"Summary"`
+	Diffs   *[]DiffSum `json:"Diffs"`
 }
 
 func (o Output) String() string {
@@ -562,4 +590,23 @@ func (o Output) String() string {
 		str += fmt.Sprintf("\n%s%s\n", diffSum.String(), DiffSeparator)
 	}
 	return fmt.Sprintf("\n%s\n%s%s", DiffSeparator, str, o.Summary.String())
+}
+
+func (o Output) Print(format string, out io.Writer) (int, error) {
+	switch format {
+	case Json:
+		content, err := json.Marshal(o)
+		if err != nil {
+			return 0, err
+		}
+		return out.Write(append(content, []byte("\n")...))
+	case Yaml:
+		content, err := yaml.Marshal(o)
+		if err != nil {
+			return 0, err
+		}
+		return out.Write(content)
+	default:
+		return out.Write([]byte(o.String()))
+	}
 }

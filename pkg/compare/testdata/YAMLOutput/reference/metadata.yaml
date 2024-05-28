@@ -1,0 +1,8 @@
+Parts:
+  - name: ExamplePart
+    Components:
+      - name: Dashboard
+        type: Required
+        requiredTemplates:
+          - deploymentDashboard.yaml
+          - deploymentMetrics.yaml
