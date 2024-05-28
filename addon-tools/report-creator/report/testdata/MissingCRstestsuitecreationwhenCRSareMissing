@@ -1,0 +1,1 @@
+{"Summary":{"RequiredCRS":{"ExamplePart1":{"Dashboard1":["cm.yaml"],"Dashboard2":["deploymentDashboard.yaml","deploymentMetrics.yaml"]},"ExamplePart2":{"Dashboard1":["cr.yaml"],"Dashboard2":["crb.yaml"]}},"NumMissing":5,"UnmatchedCRS":[],"NumDiffCRs":0},"Diffs":[{"DiffOutput":"","CorrelatedTemplate":"ns.yaml","CRName":"v1_Namespace_kubernetes-dashboard"}]}

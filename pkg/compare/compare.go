@@ -409,7 +409,7 @@ func runDiff(obj diff.Object, streams genericiooptions.IOStreams, showManagedFie
 // templates types. For each Resource it finds the matching Resource template and
 // injects, compares, and runs against differ.
 func (o *Options) Run() error {
-	var diffs []DiffSum
+	diffs := make([]DiffSum, 0)
 	numDiffCRs := 0
 
 	r := o.builder.

@@ -33,9 +33,12 @@ import (
 
 var update = flag.Bool("update", false, "update .golden files")
 
-var TestRefDirName = "reference"
+const TestRefDirName = "reference"
+
 var TestDirs = "testdata"
-var resourceDirName = "resources"
+
+const ResourceDirName = "resources"
+
 var userConfigFileName = "userconfig.yaml"
 var defaultConcurrency = "4"
 
@@ -276,7 +279,7 @@ func getCommand(t *testing.T, test *Test, modeIndex int, tf *cmdtesting.TestFact
 	if test.outputFormat != "" {
 		require.NoError(t, cmd.Flags().Set("output", test.outputFormat))
 	}
-	resourcesDir := path.Join(test.getTestDir(), resourceDirName)
+	resourcesDir := path.Join(test.getTestDir(), ResourceDirName)
 	switch mode.crSource {
 	case Local:
 		require.NoError(t, cmd.Flags().Set("filename", resourcesDir))
