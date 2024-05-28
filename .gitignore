@@ -27,3 +27,6 @@ Dockerfile.cross
 
 #macOS
 .DS_Store
+
+# Release artifacts
+dist/*

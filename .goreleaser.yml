@@ -1,0 +1,29 @@
+project_name: kube-compare
+release:
+  github:
+    owner: openshift
+    name: kube-compare
+builds:
+  - id: kube-compare
+    binary: kubectl-cluster_compare
+    goos:
+    - linux
+    - windows
+    - darwin
+    goarch:
+    - amd64
+    - "386"
+    env:
+      - CGO_ENABLED=0
+      - GO111MODULE=on
+    main: cmd/kubectl-cluster_compare.go
+    ldflags: -s -w
+      -X github.com/openshift/kube-compare/pkg/version.version=
+archives:
+  - id: kube-compare
+    builds:
+    - kube-compare
+    name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+    - goos: windows
+      format: zip
