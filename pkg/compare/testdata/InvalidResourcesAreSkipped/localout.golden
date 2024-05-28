@@ -1,0 +1,32 @@
+Skipping "testdata/InvalidResourcesAreSkipped/resources/d1.json": Input contains additional files from supported file extensions (json/yaml) that do not contain a valid resource, error: 'Kind' is missing.
+ In case this file is expected to be a valid resource modify it accordingly. 
+Skipping "testdata/InvalidResourcesAreSkipped/resources/d3.yaml": Input contains additional files from supported file extensions (json/yaml) that do not contain a valid resource, error: 'Kind' is missing.
+ In case this file is expected to be a valid resource modify it accordingly. 
+Skipping testdata/InvalidResourcesAreSkipped/resources/d4.yaml: Input contains additional files from supported file extensions (json/yaml) that do not contain a valid resource, error: : mapping values are not allowed in this context.
+ In case this file is expected to be a valid resource modify it accordingly. 
+**********************************
+
+Cluster CR: apps/v1_Deployment_kubernetes-dashboard_dashboard-metrics-scraper
+Reference File: deploymentMetrics.yaml
+Diff Output: diff -u -N TEMP/apps-v1_deployment_kubernetes-dashboard_dashboard-metrics-scraper TEMP/apps-v1_deployment_kubernetes-dashboard_dashboard-metrics-scraper
+--- TEMP/apps-v1_deployment_kubernetes-dashboard_dashboard-metrics-scraper	DATE
++++ TEMP/apps-v1_deployment_kubernetes-dashboard_dashboard-metrics-scraper	DATE
+@@ -10,7 +10,7 @@
+   revisionHistoryLimit: 10
+   selector:
+     matchLabels:
+-      k8s-app: dashboard-metrics-scraper
++      k8s-app: dashboard-metrics-scraper-diff
+   template:
+     metadata:
+       labels:
+
+**********************************
+
+Summary
+CRs with diffs: 1/1
+CRs in reference missing from the cluster: 1
+ExamplePart:
+  Dashboard:
+  - deploymentDashboard.yaml
+No CRs are unmatched to reference CRs
