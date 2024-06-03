@@ -5,6 +5,7 @@ package compare
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -41,7 +42,7 @@ var (
 		The compare command will match each Resource in the cluster configuration to a Resource Template in the reference 
 		configuration. Then, the templated Resource will be injected with the cluster Resource parameters. 
 		For each cluster Resource, a diff between the Resource and its matching injected template will be presented
-    	to the user.
+		to the user.
 		
 		The input cluster configuration may be provided as an "offline" set of CRs or can be pulled from a live cluster.
 		
@@ -95,13 +96,13 @@ const (
 	ReferenceFileName        = "metadata.yaml"
 	noReffDirectoryWasPassed = "\"Reference directory is required\""
 	reffDirNotExistsError    = "\"Reference directory doesnt exist\""
-	emptyTypes               = "Templates don't contain any types (kind) of resources that are supported by the cluster"
+	emptyTypes               = "templates don't contain any types (kind) of resources that are supported by the cluster"
 	DiffSeparator            = "**********************************"
 )
 
 const (
 	Json string = "json"
-	Yaml        = "yaml"
+	Yaml string = "yaml"
 )
 
 var OutputFormats = []string{Json, Yaml}
@@ -338,7 +339,7 @@ func (o *Options) setLiveSearchTypes(f kcmdutil.Factory) error {
 	var notSupportedTypes []string
 	o.types, notSupportedTypes = findAllRequestedSupportedTypes(SupportedTypes, requestedTypes[0])
 	if len(o.types) == 0 {
-		return fmt.Errorf(emptyTypes)
+		return errors.New(emptyTypes)
 	}
 	if len(notSupportedTypes) > 0 {
 		sort.Strings(notSupportedTypes)
@@ -372,7 +373,7 @@ func getSupportedResourceTypes(client discovery.CachedDiscoveryInterface) (map[s
 func findAllRequestedSupportedTypes(supportedTypesWithGroups map[string][]string, requestedTypes map[string][]*template.Template) ([]string, []string) {
 	var typesIncludingGroup []string
 	var notSupportedTypes []string
-	for kind, _ := range requestedTypes {
+	for kind := range requestedTypes {
 		if _, ok := supportedTypesWithGroups[kind]; ok {
 			for _, group := range supportedTypesWithGroups[kind] {
 				typesIncludingGroup = append(typesIncludingGroup, strings.Join([]string{kind, group}, "."))
@@ -430,7 +431,7 @@ func (o *Options) Run() error {
 		return containOnly(err, []error{MultipleMatches{}, UnknownMatch{}})
 	})
 
-	err := r.Visit(func(info *resource.Info, err error) error {
+	err := r.Visit(func(info *resource.Info, _ error) error { // ignoring previous errors
 		clusterCRMapping, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(info.Object)
 		clusterCR := unstructured.Unstructured{Object: clusterCRMapping}
 
@@ -506,7 +507,6 @@ func omitFields(object map[string]any, fields [][]string) {
 			}
 		}
 	}
-	return
 }
 
 func (obj InfoObject) Name() string {

@@ -7,12 +7,13 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"os"
 	"path"
 	"path/filepath"
-	"sigs.k8s.io/yaml"
 	"text/template"
+
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"sigs.k8s.io/yaml"
 )
 
 type Reference struct {
@@ -30,7 +31,7 @@ type ComponentType string
 
 const (
 	Required ComponentType = "Required"
-	Optional               = "Optional"
+	Optional ComponentType = "Optional"
 )
 
 type Component struct {
@@ -54,7 +55,7 @@ func (r *Reference) getTemplates() []string {
 func (c *Component) getMissingCRs(matchedTemplates map[string]bool) []string {
 	var crs []string
 	for _, temp := range c.RequiredTemplates {
-		if wasMatched, _ := matchedTemplates[temp]; !wasMatched {
+		if wasMatched := matchedTemplates[temp]; !wasMatched {
 			crs = append(crs, temp)
 		}
 	}
@@ -169,6 +170,9 @@ type ManualCorrelation struct {
 func parseDiffConfig(filePath string) (UserConfig, error) {
 	result := UserConfig{}
 	confPath, err := filepath.Abs(filePath)
+	if err != nil {
+		return result, fmt.Errorf("failed to get absolute path for %s: %w", filePath, err)
+	}
 	err = parseYaml(os.DirFS("/"), confPath[1:], &result, userConfNotExistsError, userConfigNotInFormat)
 	return result, err
 }
