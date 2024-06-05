@@ -106,14 +106,14 @@ type CRSource string
 
 const (
 	Local CRSource = "local"
-	Live           = "live"
+	Live  CRSource = "live"
 )
 
 type ReffType string
 
 const (
 	LocalReff ReffType = "LocalReff"
-	URL                = "URL"
+	URL       ReffType = "URL"
 )
 
 type Mode struct {
@@ -357,10 +357,10 @@ error code:2`),
 
 func removeInconsistentInfo(t *testing.T, text string) string {
 	//remove diff tool generated temp directory path
-	re := regexp.MustCompile("\\/tmp\\/(?:LIVE|MERGED)-[0-9]*")
+	re := regexp.MustCompile(`\/tmp\/(?:LIVE|MERGED)-[0-9]*`)
 	text = re.ReplaceAllString(text, "TEMP")
 	//remove diff datetime
-	re = regexp.MustCompile("(\\d{4}-\\d{2}-\\d{2}\\s*\\d{2}:\\d{2}:\\d{2}\\.\\d{9} [+-]\\d{4})")
+	re = regexp.MustCompile(`(\d{4}-\d{2}-\d{2}\s*\d{2}:\d{2}:\d{2}\.\d{9} [+-]\d{4})`)
 	text = re.ReplaceAllString(text, "DATE")
 	pwd, err := os.Getwd()
 	require.NoError(t, err)
@@ -385,19 +385,17 @@ func getCommand(t *testing.T, test *Test, modeIndex int, tf *cmdtesting.TestFact
 	case Local:
 		require.NoError(t, cmd.Flags().Set("filename", resourcesDir))
 		require.NoError(t, cmd.Flags().Set("recursive", "true"))
-		break
 	case Live:
 		discoveryResources, resources := getResources(t, resourcesDir)
 		updateTestDiscoveryClient(tf, discoveryResources)
 		setClient(t, resources, tf)
-		break
 	}
 	switch mode.reffSource {
 	case URL:
 		svr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			body, err := os.ReadFile(path.Join(test.getTestDir(), TestRefDirName, r.RequestURI))
 			require.NoError(t, err)
-			_, err = fmt.Fprintf(w, string(body))
+			_, err = fmt.Fprint(w, string(body))
 			require.NoError(t, err)
 		}))
 		require.NoError(t, cmd.Flags().Set("reference", svr.URL))
@@ -462,6 +460,9 @@ func getResources(t *testing.T, resourcesDir string) ([]v1.APIResource, []*unstr
 				return err
 			}
 			buf, err := os.ReadFile(path)
+			if err != nil {
+				return err
+			}
 			data := make(map[string]any)
 			err = yaml.Unmarshal(buf, &data)
 			if err != nil {
