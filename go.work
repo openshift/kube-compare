@@ -1,7 +1,7 @@
 go 1.21
 
-
 use (
 	.
+	addon-tools/generate-metadata
 	addon-tools/report-creator
 )

@@ -1,0 +1,8 @@
+Parts:
+  - name: no_labels
+    Components:
+      - name: reference
+        type: Required
+        requiredTemplates:
+          - cm.yaml
+          - cr.yaml

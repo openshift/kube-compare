@@ -1,0 +1,8 @@
+# cluster-compare-optional
+# cluster-compare-component: Component1
+# cluster-compare-component-required
+# cluster-compare-part: Part1
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kubernetes-dashboard

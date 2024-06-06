@@ -1,0 +1,11 @@
+# cluster-compare-required
+# cluster-compare-component: Component1
+# cluster-compare-component-required
+# cluster-compare-part: Part1
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  labels:
+    k8s-app: kubernetes-dashboard
+  name: kubernetes-dashboard-settings
+  namespace: kubernetes-dashboard
