@@ -368,10 +368,10 @@ error code:2`),
 
 func removeInconsistentInfo(t *testing.T, text string) string {
 	// remove diff tool generated temp directory path
-	re := regexp.MustCompile(`\/tmp\/(?:LIVE|MERGED)-[0-9]*`)
+	re := regexp.MustCompile(`/[\w|/]+/(?:LIVE|MERGED)-[0-9]*`)
 	text = re.ReplaceAllString(text, "TEMP")
 	// remove diff datetime
-	re = regexp.MustCompile(`(\d{4}-\d{2}-\d{2}\s*\d{2}:\d{2}:\d{2}\.\d{9} [+-]\d{4})`)
+	re = regexp.MustCompile(`(\d{4}-\d{2}-\d{2}\s*\d{2}:\d{2}:\d{2}(:?\.\d{9} [+-]\d{4})?)`)
 	text = re.ReplaceAllString(text, "DATE")
 	pwd, err := os.Getwd()
 	require.NoError(t, err)
