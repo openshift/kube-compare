@@ -20,6 +20,6 @@ Diff Output: None
 **********************************
 
 Summary
-CRs with diffs: 0
-No CRs are missing from the cluster
-No CRs are unmatched to reference CRs
+Diff count: 0
+Successfully found all required reference resources from the cluster
+Successfully compared all reference resources

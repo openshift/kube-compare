@@ -40,9 +40,9 @@ Diff Output: diff -u -N TEMP/apps-v1_deployment_kubernetes-dashboard_kubernetes-
 **********************************
 
 Summary
-CRs with diffs: 1
+Diff count: 1
 CRs in reference missing from the cluster: 1 
 ExamplePart:
   Dashboard:
   - deploymentDashboard.yaml
-No CRs are unmatched to reference CRs
+Successfully compared all reference resources

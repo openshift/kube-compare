@@ -9,9 +9,9 @@ Diff Output: None
 **********************************
 
 Summary
-CRs with diffs: 0
+Diff count: 0
 CRs in reference missing from the cluster: 1 
 ExamplePart1:
   Dashboard1:
   - cm.yaml
-No CRs are unmatched to reference CRs
+Successfully compared all reference resources

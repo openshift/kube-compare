@@ -30,3 +30,6 @@ Dockerfile.cross
 
 # Release artifacts
 dist/*
+
+# build
+kubectl-cluster_compare

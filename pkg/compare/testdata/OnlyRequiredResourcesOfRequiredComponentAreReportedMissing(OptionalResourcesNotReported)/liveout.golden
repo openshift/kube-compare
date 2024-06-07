@@ -9,7 +9,7 @@ Diff Output: None
 **********************************
 
 Summary
-CRs with diffs: 0
+Diff count: 0
 CRs in reference missing from the cluster: 5 
 ExamplePart1:
   Dashboard1:
@@ -22,4 +22,4 @@ ExamplePart2:
   - cr.yaml
   Dashboard2:
   - crb.yaml
-No CRs are unmatched to reference CRs
+Successfully compared all reference resources

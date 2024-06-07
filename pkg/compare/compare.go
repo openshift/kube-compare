@@ -555,18 +555,18 @@ func newSummary(reference *Reference, c *MetricsCorelatorDecorator, numDiffCRs i
 func (s Summary) String() string {
 	t := `
 Summary
-CRs with diffs: {{ .NumDiffCRs }}
+Diff count: {{ .NumDiffCRs }}
 {{- if ne (len  .RequiredCRS) 0 }}
 CRs in reference missing from the cluster: {{.NumMissing}} 
 {{ toYaml .RequiredCRS}}
 {{- else}}
-No CRs are missing from the cluster
+Successfully found all required reference resources from the cluster
 {{- end }}
 {{- if ne (len  .UnmatchedCRS) 0 }}
 Cluster CRs unmatched to reference CRs: {{len  .UnmatchedCRS}}
 {{ toYaml .UnmatchedCRS}}
 {{- else}}
-No CRs are unmatched to reference CRs
+Successfully compared all reference resources
 {{- end }}
 `
 	var buf bytes.Buffer
