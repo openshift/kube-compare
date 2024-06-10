@@ -42,18 +42,78 @@ const ResourceDirName = "resources"
 var userConfigFileName = "userconfig.yaml"
 var defaultConcurrency = "4"
 
+type checkType string
+
+const (
+	matchFile   checkType = "file"
+	matchPrefix checkType = "prefix"
+	matchRegex  checkType = "regex"
+)
+
+type Check struct {
+	checkType checkType
+	value     string
+	checkOut  bool
+}
+
+func (c Check) getPath(test Test, mode Mode) string {
+	if c.value != "" {
+		return path.Join(test.getTestDir(), c.value)
+	}
+	suffix := "err.golden"
+	if c.checkOut {
+		suffix = "out.golden"
+	}
+	return path.Join(test.getTestDir(), string(mode.crSource)+suffix)
+}
+
+func (c Check) check(t *testing.T, test Test, mode Mode, value string) {
+	switch c.checkType {
+	case matchFile:
+		checkFile(t, c.getPath(test, mode), value)
+	case matchPrefix:
+		require.Conditionf(t,
+			func() bool { return strings.HasPrefix(value, c.value) },
+			"value %s does not start with %s", value, c.value)
+	case matchRegex:
+		require.Regexp(t, c.value, string(value))
+	}
+}
+
+func checkFile(t *testing.T, fileName, value string) {
+	if *update {
+		t.Log("update golden file")
+		if err := os.WriteFile(fileName, []byte(value), 0644); err != nil {
+			t.Fatalf("test %s failed to update golden file: %s", fileName, err)
+		}
+	}
+	expected, err := os.ReadFile(fileName)
+	if err != nil {
+		t.Fatalf("test %s failed reading .golden file: %s", fileName, err)
+	}
+	require.Equal(t, string(expected), string(value))
+}
+
+var defaultCheckOut = Check{
+	checkType: matchFile,
+	checkOut:  true,
+}
+var defaultCheckErr = Check{
+	checkType: matchFile,
+}
+
 type CRSource string
 
 const (
 	Local CRSource = "local"
-	Live           = "live"
+	Live  CRSource = "live"
 )
 
 type ReffType string
 
 const (
 	LocalReff ReffType = "LocalReff"
-	URL                = "URL"
+	URL       ReffType = "URL"
 )
 
 type Mode struct {
@@ -70,6 +130,16 @@ func (m *Mode) String() string {
 
 var DefaultMode = Mode{crSource: Local, reffSource: LocalReff}
 
+type Checks struct {
+	Out Check
+	Err Check
+}
+
+var defaultChecks = Checks{
+	Out: defaultCheckOut,
+	Err: defaultCheckErr,
+}
+
 type Test struct {
 	name                  string
 	leaveTemplateDirEmpty bool
@@ -77,6 +147,7 @@ type Test struct {
 	shouldPassUserConfig  bool
 	shouldDiffAll         bool
 	outputFormat          string
+	checks                Checks
 }
 
 func (test *Test) getTestDir() string {
@@ -91,126 +162,171 @@ func TestCompareRun(t *testing.T) {
 			name:                  "No Input",
 			mode:                  []Mode{DefaultMode},
 			leaveTemplateDirEmpty: true,
+			checks:                defaultChecks,
 		},
 		{
-			name: "Reffernce Directory Doesnt Exist",
-			mode: []Mode{DefaultMode},
+			name:   "Reffernce Directory Doesnt Exist",
+			mode:   []Mode{DefaultMode},
+			checks: defaultChecks,
 		},
 		{
 			name: "Reffernce Config File Doesnt Exist",
 			mode: []Mode{DefaultMode},
+			checks: Checks{
+				Out: defaultCheckOut,
+				Err: Check{
+					checkType: matchRegex,
+					value: strings.TrimSpace(`
+error: Reference config file not found. error: open .*metadata.yaml: no such file or directory 
+error code:2`),
+				},
+			},
 		},
 		{
-			name: "Reffernce Config File Isnt Valid YAML",
-			mode: []Mode{DefaultMode},
+			name:   "Reffernce Config File Isnt Valid YAML",
+			mode:   []Mode{DefaultMode},
+			checks: defaultChecks,
 		},
 		{
-			name: "Reference Contains Templates That Dont Exist",
-			mode: []Mode{DefaultMode},
+			name:   "Reference Contains Templates That Dont Exist",
+			mode:   []Mode{DefaultMode},
+			checks: defaultChecks,
 		},
 		{
-			name: "Reference Contains Templates That Dont Parse",
-			mode: []Mode{DefaultMode},
+			name:   "Reference Contains Templates That Dont Parse",
+			mode:   []Mode{DefaultMode},
+			checks: defaultChecks,
 		},
 		{
-			name: "Reference Contains Function Templates That Dont Parse",
-			mode: []Mode{DefaultMode},
+			name:   "Reference Contains Function Templates That Dont Parse",
+			mode:   []Mode{DefaultMode},
+			checks: defaultChecks,
 		},
 		{
-			name: "Template Isnt YAML After Execution With Empty Map",
-			mode: []Mode{DefaultMode},
+			name:   "Template Isnt YAML After Execution With Empty Map",
+			mode:   []Mode{DefaultMode},
+			checks: defaultChecks,
 		},
 		{
-			name: "Template Has No Kind",
-			mode: []Mode{{Live, LocalReff}},
+			name:   "Template Has No Kind",
+			mode:   []Mode{{Live, LocalReff}},
+			checks: defaultChecks,
 		},
 		{
-			name: "Two Templates With Same apiVersion Kind Name Namespace",
-			mode: []Mode{DefaultMode},
+			name:   "Two Templates With Same apiVersion Kind Name Namespace",
+			mode:   []Mode{DefaultMode},
+			checks: defaultChecks,
 		},
 		{
-			name: "Two Templates With Same Kind Namespace",
-			mode: []Mode{DefaultMode},
+			name:   "Two Templates With Same Kind Namespace",
+			mode:   []Mode{DefaultMode},
+			checks: defaultChecks,
 		},
 		{
 			name:                 "User Config Doesnt Exist",
 			shouldPassUserConfig: true,
 			mode:                 []Mode{DefaultMode},
+			checks: Checks{
+				Out: defaultCheckOut,
+				Err: Check{
+					checkType: matchRegex,
+					value: strings.TrimSpace(`
+error: User Config File not found. error: open .*testdata/UserConfigDoesntExist/userconfig.yaml: no such file or directory 
+error code:2`),
+				},
+			},
 		},
 		{
 			name:                 "User Config Isnt Correct YAML",
 			shouldPassUserConfig: true,
 			mode:                 []Mode{DefaultMode},
+			checks:               defaultChecks,
 		},
 		{
 			name:                 "User Config Manual Correlation Contains Template That Doesnt Exist",
 			shouldPassUserConfig: true,
 			mode:                 []Mode{DefaultMode},
+			checks:               defaultChecks,
 		},
 		{
-			name: "Test Local Resource File Doesnt exist",
-			mode: []Mode{{Local, LocalReff}},
+			name:   "Test Local Resource File Doesnt exist",
+			mode:   []Mode{{Local, LocalReff}},
+			checks: defaultChecks,
 		},
 		{
-			name: "Templates Contain Kind That Is Not Recognizable In Live Cluster",
-			mode: []Mode{{Live, LocalReff}, {Live, URL}},
+			name:   "Templates Contain Kind That Is Not Recognizable In Live Cluster",
+			mode:   []Mode{{Live, LocalReff}, {Live, URL}},
+			checks: defaultChecks,
 		},
 		{
-			name: "All Required Templates Exist And There Are No Diffs",
-			mode: []Mode{{Live, LocalReff}, {Local, LocalReff}, {Local, URL}, {Live, URL}},
+			name:   "All Required Templates Exist And There Are No Diffs",
+			mode:   []Mode{{Live, LocalReff}, {Local, LocalReff}, {Local, URL}, {Live, URL}},
+			checks: defaultChecks,
 		},
 		{
-			name: "Diff in Custom Omitted Fields Isnt Shown",
-			mode: []Mode{{Live, LocalReff}, {Local, LocalReff}, {Local, URL}},
+			name:   "Diff in Custom Omitted Fields Isnt Shown",
+			mode:   []Mode{{Live, LocalReff}, {Local, LocalReff}, {Local, URL}},
+			checks: defaultChecks,
 		},
 		{
 			name:          "When Using Diff All Flag - All Unmatched Resources Appear In Summary",
 			mode:          []Mode{DefaultMode},
+			checks:        defaultChecks,
 			shouldDiffAll: true,
 		},
 		{
-			name: "Only Resources That Were Not Matched Because Multiple Matches Appear In Summary",
-			mode: []Mode{DefaultMode},
+			name:   "Only Resources That Were Not Matched Because Multiple Matches Appear In Summary",
+			mode:   []Mode{DefaultMode},
+			checks: defaultChecks,
 		},
 		{
 			name:                 "Manual Correlation Matches Are Prioritized Over Group Correlation",
 			mode:                 []Mode{{Live, LocalReff}, {Local, LocalReff}},
 			shouldPassUserConfig: true,
+			checks:               defaultChecks,
 		},
 		{
-			name: "Only Required Resources Of Required Component Are Reported Missing (Optional Resources Not Reported)",
-			mode: []Mode{{Live, LocalReff}, {Local, LocalReff}},
+			name:   "Only Required Resources Of Required Component Are Reported Missing (Optional Resources Not Reported)",
+			mode:   []Mode{{Live, LocalReff}, {Local, LocalReff}},
+			checks: defaultChecks,
 		},
 		{
-			name: "Required Resources Of Optional Component Are Not Reported Missing",
-			mode: []Mode{{Live, LocalReff}, {Local, LocalReff}},
+			name:   "Required Resources Of Optional Component Are Not Reported Missing",
+			mode:   []Mode{{Live, LocalReff}, {Local, LocalReff}},
+			checks: defaultChecks,
 		},
 		{
-			name: "Required Resources Of Optional Component Are Reported Missing If At Least One Of Resources In Group Is Included",
-			mode: []Mode{{Live, LocalReff}, {Local, LocalReff}},
+			name:   "Required Resources Of Optional Component Are Reported Missing If At Least One Of Resources In Group Is Included",
+			mode:   []Mode{{Live, LocalReff}, {Local, LocalReff}},
+			checks: defaultChecks,
 		},
 		{
-			name: "Reff Template In Sub Dir Not Reported Missing",
-			mode: []Mode{{Live, LocalReff}, {Local, LocalReff}, {Local, URL}},
+			name:   "Reff Template In Sub Dir Not Reported Missing",
+			mode:   []Mode{{Live, LocalReff}, {Local, LocalReff}, {Local, URL}},
+			checks: defaultChecks,
 		},
 		{
 			name:                 "Reff Template In Sub Dir Works With Manual Correlation",
 			mode:                 []Mode{{Live, LocalReff}, {Local, LocalReff}, {Local, URL}},
+			checks:               defaultChecks,
 			shouldPassUserConfig: true,
 		},
 		{
-			name: "Reff With Template Functions Renders As Expected",
-			mode: []Mode{{Live, LocalReff}, {Local, LocalReff}, {Local, URL}},
+			name:   "Reff With Template Functions Renders As Expected",
+			mode:   []Mode{{Live, LocalReff}, {Local, LocalReff}, {Local, URL}},
+			checks: defaultChecks,
 		},
 		{
 			name:         "YAML Output",
 			mode:         []Mode{DefaultMode},
 			outputFormat: string(Yaml),
+			checks:       defaultChecks,
 		},
 		{
 			name:         "JSON Output",
 			mode:         []Mode{DefaultMode},
 			outputFormat: string(Json),
+			checks:       defaultChecks,
 		},
 	}
 	tf := cmdtesting.NewTestFactory()
@@ -226,12 +342,12 @@ func TestCompareRun(t *testing.T) {
 				cmd := getCommand(t, &test, i, tf, &IOStream)
 				cmdutil.BehaviorOnFatal(func(str string, code int) {
 					errorStr := fmt.Sprintf("%s \nerror code:%d\n", removeInconsistentInfo(t, str), code)
-					getGoldenValue(t, path.Join(test.getTestDir(), fmt.Sprintf("%serr.golden", mode.crSource)), []byte(errorStr))
+					test.checks.Err.check(t, test, mode, errorStr)
 					panic("Expected Error Test Case")
 				})
 				defer func() {
 					_ = recover()
-					getGoldenValue(t, path.Join(test.getTestDir(), fmt.Sprintf("%sout.golden", mode.crSource)), removeInconsistentInfo(t, out.String()))
+					test.checks.Out.check(t, test, mode, removeInconsistentInfo(t, out.String()))
 				}()
 				cmd.Run(cmd, []string{})
 			})
@@ -239,31 +355,16 @@ func TestCompareRun(t *testing.T) {
 	}
 }
 
-func removeInconsistentInfo(t *testing.T, text string) []byte {
+func removeInconsistentInfo(t *testing.T, text string) string {
 	//remove diff tool generated temp directory path
-	re := regexp.MustCompile("\\/tmp\\/(?:LIVE|MERGED)-[0-9]*")
+	re := regexp.MustCompile(`\/tmp\/(?:LIVE|MERGED)-[0-9]*`)
 	text = re.ReplaceAllString(text, "TEMP")
 	//remove diff datetime
-	re = regexp.MustCompile("(\\d{4}-\\d{2}-\\d{2}\\s*\\d{2}:\\d{2}:\\d{2}\\.\\d{9} [+-]\\d{4})")
+	re = regexp.MustCompile(`(\d{4}-\d{2}-\d{2}\s*\d{2}:\d{2}:\d{2}\.\d{9} [+-]\d{4})`)
 	text = re.ReplaceAllString(text, "DATE")
 	pwd, err := os.Getwd()
 	require.NoError(t, err)
-	return []byte(strings.ReplaceAll(text, pwd, "."))
-}
-
-func getGoldenValue(t *testing.T, fileName string, value []byte) {
-	if *update {
-		t.Log("update golden file")
-		if err := os.WriteFile(fileName, value, 0644); err != nil {
-			t.Fatalf("test %s failed to update golden file: %s", fileName, err)
-		}
-	}
-	expected, err := os.ReadFile(fileName)
-	if err != nil {
-		t.Fatalf("test %s failed reading .golden file: %s", fileName, err)
-	}
-	require.Equal(t, string(expected), string(value))
-	return
+	return strings.ReplaceAll(text, pwd, ".")
 }
 
 func getCommand(t *testing.T, test *Test, modeIndex int, tf *cmdtesting.TestFactory, streams *genericiooptions.IOStreams) *cobra.Command {
@@ -284,19 +385,17 @@ func getCommand(t *testing.T, test *Test, modeIndex int, tf *cmdtesting.TestFact
 	case Local:
 		require.NoError(t, cmd.Flags().Set("filename", resourcesDir))
 		require.NoError(t, cmd.Flags().Set("recursive", "true"))
-		break
 	case Live:
 		discoveryResources, resources := getResources(t, resourcesDir)
 		updateTestDiscoveryClient(tf, discoveryResources)
 		setClient(t, resources, tf)
-		break
 	}
 	switch mode.reffSource {
 	case URL:
 		svr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			body, err := os.ReadFile(path.Join(test.getTestDir(), TestRefDirName, r.RequestURI))
 			require.NoError(t, err)
-			_, err = fmt.Fprintf(w, string(body))
+			_, err = fmt.Fprint(w, string(body))
 			require.NoError(t, err)
 		}))
 		require.NoError(t, cmd.Flags().Set("reference", svr.URL))
@@ -361,6 +460,9 @@ func getResources(t *testing.T, resourcesDir string) ([]v1.APIResource, []*unstr
 				return err
 			}
 			buf, err := os.ReadFile(path)
+			if err != nil {
+				return err
+			}
 			data := make(map[string]any)
 			err = yaml.Unmarshal(buf, &data)
 			if err != nil {
