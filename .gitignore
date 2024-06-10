@@ -30,3 +30,4 @@ Dockerfile.cross
 
 # Release artifacts
 dist/*
+.vscode
