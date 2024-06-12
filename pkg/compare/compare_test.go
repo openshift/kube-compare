@@ -4,6 +4,7 @@ package compare
 
 import (
 	"bytes"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -461,12 +462,12 @@ func getResources(t *testing.T, resourcesDir string) ([]v1.APIResource, []*unstr
 			}
 			buf, err := os.ReadFile(path)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to load test file %s: %w", path, err)
 			}
 			data := make(map[string]any)
 			err = yaml.Unmarshal(buf, &data)
 			if err != nil {
-				return fmt.Errorf("test Input isnt yaml")
+				return errors.New("test Input isnt yaml")
 			}
 			r := unstructured.Unstructured{Object: data}
 			resources = append(resources, &r)

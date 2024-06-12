@@ -84,9 +84,7 @@ func TestCompareRun(t *testing.T) {
 }
 func updateCompareOutput(t *testing.T, test Test) {
 	t.Log("update test input to match current version of compare command")
-	cmdutil.BehaviorOnFatal(func(str string, code int) {
-		return
-	})
+	cmdutil.BehaviorOnFatal(func(str string, code int) {})
 
 	tf := cmdtesting.NewTestFactory()
 	IOStream, _, out, _ := genericiooptions.NewTestIOStreams()
@@ -113,7 +111,6 @@ func getGoldenValue(t *testing.T, fileName string, value []byte) {
 		t.Fatalf("test %s failed reading .golden file: %s", fileName, err)
 	}
 	require.Equal(t, string(expected), string(value))
-	return
 }
 
 func removeInconsistentInfo(text []byte) []byte {

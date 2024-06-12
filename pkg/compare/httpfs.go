@@ -80,7 +80,7 @@ func readHttpWithRetries(get httpget, duration time.Duration, u string, attempts
 		if statusCode == http.StatusOK {
 			return body, contentLength, nil
 		}
-		err := body.Close()
+		err = body.Close()
 		if err != nil {
 			return nil, 0, err
 		}
