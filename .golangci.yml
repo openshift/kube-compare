@@ -1,0 +1,131 @@
+---
+new: true
+run:
+  concurrency: 6
+  deadline: 5m
+linters:
+  disable-all: true
+  enable:
+    - depguard
+    - goconst
+    - gocritic
+    - revive
+    - gofmt
+    - goimports
+    - govet
+    - ineffassign
+    - misspell
+    - staticcheck
+    - typecheck
+    - unconvert
+    - unparam
+    - gocyclo
+    - unused
+    - errorlint
+    - loggercheck
+    - gosec
+    - wrapcheck
+linters-settings:
+  revive:
+    rules:
+      - name: if-return
+        severity: warning
+        disabled: true
+      - name: string-format
+        severity: warning
+        disabled: false
+        arguments:
+          - - 'core.WriteError[1].Message'
+            - '/^([^A-Z]|$)/'
+            - must not start with a capital letter
+          - - 'fmt.Errorf[0]'
+            - '/^([^A-Z]|$)/'
+            - must not start with a capital letter
+          - - 'fmt.Errorf[0]'
+            - '/(^|[^\.!?])$/'
+            - must not end in punctuation
+          - - panic
+            - '/^[^\n]*$/'
+            - must not contain line breaks
+  gocritic:
+    enabled-checks:
+      # Diagnostic
+      - commentedOutCode
+      - nilValReturn
+      - weakCond
+      - octalLiteral
+      - sloppyReassign
+
+      # Performance
+      - equalFold
+      - indexAlloc
+      - rangeExprCopy
+      - appendCombine
+
+      # Style
+      - boolExprSimplify
+      - commentedOutImport
+      - docStub
+      - emptyFallthrough
+      - emptyStringTest
+      - hexLiteral
+      - methodExprCall
+      - stringXbytes
+      - typeAssertChain
+      - unlabelStmt
+      - yodaStyleExpr
+
+      # Opinionated
+      - initClause
+      - nestingReduce
+      - ptrToRefParam
+      - typeUnparen
+      - unnecessaryBlock
+      - paramTypeCombine
+  depguard:
+    # Rules to apply.
+    #
+    # Variables:
+    # - File Variables
+    #   you can still use and exclamation mark ! in front of a variable to say not to use it.
+    #   Example !$test will match any file that is not a go test file.
+    #
+    #   `$all` - matches all go files
+    #   `$test` - matches all go test files
+    #
+    # - Package Variables
+    #
+    #  `$gostd` - matches all of go's standard library (Pulled from `GOROOT`)
+    #
+    # Default: Only allow $gostd in all files.
+    rules:
+      # Name of a rule.
+      main:
+        # Used to determine the package matching priority.
+        # There are three different modes: `original`, `strict`, and `lax`.
+        # Default: "original"
+        list-mode: lax
+        # List of file globs that will match this list of settings to compare against.
+        # Default: $all
+        files:
+          - $all
+        # List of allowed packages.
+        # allow:
+        #  - $gostd
+        # Packages that are not allowed where the value is a suggestion.
+        deny:
+          - pkg: "github.com/pkg/errors"
+            desc: Should be replaced by standard lib errors package
+  wrapcheck:
+    ignoreSigs:
+      # defaults
+      - .Errorf(
+      - errors.New(
+      - errors.Unwrap(
+      - .Wrap(
+      - .Wrapf(
+      - .WithMessage(
+      - .WithMessagef(
+      - .WithStack(
+      # from kyaml's errors package
+      - .WrapPrefixf(
