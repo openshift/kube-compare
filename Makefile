@@ -22,6 +22,11 @@ test-report-creator:
 build-report-creator:
 	go build ./addon-tools/report-creator/create-report.go
 
+.PHONY: golangci-lint
+golangci-lint: ## Run golangci-lint against code.
+	@echo "Running golangci-lint"
+	hack/golangci-lint.sh
+
 # markdownlint rules, following: https://github.com/openshift/enhancements/blob/master/Makefile
 .PHONY: markdownlint-image
 markdownlint-image:  ## Build local container markdownlint-image
