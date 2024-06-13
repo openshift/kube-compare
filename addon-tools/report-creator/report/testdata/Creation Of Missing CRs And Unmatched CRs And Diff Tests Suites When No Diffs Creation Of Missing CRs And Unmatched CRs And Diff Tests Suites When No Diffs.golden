@@ -119,7 +119,7 @@
 	</testsuite>
 	<testsuite tests="1" failures="0" TIME name="Unmatched Cluster Resources" TIME>
 		<properties></properties>
-		<testcase classname="" name="All CLuster CRs are matched to reference CRs " TIME>
+		<testcase classname="" name="All Cluster CRs are matched to reference CRs " TIME>
 			<properties></properties>
 		</testcase>
 	</testsuite>

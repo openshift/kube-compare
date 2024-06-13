@@ -162,7 +162,7 @@ func getParsed(raw string) (compare.Output, error) {
 	output := compare.Output{}
 	err := json.Unmarshal([]byte(raw), &output)
 	if err != nil {
-		return output, fmt.Errorf("failed to unmarshal json, %s", err)
+		return output, fmt.Errorf("failed to unmarshal json: %w", err)
 	}
 	return output, nil
 }
@@ -182,7 +182,7 @@ func NewCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			jsonInput, err := os.ReadFile(options.compareOutputPath)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to read comparison file: %w", err)
 			}
 			compareOutput, err := getParsed(string(jsonInput))
 			if err != nil {
@@ -190,13 +190,13 @@ func NewCmd() *cobra.Command {
 			}
 			f, err := os.Create(options.outputFile)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to create output file: %w", err)
 
 			}
 			defer f.Close()
 			err = junit.Write(f, *createReport(compareOutput))
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to write junit report: %w", err)
 			}
 			return nil
 		},

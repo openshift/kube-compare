@@ -2,6 +2,7 @@ package junit
 
 import (
 	"encoding/xml"
+	"fmt"
 	"io"
 )
 
@@ -61,12 +62,15 @@ type Failure struct {
 func Write(out io.Writer, suites TestSuites) error {
 	doc, err := xml.MarshalIndent(suites, "", "\t")
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to marshal junit xml: %w", err)
 	}
 	_, err = out.Write([]byte(xml.Header))
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to write header: %w", err)
 	}
 	_, err = out.Write(doc)
-	return err
+	if err != nil {
+		return fmt.Errorf("failed to write junit report: %w", err)
+	}
+	return nil
 }

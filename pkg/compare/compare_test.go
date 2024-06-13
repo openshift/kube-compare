@@ -77,14 +77,14 @@ func (c Check) check(t *testing.T, test Test, mode Mode, value string) {
 			func() bool { return strings.HasPrefix(value, c.value) },
 			"value %s does not start with %s", value, c.value)
 	case matchRegex:
-		require.Regexp(t, c.value, string(value))
+		require.Regexp(t, c.value, value)
 	}
 }
 
 func checkFile(t *testing.T, fileName, value string) {
 	if *update {
 		t.Log("update golden file")
-		if err := os.WriteFile(fileName, []byte(value), 0644); err != nil {
+		if err := os.WriteFile(fileName, []byte(value), 0644); err != nil { // nolint:gocritic,gosec
 			t.Fatalf("test %s failed to update golden file: %s", fileName, err)
 		}
 	}
@@ -92,7 +92,7 @@ func checkFile(t *testing.T, fileName, value string) {
 	if err != nil {
 		t.Fatalf("test %s failed reading .golden file: %s", fileName, err)
 	}
-	require.Equal(t, string(expected), string(value))
+	require.Equal(t, string(expected), value)
 }
 
 var defaultCheckOut = Check{
@@ -320,13 +320,13 @@ error code:2`),
 		{
 			name:         "YAML Output",
 			mode:         []Mode{DefaultMode},
-			outputFormat: string(Yaml),
+			outputFormat: Yaml,
 			checks:       defaultChecks,
 		},
 		{
 			name:         "JSON Output",
 			mode:         []Mode{DefaultMode},
-			outputFormat: string(Json),
+			outputFormat: Json,
 			checks:       defaultChecks,
 		},
 	}
@@ -340,7 +340,7 @@ error code:2`),
 			t.Run(test.name+mode.String(), func(t *testing.T) {
 				IOStream, _, out, _ := genericiooptions.NewTestIOStreams()
 				klog.SetOutputBySeverity("INFO", out)
-				cmd := getCommand(t, &test, i, tf, &IOStream)
+				cmd := getCommand(t, &test, i, tf, &IOStream) // nolint:gosec
 				cmdutil.BehaviorOnFatal(func(str string, code int) {
 					errorStr := fmt.Sprintf("%s \nerror code:%d\n", removeInconsistentInfo(t, str), code)
 					test.checks.Err.check(t, test, mode, errorStr)
@@ -357,10 +357,10 @@ error code:2`),
 }
 
 func removeInconsistentInfo(t *testing.T, text string) string {
-	//remove diff tool generated temp directory path
+	// remove diff tool generated temp directory path
 	re := regexp.MustCompile(`\/tmp\/(?:LIVE|MERGED)-[0-9]*`)
 	text = re.ReplaceAllString(text, "TEMP")
-	//remove diff datetime
+	// remove diff datetime
 	re = regexp.MustCompile(`(\d{4}-\d{2}-\d{2}\s*\d{2}:\d{2}:\d{2}\.\d{9} [+-]\d{4})`)
 	text = re.ReplaceAllString(text, "DATE")
 	pwd, err := os.Getwd()
@@ -419,7 +419,7 @@ func setClient(t *testing.T, resources []*unstructured.Unstructured, tf *cmdtest
 		return e, nil
 	}, createGroupHashFunc([][]string{{"kind"}}))
 	resourcesByKind := lo.MapKeys(resourcesByType[0], func(value []*unstructured.Unstructured, key string) string {
-		//Converted to URL Path Format:
+		// Converted to URL Path Format:
 		return fmt.Sprintf("/%ss", strings.ToLower(key))
 	})
 	tf.UnstructuredClient = &fake.RESTClient{

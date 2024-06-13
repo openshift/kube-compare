@@ -120,19 +120,19 @@ func getReference(fsys fs.FS) (Reference, error) {
 	return result, nil
 }
 
-func parseYaml[T any](fsys fs.FS, filePath string, structType *T, fileNotFoundError string, parsingError string) error {
+func parseYaml[T any](fsys fs.FS, filePath string, structType *T, fileNotFoundError, parsingError string) error {
 	file, err := fs.ReadFile(fsys, filePath)
 	if err != nil {
-		return fmt.Errorf("%s%v", fileNotFoundError, err)
+		return fmt.Errorf("%s%w", fileNotFoundError, err)
 	}
 	err = yaml.UnmarshalStrict(file, structType)
 	if err != nil {
-		return fmt.Errorf("%s%v", parsingError, err)
+		return fmt.Errorf("%s%w", parsingError, err)
 	}
 	return nil
 }
 
-func parseTemplates(templatePaths []string, functionTemplates []string, fsys fs.FS) ([]*template.Template, error) {
+func parseTemplates(templatePaths, functionTemplates []string, fsys fs.FS) ([]*template.Template, error) {
 	var templates []*template.Template
 	var errs []error
 	for _, temp := range templatePaths {
@@ -152,7 +152,7 @@ func parseTemplates(templatePaths []string, functionTemplates []string, fsys fs.
 		}
 		templates = append(templates, parsedTemp)
 	}
-	return templates, errors.Join(errs...)
+	return templates, errors.Join(errs...) // nolint:wrapcheck
 }
 
 type UserConfig struct {
@@ -183,14 +183,14 @@ func executeYAMLTemplate(temp *template.Template, params map[string]any) (*unstr
 	var buf bytes.Buffer
 	err := temp.Execute(&buf, params)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to constuct template: %w", err)
 	}
 	data := make(map[string]any)
 	err = yaml.Unmarshal(bytes.ReplaceAll(buf.Bytes(), []byte(noValue), []byte("")), &data)
 	if err != nil {
-		return nil, fmt.Errorf("template: %s isn't a yaml file after injection. yaml unmarshal error: %v. The Template After Execution: %s", temp.Name(), err, buf.String())
+		return nil, fmt.Errorf("template: %s isn't a yaml file after injection. yaml unmarshal error: %w. The Template After Execution: %s", temp.Name(), err, buf.String())
 	}
-	return &unstructured.Unstructured{Object: data}, err
+	return &unstructured.Unstructured{Object: data}, nil
 }
 
 func extractMetadata(t *template.Template) (*unstructured.Unstructured, error) {
