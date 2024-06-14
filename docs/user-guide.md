@@ -196,6 +196,6 @@ In such scenarios take these steps:
 #### There can be more than one Reference Design CR of the same Kind
 
 In this case you will have a warning presented before the diff output, formatted similar to this:
-`More then one template with same apiVersion, metadata_name, metadata_namespace, kind. These templates wont be used for corelation. To use them use different corelator (manual matching) or remove one of them from the reference. Template names are: XConfig.yaml, YConfig.yaml`
+`More then one template with same apiVersion, metadata_name, metadata_namespace, kind. These templates wont be used for correlation. To use them use different correlator (manual matching) or remove one of them from the reference. Template names are: XConfig.yaml, YConfig.yaml`
 
 This means the template contains two CRs with the same apiversion-kind-name-namespace but different spec. In such cases comment out the template CRs from the metadata.yaml that are more accurate with CRs under comparison.

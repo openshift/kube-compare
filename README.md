@@ -378,65 +378,65 @@ expected variations, optional content, and detection of missing/unmatched conten
 
 ## Design Details
 
-### Corelators Design
+### Correlators Design
 
-The kubectl cluster-compare uses Different Corelators to correlate between custer resources and their matching reference
+The kubectl cluster-compare uses Different Correlators to correlate between custer resources and their matching reference
 template.
-When Designing the structure of the corealtors we tried to come up with a design that will be: easy to add additional
-correlation logics, and will allow chaining of different corelators.
-The Corealtors are divided into 2 types:
-Base corelators - implement a specific correlation logic
-Decorator corelators - corelators that wrap other corelators and add an additional behaviour.
+When Designing the structure of the correlators we tried to come up with a design that will be: easy to add additional
+correlation logics, and will allow chaining of different correlators.
+The Correlators are divided into 2 types:
+Base correlators - implement a specific correlation logic
+Decorator correlators - correlators that wrap other correlators and add an additional behaviour.
 
-The current version includes 2 decorator corelators: MultiCorealtor and MetricsCorelatorDecorator. And includes 2 Base
-corelators: ExactMatchCorelator and GroupCorelator. (detailed information about all of them can be found below)
-To allow easy chaining all the corealtors match the corelator interface: (include Errors)
+The current version includes 2 decorator correlators: MultiCorrelator and MetricsCorrelatorDecorator. And includes 2 Base
+correlators: ExactMatchCorrelator and GroupCorrelator. (detailed information about all of them can be found below)
+To allow easy chaining all the correlators match the correlator interface: (include Errors)
 
-In this Version the corealtors are created and initialized in the following chain:
+In this Version the correlators are created and initialized in the following chain:
 
 ```shell
-                                                               ┌─────────────────────┐
-                                                    <<use>>    │                     │
-                                                  ┌──────────► │                     │
-                                                  │            │ ExactMatchCorelator │
-┌─────────────────────┐           ┌───────────────┴─────┐      │                     │
-│                     │           │                     │      │                     │
-│                     │           │                     │      └─────────────────────┘
-│  MetricsCorelator-  ├──────────►│   MultiCorealtor    │
-│      Deorator       │  <<use>>  │                     │      ┌─────────────────────┐
-│                     │           │                     │      │                     │
-└─────────────────────┘           └────────────────┬────┘      │                     │
-                                                   │           │    GroupCorelator   │
-                                                   └─────────► │                     │
-                                                    <<use>>    │                     │
-                                                               └─────────────────────┘
+                                                                ┌──────────────────────┐
+                                                    <<use>>     │                      │
+                                                   ┌──────────► │                      │
+                                                   │            │ ExactMatchCorrelator │
+┌──────────────────────┐           ┌───────────────┴──────┐     │                      │
+│                      │           │                      │     │                      │
+│                      │           │                      │     └──────────────────────┘
+│  MetricsCorrelator-  ├──────────►│   MultiCorrelator    │
+│      Deorator        │  <<use>>  │                      │     ┌──────────────────────┐
+│                      │           │                      │     │                      │
+└──────────────────────┘           └────────────────┬─────┘     │                      │
+                                                    │           │    GroupCorrelator   │
+                                                    └─────────► │                      │
+                                                    <<use>>     │                      │
+                                                                └──────────────────────┘
 ```
 
-#### MultiCorealtor
+#### MultiCorrelator
 
-The MultiCorealtor aggregates multiple corelators while implementing the correlator interface.
-The multiCorelator stores a list of correlators. It Matches resources to templates by iterating over the list of
-corelators and for each subcorealeator attempts to find a match for the requested resource.
-In case a match is found for one of the corelators, it will be returned without any errors.
-If no match is found a joined error including all sub corealtors errors will be returned.
+The MultiCorrelator aggregates multiple correlators while implementing the correlator interface.
+The multiCorrelator stores a list of correlators. It Matches resources to templates by iterating over the list of
+correlators and for each subcorrelator attempts to find a match for the requested resource.
+In case a match is found for one of the correlators, it will be returned without any errors.
+If no match is found a joined error including all sub correlators errors will be returned.
 
-#### MetricsCorelatorDecorator
+#### MetricsCorrelatorDecorator
 
 Wraps a single correlator, And collects metrics about the correlation. The metrics can be later retrieved and then can
-be used to create a summary output. The MetricsCorelatorDecorator gathers metrics on which resource templates that have
+be used to create a summary output. The MetricsCorrelatorDecorator gathers metrics on which resource templates that have
 been matched and with cluster CRs were not matched.
 
-#### ExactMatchCorelator
+#### ExactMatchCorrelator
 
 Matches templates by exact match between a predefined config including pairs of Resource names and their equivalent
-template.The exact behavior of this corelator is described in Correlation by manual matches section.
+template.The exact behavior of this correlator is described in Correlation by manual matches section.
 
-#### GroupCorelator
+#### GroupCorrelator
 
-The group corelator implements the correlation behavior explained in Correlation by group of fields (apiVersion, kind,
+The group correlator implements the correlation behavior explained in Correlation by group of fields (apiVersion, kind,
 namespace and name). The correlation behavior in this version is: “Each CR will be correlated to a template with an
 exact match in the largest number of fields from this group:  apiVersion, kind, namespace, name.”
-The group corelator is more generic, and it gets on creation a list of fields that will be used for matching templates.
+The group correlator is more generic, and it gets on creation a list of fields that will be used for matching templates.
 In this version the group of fields are fixed:  apiVersion, kind, namespace, name. But it can be changed in the future
 to allow more flexibility in group correlating.
 
