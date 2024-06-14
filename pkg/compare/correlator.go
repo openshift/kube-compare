@@ -30,7 +30,7 @@ type UnknownMatch struct {
 }
 
 func (e UnknownMatch) Error() string {
-	return fmt.Sprintf("Template Couldnt be matched for: %s", apiKindNamespaceName(e.Resource))
+	return fmt.Sprintf("Template couldn't be matched for: %s", apiKindNamespaceName(e.Resource))
 }
 
 func apiKindNamespaceName(r *unstructured.Unstructured) string {
@@ -47,7 +47,7 @@ type MultipleMatches struct {
 }
 
 func (e MultipleMatches) Error() string {
-	return fmt.Sprintf("Multiple Matches were found for: %s. the Matches found are: %s", apiKindNamespaceName(e.Resource), getTemplatesName(e.Matches))
+	return fmt.Sprintf("Multiple matches were found for: %s. The matches found are: %s", apiKindNamespaceName(e.Resource), getTemplatesName(e.Matches))
 }
 
 // MultiCorrelator Matches templates by attempting to find a match with one of its predefined Correlators.
@@ -153,11 +153,11 @@ func NewGroupCorrelator(fieldGroups [][][]string, templates []*template.Template
 }
 
 func getFields(fields [][]string) string {
-	var stingifedFields []string
+	var stringifiedFields []string
 	for _, field := range fields {
-		stingifedFields = append(stingifedFields, strings.Join(field, fieldSeparator))
+		stringifiedFields = append(stringifiedFields, strings.Join(field, fieldSeparator))
 	}
-	return strings.Join(stingifedFields, ", ")
+	return strings.Join(stringifiedFields, ", ")
 }
 
 // createGroupHashFunc creates a hashing function for a specific field group
@@ -167,7 +167,7 @@ func createGroupHashFunc(fieldGroup [][]string) func(*unstructured.Unstructured)
 		for _, fields := range fieldGroup {
 			value, isFound, NotStringErr := unstructured.NestedString(cr.Object, fields...)
 			if !isFound {
-				return "", fmt.Errorf("the field %s doesn't exsist in resource", strings.Join(fields, fieldSeparator))
+				return "", fmt.Errorf("the field %s doesn't exist in resource", strings.Join(fields, fieldSeparator))
 			}
 			if NotStringErr != nil {
 				return "", fmt.Errorf("the field %s isn't string - grouping by non string values isn't supported", strings.Join(fields, fieldSeparator))
