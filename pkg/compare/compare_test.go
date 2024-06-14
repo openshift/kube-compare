@@ -467,7 +467,7 @@ func getResources(t *testing.T, resourcesDir string) ([]v1.APIResource, []*unstr
 			data := make(map[string]any)
 			err = yaml.Unmarshal(buf, &data)
 			if err != nil {
-				return errors.New("test Input isnt yaml")
+				return errors.New("test Input is not yaml")
 			}
 			r := unstructured.Unstructured{Object: data}
 			resources = append(resources, &r)
@@ -478,9 +478,9 @@ func getResources(t *testing.T, resourcesDir string) ([]v1.APIResource, []*unstr
 }
 
 func updateTestDiscoveryClient(tf *cmdtesting.TestFactory, discoveryResources []v1.APIResource) {
-	disccoveryClient := cmdtesting.NewFakeCachedDiscoveryClient()
+	discoveryClient := cmdtesting.NewFakeCachedDiscoveryClient()
 	ResourceList := v1.APIResourceList{APIResources: discoveryResources}
-	disccoveryClient.Resources = append(disccoveryClient.Resources, &ResourceList)
-	disccoveryClient.PreferredResources = append(disccoveryClient.PreferredResources, &ResourceList)
-	tf.WithDiscoveryClient(disccoveryClient)
+	discoveryClient.Resources = append(discoveryClient.Resources, &ResourceList)
+	discoveryClient.PreferredResources = append(discoveryClient.PreferredResources, &ResourceList)
+	tf.WithDiscoveryClient(discoveryClient)
 }

@@ -188,7 +188,7 @@ func executeYAMLTemplate(temp *template.Template, params map[string]any) (*unstr
 	data := make(map[string]any)
 	err = yaml.Unmarshal(bytes.ReplaceAll(buf.Bytes(), []byte(noValue), []byte("")), &data)
 	if err != nil {
-		return nil, fmt.Errorf("template: %s isnt an yaml file after injection. yaml unmarshal error: %v. The Template After Execution: %s", temp.Name(), err, buf.String())
+		return nil, fmt.Errorf("template: %s isn't a yaml file after injection. yaml unmarshal error: %v. The Template After Execution: %s", temp.Name(), err, buf.String())
 	}
 	return &unstructured.Unstructured{Object: data}, err
 }
