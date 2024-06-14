@@ -38,7 +38,7 @@ func Divide[E any, V any, G comparable](elements []E, filterGroupsFor func(eleme
 		for _, i := range indexes {
 			groupName, groupErr := groupingFunctions[i](parsedElement)
 			if groupErr != nil {
-				errs = append(errs, fmt.Errorf("error while finding group hash for %v. Error: %v", parsedElement, groupErr))
+				errs = append(errs, fmt.Errorf("error while finding group hash for %v. Error: %w", parsedElement, groupErr))
 				break
 			}
 			if _, ok := groups[i][groupName]; !ok {
@@ -47,7 +47,7 @@ func Divide[E any, V any, G comparable](elements []E, filterGroupsFor func(eleme
 			groups[i][groupName] = append(groups[i][groupName], element)
 		}
 	}
-	return groups, errors.Join(errs...)
+	return groups, errors.Join(errs...) // nolint:wrapcheck
 }
 
 // GetWithMoreThen retrieves elements from groups where the group size exceeds a

@@ -9,30 +9,30 @@
 	</testsuite>
 	<testsuite tests="5" failures="5" TIME name="Missing Cluster Resources" TIME>
 		<properties></properties>
-		<testcase classname="Part:ExamplePart1 Compomnet: Dashboard1" name="Missing CR: cm.yaml" TIME>
+		<testcase classname="Part:ExamplePart1 Component: Dashboard1" name="Missing CR: cm.yaml" TIME>
 			<properties></properties>
 			<failure message="Required CR by the reference &#34;cm.yaml&#34; is missing from cluster" type="Missing Cluster CR"></failure>
 		</testcase>
-		<testcase classname="Part:ExamplePart1 Compomnet: Dashboard2" name="Missing CR: deploymentDashboard.yaml" TIME>
+		<testcase classname="Part:ExamplePart1 Component: Dashboard2" name="Missing CR: deploymentDashboard.yaml" TIME>
 			<properties></properties>
 			<failure message="Required CR by the reference &#34;deploymentDashboard.yaml&#34; is missing from cluster" type="Missing Cluster CR"></failure>
 		</testcase>
-		<testcase classname="Part:ExamplePart1 Compomnet: Dashboard2" name="Missing CR: deploymentMetrics.yaml" TIME>
+		<testcase classname="Part:ExamplePart1 Component: Dashboard2" name="Missing CR: deploymentMetrics.yaml" TIME>
 			<properties></properties>
 			<failure message="Required CR by the reference &#34;deploymentMetrics.yaml&#34; is missing from cluster" type="Missing Cluster CR"></failure>
 		</testcase>
-		<testcase classname="Part:ExamplePart2 Compomnet: Dashboard1" name="Missing CR: cr.yaml" TIME>
+		<testcase classname="Part:ExamplePart2 Component: Dashboard1" name="Missing CR: cr.yaml" TIME>
 			<properties></properties>
 			<failure message="Required CR by the reference &#34;cr.yaml&#34; is missing from cluster" type="Missing Cluster CR"></failure>
 		</testcase>
-		<testcase classname="Part:ExamplePart2 Compomnet: Dashboard2" name="Missing CR: crb.yaml" TIME>
+		<testcase classname="Part:ExamplePart2 Component: Dashboard2" name="Missing CR: crb.yaml" TIME>
 			<properties></properties>
 			<failure message="Required CR by the reference &#34;crb.yaml&#34; is missing from cluster" type="Missing Cluster CR"></failure>
 		</testcase>
 	</testsuite>
 	<testsuite tests="1" failures="0" TIME name="Unmatched Cluster Resources" TIME>
 		<properties></properties>
-		<testcase classname="" name="All CLuster CRs are matched to reference CRs " TIME>
+		<testcase classname="" name="All Cluster CRs are matched to reference CRs " TIME>
 			<properties></properties>
 		</testcase>
 	</testsuite>

@@ -5,7 +5,7 @@
 	</testsuite>
 	<testsuite tests="1" failures="1" TIME name="Missing Cluster Resources" TIME>
 		<properties></properties>
-		<testcase classname="Part:ExamplePart Compomnet: DemonSets" name="Missing CR: apps.v1.DaemonSet.kube-system.kindnet.yaml" TIME>
+		<testcase classname="Part:ExamplePart Component: DemonSets" name="Missing CR: apps.v1.DaemonSet.kube-system.kindnet.yaml" TIME>
 			<properties></properties>
 			<failure message="Required CR by the reference &#34;apps.v1.DaemonSet.kube-system.kindnet.yaml&#34; is missing from cluster" type="Missing Cluster CR"></failure>
 		</testcase>

@@ -33,7 +33,7 @@ type httpget func(url string) (int, string, io.ReadCloser, int64, error)
 func (fs HTTPFS) Open(name string) (fs.File, error) {
 	fullURL, err := url.JoinPath(fs.baseURL, name)
 	if err != nil {
-		return HTTPFile{}, err
+		return HTTPFile{}, fmt.Errorf("could not construct url: %w", err)
 	}
 	body, contentLength, err := readHttpWithRetries(fs.httpGet, 5*time.Millisecond, fullURL, defaultHttpGetAttempts)
 	if err != nil {
@@ -45,9 +45,9 @@ func (fs HTTPFS) Open(name string) (fs.File, error) {
 
 // httpgetImpl Implements a function to retrieve a url and return the results.
 func httpgetImpl(url string) (int, string, io.ReadCloser, int64, error) {
-	resp, err := http.Get(url)
+	resp, err := http.Get(url) // nolint:gosec // intended behaviour
 	if err != nil {
-		return 0, "", nil, 0, err
+		return 0, "", nil, 0, fmt.Errorf("failed to fetch %s: %w", url, err)
 	}
 	return resp.StatusCode, resp.Status, resp.Body, resp.ContentLength, nil
 }
@@ -82,7 +82,7 @@ func readHttpWithRetries(get httpget, duration time.Duration, u string, attempts
 		}
 		err = body.Close()
 		if err != nil {
-			return nil, 0, err
+			return nil, 0, fmt.Errorf("error occurred while attempting to close request body: %w", err)
 		}
 		// Error - Set the error condition from the StatusCode
 		err = fmt.Errorf("unable to read URL %q, server reported %s, status code=%d", u, status, statusCode)
@@ -111,12 +111,12 @@ func (f HTTPFile) Stat() (fs.FileInfo, error) {
 
 // Read returns the http body.
 func (f HTTPFile) Read(b []byte) (int, error) {
-	return f.data.Read(b)
+	return f.data.Read(b) // nolint:wrapcheck
 }
 
 // Close closes the http body reader.
 func (f HTTPFile) Close() error {
-	return f.data.Close()
+	return f.data.Close() // nolint:wrapcheck
 }
 
 // HTTPFileInfo represents information about the http raw resource

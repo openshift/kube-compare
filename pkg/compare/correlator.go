@@ -64,11 +64,11 @@ func (c MultiCorrelator) Match(object *unstructured.Unstructured) (*template.Tem
 	for _, core := range c.correlators {
 		temp, err := core.Match(object)
 		if err == nil || (!errors.As(err, &UnknownMatch{}) && !errors.As(err, &MultipleMatches{})) {
-			return temp, err
+			return temp, err // nolint:wrapcheck
 		}
 		errs = append(errs, err)
 	}
-	return nil, errors.Join(errs...)
+	return nil, errors.Join(errs...) // nolint:wrapcheck
 }
 
 // ExactMatchCorrelator Matches templates by exact match between a predefined config including pairs of Resource names and there equivalent template.
@@ -114,7 +114,7 @@ func (c ExactMatchCorrelator) Match(object *unstructured.Unstructured) (*templat
 type GroupCorrelator struct {
 	// List of groups of nested fields (each field is represented by []string)
 	fieldGroups [][][]string
-	//List of Hash functions for groups of fields organized in same order of fieldGroups
+	// List of Hash functions for groups of fields organized in same order of fieldGroups
 	GroupFunctions []func(unstructured2 *unstructured.Unstructured) (group string, err error)
 	// List of template mappings by different grouping (hashing) options
 	templatesByGroups []map[string][]*template.Template
@@ -137,7 +137,7 @@ func NewGroupCorrelator(fieldGroups [][][]string, templates []*template.Template
 	core := GroupCorrelator{fieldGroups: fieldGroups, GroupFunctions: functionGroups}
 	mappings, err := groups.Divide(templates, core.getGroupsFunction(), extractMetadata, functionGroups...)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to group templates: %w", err)
 	}
 	core.templatesByGroups = mappings
 	for i, mapping := range mappings {
@@ -261,7 +261,7 @@ func (c *MetricsCorrelatorDecorator) Match(object *unstructured.Unstructured) (*
 		c.addUNMatch(object)
 	}
 	if err != nil {
-		return temp, err
+		return temp, err // nolint:wrapcheck
 	}
 	c.addMatch(temp)
 	return temp, nil

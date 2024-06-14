@@ -139,7 +139,7 @@ func NewCmd(f kcmdutil.Factory, streams genericiooptions.IOStreams) *cobra.Comma
 		Run: func(cmd *cobra.Command, args []string) {
 			kcmdutil.CheckDiffErr(options.Complete(f, cmd, args))
 			// `kubectl cluster-compare` propagates the error code from
-			//`kubectl diff` that propagates the error code from
+			// `kubectl diff` that propagates the error code from
 			// diff or `KUBECTL_EXTERNAL_DIFF`. Also, we
 			// don't want to print an error if diff returns
 			// error code 1, which simply means that changes
@@ -202,8 +202,9 @@ func NewOptions(ioStreams genericiooptions.IOStreams) *Options {
 // DiffError returns the ExitError if the status code is less than 1,
 // nil otherwise.
 func diffError(err error) exec.ExitError {
-	if err, ok := err.(exec.ExitError); ok && err.ExitStatus() <= 1 {
-		return err
+	var execErr exec.ExitError
+	if ok := errors.As(err, &execErr); ok && execErr.ExitStatus() <= 1 {
+		return execErr
 	}
 	return nil
 }
@@ -225,7 +226,7 @@ func (o *Options) Complete(f kcmdutil.Factory, cmd *cobra.Command, args []string
 	} else {
 		rootPath, err := filepath.Abs(o.templatesDir)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to get absolute path: %w", err)
 		}
 		fs = os.DirFS(rootPath)
 	}
@@ -326,11 +327,11 @@ func (o *Options) setLiveSearchTypes(f kcmdutil.Factory) error {
 		return []int{0}, nil
 	}, extractMetadata, createGroupHashFunc([][]string{{"kind"}}))
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to group templates: %w", err)
 	}
 	c, err := f.ToDiscoveryClient()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create discovery client: %w", err)
 	}
 	SupportedTypes, err := getSupportedResourceTypes(c)
 	if err != nil {
@@ -355,7 +356,7 @@ func getSupportedResourceTypes(client discovery.CachedDiscoveryInterface) (map[s
 	resources := make(map[string][]string)
 	lists, err := client.ServerPreferredResources()
 	if err != nil {
-		return resources, err
+		return resources, fmt.Errorf("failed to get clusters resource types: %w", err)
 	}
 	for _, list := range lists {
 		if len(list.APIResources) != 0 {
@@ -389,21 +390,25 @@ func runDiff(obj diff.Object, streams genericiooptions.IOStreams, showManagedFie
 	differ, err := diff.NewDiffer("MERGED", "LIVE")
 	diffOutput := new(bytes.Buffer)
 	if err != nil {
-		return diffOutput, err
+		return diffOutput, fmt.Errorf("failed to create diff instance: %w", err)
 	}
 	defer differ.TearDown()
 
 	err = differ.Diff(obj, diff.Printer{}, showManagedFields)
 	if err != nil {
-		return diffOutput, err
+		return diffOutput, fmt.Errorf("error occurered during diff: %w", err)
 	}
 	err = differ.Run(&diff.DiffProgram{Exec: exec.New(), IOStreams: genericiooptions.IOStreams{In: streams.In, Out: diffOutput, ErrOut: streams.ErrOut}})
 
 	// If the diff tool runs without issues and detects differences at this level of the code, we would like to report that there are no issues
-	if err, ok := err.(exec.ExitError); ok && err.ExitStatus() <= 1 {
+	var exitErr exec.ExitError
+	if ok := errors.As(err, &exitErr); ok && exitErr.ExitStatus() <= 1 {
 		return diffOutput, nil
 	}
-	return diffOutput, err
+	if err != nil {
+		return diffOutput, fmt.Errorf("diff exited with non-zero code: %w", err)
+	}
+	return diffOutput, nil
 }
 
 // Run uses the factory to parse file arguments (in case of local mode) or gather all cluster resources matching
@@ -425,7 +430,7 @@ func (o *Options) Run() error {
 		Flatten().
 		Do()
 	if err := r.Err(); err != nil {
-		return err
+		return fmt.Errorf("failed to collect resources: %w", err)
 	}
 	r.IgnoreErrors(func(err error) bool {
 		return containOnly(err, []error{MultipleMatches{}, UnknownMatch{}})
@@ -461,7 +466,7 @@ func (o *Options) Run() error {
 		return err
 	})
 	if err != nil {
-		return err
+		return fmt.Errorf("error occurred while trying to process resources: %w", err)
 	}
 	sum := newSummary(&o.ref, o.correlator, numDiffCRs)
 
@@ -471,7 +476,7 @@ func (o *Options) Run() error {
 	}
 
 	// We will return exit code 1 in case there are differences between the reference CRs and cluster CRs.
-	//The differences can be differences found in specific CRs or the absence of CRs from the cluster.
+	// The differences can be differences found in specific CRs or the absence of CRs from the cluster.
 	if numDiffCRs != 0 || sum.NumMissing != 0 {
 		return exec.CodeExitError{Err: fmt.Errorf("there are differences between the cluster CRs and the reference CRs"), Code: 1}
 	}
@@ -593,20 +598,29 @@ func (o Output) String() string {
 }
 
 func (o Output) Print(format string, out io.Writer) (int, error) {
+	var (
+		content []byte
+		err     error
+	)
 	switch format {
 	case Json:
-		content, err := json.Marshal(o)
+		content, err = json.Marshal(o)
 		if err != nil {
-			return 0, err
+			return 0, fmt.Errorf("failed to marshal output to json: %w", err)
 		}
-		return out.Write(append(content, []byte("\n")...))
+		content = append(content, []byte("\n")...)
+
 	case Yaml:
-		content, err := yaml.Marshal(o)
+		content, err = yaml.Marshal(o)
 		if err != nil {
-			return 0, err
+			return 0, fmt.Errorf("failed to marshal output to yaml: %w", err)
 		}
-		return out.Write(content)
 	default:
-		return out.Write([]byte(o.String()))
+		content = []byte(o.String())
 	}
+	n, err := out.Write(content)
+	if err != nil {
+		return n, fmt.Errorf("error occurred when writing output: %w", err)
+	}
+	return n, nil
 }

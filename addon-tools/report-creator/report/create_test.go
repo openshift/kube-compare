@@ -94,7 +94,7 @@ func updateCompareOutput(t *testing.T, test Test) {
 	require.NoError(t, cmpCmd.Flags().Set("recursive", "true"))
 	require.NoError(t, cmpCmd.Flags().Set("output", compare.Json))
 	cmpCmd.Run(cmpCmd, []string{})
-	if err := os.WriteFile(test.getJSONPath(), out.Bytes(), 0644); err != nil {
+	if err := os.WriteFile(test.getJSONPath(), out.Bytes(), 0644); err != nil { // nolint:gocritic,gosec
 		t.Fatalf("test %s failed to update test file: %s", test.getJSONPath(), err)
 	}
 }
@@ -102,7 +102,7 @@ func updateCompareOutput(t *testing.T, test Test) {
 func getGoldenValue(t *testing.T, fileName string, value []byte) {
 	if *update {
 		t.Log("update golden file")
-		if err := os.WriteFile(fileName, value, 0644); err != nil {
+		if err := os.WriteFile(fileName, value, 0644); err != nil { // nolint:gocritic,gosec
 			t.Fatalf("test %s failed to update golden file: %s", fileName, err)
 		}
 	}
@@ -114,7 +114,7 @@ func getGoldenValue(t *testing.T, fileName string, value []byte) {
 }
 
 func removeInconsistentInfo(text []byte) []byte {
-	//remove time and timestamp
+	// remove time and timestamp
 	re := regexp.MustCompile("(?:time|timestamp)=\"(\\S*)\"")
 	return re.ReplaceAll(text, []byte("TIME"))
 }
