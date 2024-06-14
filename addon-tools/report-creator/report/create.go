@@ -52,20 +52,20 @@ func createDiffsSuite(output compare.Output) junit.TestSuite {
 	}
 
 	for _, diff := range *output.Diffs {
-		testcase := junit.TestCase{
+		testCase := junit.TestCase{
 			Name:      fmt.Sprintf("CR: %s", diff.CRName),
 			Classname: fmt.Sprintf("Matching Reference CR: %s", diff.CorrelatedTemplate),
 		}
 
 		if diff.DiffOutput != "None" {
-			testcase.Failure = &junit.Failure{
+			testCase.Failure = &junit.Failure{
 				Type:     "Difference",
-				Message:  fmt.Sprintf("Differences found in CR: %s, Compared To Refernce CR: %s", diff.CRName, diff.CorrelatedTemplate),
+				Message:  fmt.Sprintf("Differences found in CR: %s, Compared To Reference CR: %s", diff.CRName, diff.CorrelatedTemplate),
 				Contents: diff.DiffOutput,
 			}
 		}
 
-		diffSuite.TestCases = append(diffSuite.TestCases, testcase)
+		diffSuite.TestCases = append(diffSuite.TestCases, testCase)
 	}
 
 	return diffSuite
@@ -87,7 +87,7 @@ func createMissingCRsSuite(summary compare.Summary) junit.TestSuite {
 			for _, cr := range componentCRs {
 				suite.TestCases = append(suite.TestCases, junit.TestCase{
 					Name:      fmt.Sprintf("Missing CR: %s", cr),
-					Classname: fmt.Sprintf("Part:%s Compomnet: %s", partName, componentName),
+					Classname: fmt.Sprintf("Part:%s Component: %s", partName, componentName),
 					Failure: &junit.Failure{
 						Type:    "Missing Cluster CR",
 						Message: fmt.Sprintf("Required CR by the reference %q is missing from cluster", cr),
@@ -137,7 +137,7 @@ func createUnmatchedSuite(summary compare.Summary) junit.TestSuite {
 	// If no unmatched CRs are found, include a single test case indicating all CRs are matched
 	if len(summary.UnmatchedCRS) == 0 {
 		unmatchedSuite.TestCases = append(unmatchedSuite.TestCases, junit.TestCase{
-			Name: "All CLuster CRs are matched to reference CRs ",
+			Name: "All Cluster CRs are matched to reference CRs ",
 		})
 		unmatchedSuite.Tests = 1
 		return unmatchedSuite

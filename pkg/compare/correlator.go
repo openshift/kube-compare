@@ -18,19 +18,19 @@ import (
 
 var fieldSeparator = "_"
 
-// Corelator provides an abstraction that allow the usage of different Resource correlation logics
+// Correlator provides an abstraction that allow the usage of different Resource correlation logics
 // in the kubectl cluster-compare. The correlation process Matches for each Resource a template.
-type Corelator interface {
+type Correlator interface {
 	Match(*unstructured.Unstructured) (*template.Template, error)
 }
 
-// UnknownMatch an error that can be returned by a Corelator in a case no template was matched for a Resource.
+// UnknownMatch an error that can be returned by a Correlator in a case no template was matched for a Resource.
 type UnknownMatch struct {
 	Resource *unstructured.Unstructured
 }
 
 func (e UnknownMatch) Error() string {
-	return fmt.Sprintf("Template Couldnt be matched for: %s", apiKindNamespaceName(e.Resource))
+	return fmt.Sprintf("Template couldn't be matched for: %s", apiKindNamespaceName(e.Resource))
 }
 
 func apiKindNamespaceName(r *unstructured.Unstructured) string {
@@ -40,28 +40,28 @@ func apiKindNamespaceName(r *unstructured.Unstructured) string {
 	return strings.Join([]string{r.GetAPIVersion(), r.GetKind(), r.GetNamespace(), r.GetName()}, fieldSeparator)
 }
 
-// MultipleMatches an error that can be returned by a Corelator in a case multiple template Matches were found for a Resource.
+// MultipleMatches an error that can be returned by a Correlator in a case multiple template Matches were found for a Resource.
 type MultipleMatches struct {
 	Resource *unstructured.Unstructured
 	Matches  []*template.Template
 }
 
 func (e MultipleMatches) Error() string {
-	return fmt.Sprintf("Multiple Matches were found for: %s. the Matches found are: %s", apiKindNamespaceName(e.Resource), getTemplatesName(e.Matches))
+	return fmt.Sprintf("Multiple matches were found for: %s. The matches found are: %s", apiKindNamespaceName(e.Resource), getTemplatesName(e.Matches))
 }
 
-// MultiCorelator Matches templates by attempting to find a match with one of its predefined Corelators.
-type MultiCorelator struct {
-	corelators []Corelator
+// MultiCorrelator Matches templates by attempting to find a match with one of its predefined Correlators.
+type MultiCorrelator struct {
+	correlators []Correlator
 }
 
-func NewMultiCorealtor(corelators []Corelator) *MultiCorelator {
-	return &MultiCorelator{corelators: corelators}
+func NewMultiCorrelator(correlators []Correlator) *MultiCorrelator {
+	return &MultiCorrelator{correlators: correlators}
 }
 
-func (c MultiCorelator) Match(object *unstructured.Unstructured) (*template.Template, error) {
+func (c MultiCorrelator) Match(object *unstructured.Unstructured) (*template.Template, error) {
 	var errs []error
-	for _, core := range c.corelators {
+	for _, core := range c.correlators {
 		temp, err := core.Match(object)
 		if err == nil || (!errors.As(err, &UnknownMatch{}) && !errors.As(err, &MultipleMatches{})) {
 			return temp, err
@@ -71,15 +71,15 @@ func (c MultiCorelator) Match(object *unstructured.Unstructured) (*template.Temp
 	return nil, errors.Join(errs...)
 }
 
-// ExactMatchCorelator Matches templates by exact match between a predefined config including pairs of Resource names and there equivalent template.
+// ExactMatchCorrelator Matches templates by exact match between a predefined config including pairs of Resource names and there equivalent template.
 // The names of the resources are in the apiVersion-kind-namespace-name format.
 // For fields that are not namespaced apiVersion-kind-name format will be used.
-type ExactMatchCorelator struct {
+type ExactMatchCorrelator struct {
 	apiKindNamespaceName map[string]*template.Template
 }
 
-func NewExactMatchCorelator(crToTemplate map[string]string, templates []*template.Template) (*ExactMatchCorelator, error) {
-	core := ExactMatchCorelator{}
+func NewExactMatchCorrelator(crToTemplate map[string]string, templates []*template.Template) (*ExactMatchCorrelator, error) {
+	core := ExactMatchCorrelator{}
 	core.apiKindNamespaceName = make(map[string]*template.Template)
 	nameToTemplate := make(map[string]*template.Template)
 	for _, temp := range templates {
@@ -96,7 +96,7 @@ func NewExactMatchCorelator(crToTemplate map[string]string, templates []*templat
 	return &core, nil
 }
 
-func (c ExactMatchCorelator) Match(object *unstructured.Unstructured) (*template.Template, error) {
+func (c ExactMatchCorrelator) Match(object *unstructured.Unstructured) (*template.Template, error) {
 	temp, ok := c.apiKindNamespaceName[apiKindNamespaceName(object)]
 	if !ok {
 		return nil, UnknownMatch{Resource: object}
@@ -104,14 +104,14 @@ func (c ExactMatchCorelator) Match(object *unstructured.Unstructured) (*template
 	return temp, nil
 }
 
-// GroupCorelator Matches templates by hashing predefined fields.
+// GroupCorrelator Matches templates by hashing predefined fields.
 // All The templates are indexed by  hashing groups of `indexed` fields. The `indexed` fields can be nested.
 // Resources will be attempted to be matched with hashing by the group with the largest amount of `indexed` fields.
-// In case a Resource Matches by a hash a group of templates the group corelator will continue looking for a match
+// In case a Resource Matches by a hash a group of templates the group correlator will continue looking for a match
 // (with groups with less `indexed fields`) until it finds a distinct match, in case it doesn't, MultipleMatches error
 // will be returned.
 // Templates will be only indexed by a group of fields only if all fields in group are not templated.
-type GroupCorelator struct {
+type GroupCorrelator struct {
 	// List of groups of nested fields (each field is represented by []string)
 	fieldGroups [][][]string
 	//List of Hash functions for groups of fields organized in same order of fieldGroups
@@ -120,13 +120,13 @@ type GroupCorelator struct {
 	templatesByGroups []map[string][]*template.Template
 }
 
-// NewGroupCorelator creates a new GroupCorelator using inputted fieldGroups and generated GroupFunctions and templatesByGroups.
+// NewGroupCorrelator creates a new GroupCorrelator using inputted fieldGroups and generated GroupFunctions and templatesByGroups.
 // The templates will be divided into different kinds of groups based on the fields that are templated. Templates will be added
 // to the kind of group that contains the biggest amount of fully defined `indexed` fields.
 // For fieldsGroups =  {{{"metadata", "namespace"}, {"kind"}}, {{"kind"}}} and the following templates: [fixedKindTemplate, fixedNamespaceKindTemplate]
 // the fixedNamespaceKindTemplate will be added to a mapping where the keys are  in the format of `namespace_kind`. The fixedKindTemplate
 // will be added to a mapping where the keys are  in the format of `kind`.
-func NewGroupCorelator(fieldGroups [][][]string, templates []*template.Template) (*GroupCorelator, error) {
+func NewGroupCorrelator(fieldGroups [][][]string, templates []*template.Template) (*GroupCorrelator, error) {
 	var functionGroups []func(*unstructured.Unstructured) (group string, err error)
 	sort.Slice(fieldGroups, func(i, j int) bool {
 		return len(fieldGroups[i]) >= len(fieldGroups[j])
@@ -134,7 +134,7 @@ func NewGroupCorelator(fieldGroups [][][]string, templates []*template.Template)
 	for _, group := range fieldGroups {
 		functionGroups = append(functionGroups, createGroupHashFunc(group))
 	}
-	core := GroupCorelator{fieldGroups: fieldGroups, GroupFunctions: functionGroups}
+	core := GroupCorrelator{fieldGroups: fieldGroups, GroupFunctions: functionGroups}
 	mappings, err := groups.Divide(templates, core.getGroupsFunction(), extractMetadata, functionGroups...)
 	if err != nil {
 		return nil, err
@@ -144,7 +144,7 @@ func NewGroupCorelator(fieldGroups [][][]string, templates []*template.Template)
 		res := groups.GetWithMoreThen(mapping, 1)
 		if res != nil {
 			klog.Warningf("More then one template with same %s. These templates wont be used for"+
-				" corelation. To use them use different corelator (manual matching) or remove one of them from the"+
+				" correlation. To use them use different correlator (manual matching) or remove one of them from the"+
 				" reference.  Template names are: %s", getFields(fieldGroups[i]), getTemplatesName(res))
 
 		}
@@ -153,11 +153,11 @@ func NewGroupCorelator(fieldGroups [][][]string, templates []*template.Template)
 }
 
 func getFields(fields [][]string) string {
-	var stingifedFields []string
+	var stringifiedFields []string
 	for _, field := range fields {
-		stingifedFields = append(stingifedFields, strings.Join(field, fieldSeparator))
+		stringifiedFields = append(stringifiedFields, strings.Join(field, fieldSeparator))
 	}
-	return strings.Join(stingifedFields, ", ")
+	return strings.Join(stringifiedFields, ", ")
 }
 
 // createGroupHashFunc creates a hashing function for a specific field group
@@ -167,7 +167,7 @@ func createGroupHashFunc(fieldGroup [][]string) func(*unstructured.Unstructured)
 		for _, fields := range fieldGroup {
 			value, isFound, NotStringErr := unstructured.NestedString(cr.Object, fields...)
 			if !isFound {
-				return "", fmt.Errorf("the field %s doesn't exsist in resource", strings.Join(fields, fieldSeparator))
+				return "", fmt.Errorf("the field %s doesn't exist in resource", strings.Join(fields, fieldSeparator))
 			}
 			if NotStringErr != nil {
 				return "", fmt.Errorf("the field %s isn't string - grouping by non string values isn't supported", strings.Join(fields, fieldSeparator))
@@ -179,7 +179,7 @@ func createGroupHashFunc(fieldGroup [][]string) func(*unstructured.Unstructured)
 	return groupHashFunc
 }
 
-func (c *GroupCorelator) getGroupsFunction() func(cr *unstructured.Unstructured) ([]int, error) {
+func (c *GroupCorrelator) getGroupsFunction() func(cr *unstructured.Unstructured) ([]int, error) {
 	return func(cr *unstructured.Unstructured) ([]int, error) {
 		lenGroupMatch := 0
 		var groupIndexes []int
@@ -215,7 +215,7 @@ func getTemplatesName(templates []*template.Template) string {
 	return strings.Join(names, ", ")
 }
 
-func (c *GroupCorelator) Match(object *unstructured.Unstructured) (*template.Template, error) {
+func (c *GroupCorrelator) Match(object *unstructured.Unstructured) (*template.Template, error) {
 	var multipleMatchError error
 	for i, group := range c.templatesByGroups {
 		group_hash, _ := c.GroupFunctions[i](object)
@@ -233,9 +233,9 @@ func (c *GroupCorelator) Match(object *unstructured.Unstructured) (*template.Tem
 	return nil, UnknownMatch{Resource: object}
 }
 
-// MetricsCorelatorDecorator Matches templates by using an existing correlator and gathers summary info related the correlation.
-type MetricsCorelatorDecorator struct {
-	corelator             *Corelator
+// MetricsCorrelatorDecorator Matches templates by using an existing correlator and gathers summary info related the correlation.
+type MetricsCorrelatorDecorator struct {
+	correlator            *Correlator
 	UnMatchedCRs          []*unstructured.Unstructured
 	unMatchedLock         sync.Mutex
 	MatchedTemplatesNames map[string]bool
@@ -244,9 +244,9 @@ type MetricsCorelatorDecorator struct {
 	errsToIgnore          []error
 }
 
-func NewMetricsCorelatorDecorator(corelator Corelator, parts []Part, errsToIgnore []error) *MetricsCorelatorDecorator {
-	cr := MetricsCorelatorDecorator{
-		corelator:             &corelator,
+func NewMetricsCorrelatorDecorator(correlator Correlator, parts []Part, errsToIgnore []error) *MetricsCorrelatorDecorator {
+	cr := MetricsCorrelatorDecorator{
+		correlator:            &correlator,
 		UnMatchedCRs:          []*unstructured.Unstructured{},
 		MatchedTemplatesNames: map[string]bool{},
 		parts:                 parts,
@@ -255,8 +255,8 @@ func NewMetricsCorelatorDecorator(corelator Corelator, parts []Part, errsToIgnor
 	return &cr
 }
 
-func (c *MetricsCorelatorDecorator) Match(object *unstructured.Unstructured) (*template.Template, error) {
-	temp, err := (*c.corelator).Match(object)
+func (c *MetricsCorrelatorDecorator) Match(object *unstructured.Unstructured) (*template.Template, error) {
+	temp, err := (*c.correlator).Match(object)
 	if err != nil && !containOnly(err, c.errsToIgnore) {
 		c.addUNMatch(object)
 	}
@@ -290,13 +290,13 @@ func containOnly(err error, errTypes []error) bool {
 	return true
 }
 
-func (c *MetricsCorelatorDecorator) addMatch(temp *template.Template) {
+func (c *MetricsCorrelatorDecorator) addMatch(temp *template.Template) {
 	c.matchedLock.Lock()
 	c.MatchedTemplatesNames[temp.Name()] = true
 	c.matchedLock.Unlock()
 }
 
-func (c *MetricsCorelatorDecorator) addUNMatch(cr *unstructured.Unstructured) {
+func (c *MetricsCorrelatorDecorator) addUNMatch(cr *unstructured.Unstructured) {
 	c.unMatchedLock.Lock()
 	c.UnMatchedCRs = append(c.UnMatchedCRs, cr)
 	c.unMatchedLock.Unlock()

@@ -38,7 +38,7 @@ func TestCompareRun(t *testing.T) {
 	tests := []Test{
 		{
 			name:         "Diff Test Suite Creation When There Are Diffs",
-			referenceDir: "ReffWithTemplateFunctionsRendersAsExpected",
+			referenceDir: "RefWithTemplateFunctionsRendersAsExpected",
 		},
 		{
 			name:         "Creation Of Missing CRs And Unmatched CRs And Diff Tests Suites When No Diffs",
@@ -70,7 +70,7 @@ func TestCompareRun(t *testing.T) {
 
 			err = cmd.RunE(cmd, []string{})
 			if err != nil {
-				t.Fatalf("unexpected error occured in test %s, erorr: %s", test.name, err)
+				t.Fatalf("unexpected error occurred in test %s, error: %s", test.name, err)
 			}
 
 			actualOutput, err := os.ReadFile(outputPath)

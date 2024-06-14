@@ -22,7 +22,7 @@ But first, what do we understand by Reference Configuration? The Reference Confi
 - A published `metadata.yaml` identifies the set of compliant Reference Configuration CR objects for the covered use case. Any differences in cluster configuration found when running the `kubectl cluster compare` tool shall be identified as a deviation from the expected Reference Configuration.  
 
 For guidance on the Reference Configuration defined by `metadata.yaml` see
-[this guide](./ReferenceConfigGuide.md).
+[this guide](./reference-config-guide.md).
 
 ### Optional vs required
 
@@ -31,7 +31,7 @@ For guidance on the Reference Configuration defined by `metadata.yaml` see
 The "kubectl cluster-compare" tool works by iterating across the CRs found in the reference configuration and finding
 CRs from the users configuration (live cluster or collection of CRs) which should be compared to the
 reference. Typically the relevant user CRs have unique names or are contained in user defined namespaces. The tool
-correlates reference CRs to user CRs as described in this section in order to account for the expected variatoins in
+correlates reference CRs to user CRs as described in this section in order to account for the expected variations in
 naming without requiring the user to explicitly map reference to cluster CR.
 
 #### Correlating CRs
@@ -93,25 +93,25 @@ is out of scope.
 
 This tool performs a diff of a CR against the reference. It does not have access to resources outside the scope of what
 is available through the cluster's API. This places validation of the configuration against underlying platform
-hardware, os configuratoin, etc (unless available through the api) out of scope.
+hardware, os configuration, etc (unless available through the api) out of scope.
 
 ## Example use cases
 
 To Compare a known valid reference configuration with a live cluster:
 
-`kubectl cluster-compare -r <referenceConfigurationDirecotry>`
+`kubectl cluster-compare -r <referenceConfigurationDirectory>`
 
 To Compare a known valid reference configuration with a local set of CRs:
 
-`kubectl cluster-compare -r <referenceConfigurationDirecotry> -f <inputConfiguration>`
+`kubectl cluster-compare -r <referenceConfigurationDirectory> -f <inputConfiguration>`
 
 To Compare a known valid reference configuration with a live cluster and with a user config:
 
-`kubectl cluster-compare -r <referenceConfigurationDirecotry> -c <userConfig>`
+`kubectl cluster-compare -r <referenceConfigurationDirectory> -c <userConfig>`
 
 To Run a known valid reference configuration with a support archive output:
 
-`kubectl cluster-compare -r <referenceConfigurationDirecotry> -f "must-gather*/*/cluster-scoped-resources","must-gather*/*/namespaces" -R`
+`kubectl cluster-compare -r <referenceConfigurationDirectory> -f "must-gather*/*/cluster-scoped-resources","must-gather*/*/namespaces" -R`
 
 ## Understanding the output
 
@@ -187,7 +187,7 @@ metadata:
 
 In such scenarios take these steps:
 
-1. Ensure you are using the lastest version of tool.
+1. Ensure you are using the latest version of tool.
 
 1. Ensure you are using the most up-to-date version of the reference configuration.
 
@@ -196,6 +196,6 @@ In such scenarios take these steps:
 #### There can be more than one Reference Design CR of the same Kind
 
 In this case you will have a warning presented before the diff output, formatted similar to this:
-`More then one template with same apiVersion, metadata_name, metadata_namespace, kind. These templates wont be used for corelation. To use them use different corelator (manual matching) or remove one of them from the reference. Template names are: XConfig.yaml, YConfig.yaml`
+`More then one template with same apiVersion, metadata_name, metadata_namespace, kind. These templates wont be used for correlation. To use them use different correlator (manual matching) or remove one of them from the reference. Template names are: XConfig.yaml, YConfig.yaml`
 
 This means the template contains two CRs with the same apiversion-kind-name-namespace but different spec. In such cases comment out the template CRs from the metadata.yaml that are more accurate with CRs under comparison.

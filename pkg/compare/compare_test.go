@@ -110,26 +110,26 @@ const (
 	Live  CRSource = "live"
 )
 
-type ReffType string
+type RefType string
 
 const (
-	LocalReff ReffType = "LocalReff"
-	URL       ReffType = "URL"
+	LocalRef RefType = "LocalRef"
+	URL      RefType = "URL"
 )
 
 type Mode struct {
-	crSource   CRSource
-	reffSource ReffType
+	crSource  CRSource
+	refSource RefType
 }
 
 func (m *Mode) String() string {
-	if m.reffSource == URL {
-		return fmt.Sprintf("%s-%s", m.crSource, m.reffSource)
+	if m.refSource == URL {
+		return fmt.Sprintf("%s-%s", m.crSource, m.refSource)
 	}
 	return string(m.crSource)
 }
 
-var DefaultMode = Mode{crSource: Local, reffSource: LocalReff}
+var DefaultMode = Mode{crSource: Local, refSource: LocalRef}
 
 type Checks struct {
 	Out Check
@@ -166,12 +166,12 @@ func TestCompareRun(t *testing.T) {
 			checks:                defaultChecks,
 		},
 		{
-			name:   "Reffernce Directory Doesnt Exist",
+			name:   "Reference Directory Doesnt Exist",
 			mode:   []Mode{DefaultMode},
 			checks: defaultChecks,
 		},
 		{
-			name: "Reffernce Config File Doesnt Exist",
+			name: "Reference Config File Doesnt Exist",
 			mode: []Mode{DefaultMode},
 			checks: Checks{
 				Out: defaultCheckOut,
@@ -184,7 +184,7 @@ error code:2`),
 			},
 		},
 		{
-			name:   "Reffernce Config File Isnt Valid YAML",
+			name:   "Reference Config File Isnt Valid YAML",
 			mode:   []Mode{DefaultMode},
 			checks: defaultChecks,
 		},
@@ -210,7 +210,7 @@ error code:2`),
 		},
 		{
 			name:   "Template Has No Kind",
-			mode:   []Mode{{Live, LocalReff}},
+			mode:   []Mode{{Live, LocalRef}},
 			checks: defaultChecks,
 		},
 		{
@@ -251,22 +251,22 @@ error code:2`),
 		},
 		{
 			name:   "Test Local Resource File Doesnt exist",
-			mode:   []Mode{{Local, LocalReff}},
+			mode:   []Mode{{Local, LocalRef}},
 			checks: defaultChecks,
 		},
 		{
 			name:   "Templates Contain Kind That Is Not Recognizable In Live Cluster",
-			mode:   []Mode{{Live, LocalReff}, {Live, URL}},
+			mode:   []Mode{{Live, LocalRef}, {Live, URL}},
 			checks: defaultChecks,
 		},
 		{
 			name:   "All Required Templates Exist And There Are No Diffs",
-			mode:   []Mode{{Live, LocalReff}, {Local, LocalReff}, {Local, URL}, {Live, URL}},
+			mode:   []Mode{{Live, LocalRef}, {Local, LocalRef}, {Local, URL}, {Live, URL}},
 			checks: defaultChecks,
 		},
 		{
 			name:   "Diff in Custom Omitted Fields Isnt Shown",
-			mode:   []Mode{{Live, LocalReff}, {Local, LocalReff}, {Local, URL}},
+			mode:   []Mode{{Live, LocalRef}, {Local, LocalRef}, {Local, URL}},
 			checks: defaultChecks,
 		},
 		{
@@ -282,39 +282,39 @@ error code:2`),
 		},
 		{
 			name:                 "Manual Correlation Matches Are Prioritized Over Group Correlation",
-			mode:                 []Mode{{Live, LocalReff}, {Local, LocalReff}},
+			mode:                 []Mode{{Live, LocalRef}, {Local, LocalRef}},
 			shouldPassUserConfig: true,
 			checks:               defaultChecks,
 		},
 		{
 			name:   "Only Required Resources Of Required Component Are Reported Missing (Optional Resources Not Reported)",
-			mode:   []Mode{{Live, LocalReff}, {Local, LocalReff}},
+			mode:   []Mode{{Live, LocalRef}, {Local, LocalRef}},
 			checks: defaultChecks,
 		},
 		{
 			name:   "Required Resources Of Optional Component Are Not Reported Missing",
-			mode:   []Mode{{Live, LocalReff}, {Local, LocalReff}},
+			mode:   []Mode{{Live, LocalRef}, {Local, LocalRef}},
 			checks: defaultChecks,
 		},
 		{
 			name:   "Required Resources Of Optional Component Are Reported Missing If At Least One Of Resources In Group Is Included",
-			mode:   []Mode{{Live, LocalReff}, {Local, LocalReff}},
+			mode:   []Mode{{Live, LocalRef}, {Local, LocalRef}},
 			checks: defaultChecks,
 		},
 		{
-			name:   "Reff Template In Sub Dir Not Reported Missing",
-			mode:   []Mode{{Live, LocalReff}, {Local, LocalReff}, {Local, URL}},
+			name:   "Ref Template In Sub Dir Not Reported Missing",
+			mode:   []Mode{{Live, LocalRef}, {Local, LocalRef}, {Local, URL}},
 			checks: defaultChecks,
 		},
 		{
-			name:                 "Reff Template In Sub Dir Works With Manual Correlation",
-			mode:                 []Mode{{Live, LocalReff}, {Local, LocalReff}, {Local, URL}},
+			name:                 "Ref Template In Sub Dir Works With Manual Correlation",
+			mode:                 []Mode{{Live, LocalRef}, {Local, LocalRef}, {Local, URL}},
 			checks:               defaultChecks,
 			shouldPassUserConfig: true,
 		},
 		{
-			name:   "Reff With Template Functions Renders As Expected",
-			mode:   []Mode{{Live, LocalReff}, {Local, LocalReff}, {Local, URL}},
+			name:   "Ref With Template Functions Renders As Expected",
+			mode:   []Mode{{Live, LocalRef}, {Local, LocalRef}, {Local, URL}},
 			checks: defaultChecks,
 		},
 		{
@@ -391,7 +391,7 @@ func getCommand(t *testing.T, test *Test, modeIndex int, tf *cmdtesting.TestFact
 		updateTestDiscoveryClient(tf, discoveryResources)
 		setClient(t, resources, tf)
 	}
-	switch mode.reffSource {
+	switch mode.refSource {
 	case URL:
 		svr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			body, err := os.ReadFile(path.Join(test.getTestDir(), TestRefDirName, r.RequestURI))
@@ -404,7 +404,7 @@ func getCommand(t *testing.T, test *Test, modeIndex int, tf *cmdtesting.TestFact
 			svr.Close()
 		})
 
-	case LocalReff:
+	case LocalRef:
 		if !test.leaveTemplateDirEmpty {
 			require.NoError(t, cmd.Flags().Set("reference", path.Join(test.getTestDir(), TestRefDirName)))
 		}
@@ -467,7 +467,7 @@ func getResources(t *testing.T, resourcesDir string) ([]v1.APIResource, []*unstr
 			data := make(map[string]any)
 			err = yaml.Unmarshal(buf, &data)
 			if err != nil {
-				return errors.New("test Input isnt yaml")
+				return errors.New("test Input is not yaml")
 			}
 			r := unstructured.Unstructured{Object: data}
 			resources = append(resources, &r)
@@ -478,9 +478,9 @@ func getResources(t *testing.T, resourcesDir string) ([]v1.APIResource, []*unstr
 }
 
 func updateTestDiscoveryClient(tf *cmdtesting.TestFactory, discoveryResources []v1.APIResource) {
-	disccoveryClient := cmdtesting.NewFakeCachedDiscoveryClient()
+	discoveryClient := cmdtesting.NewFakeCachedDiscoveryClient()
 	ResourceList := v1.APIResourceList{APIResources: discoveryResources}
-	disccoveryClient.Resources = append(disccoveryClient.Resources, &ResourceList)
-	disccoveryClient.PreferredResources = append(disccoveryClient.PreferredResources, &ResourceList)
-	tf.WithDiscoveryClient(disccoveryClient)
+	discoveryClient.Resources = append(discoveryClient.Resources, &ResourceList)
+	discoveryClient.PreferredResources = append(discoveryClient.PreferredResources, &ResourceList)
+	tf.WithDiscoveryClient(discoveryClient)
 }
