@@ -60,7 +60,7 @@ func createDiffsSuite(output compare.Output) junit.TestSuite {
 		if diff.DiffOutput != "None" {
 			testcase.Failure = &junit.Failure{
 				Type:     "Difference",
-				Message:  fmt.Sprintf("Differences found in CR: %s, Compared To Refernce CR: %s", diff.CRName, diff.CorrelatedTemplate),
+				Message:  fmt.Sprintf("Differences found in CR: %s, Compared To Reference CR: %s", diff.CRName, diff.CorrelatedTemplate),
 				Contents: diff.DiffOutput,
 			}
 		}

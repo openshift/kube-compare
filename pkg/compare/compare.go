@@ -93,11 +93,11 @@ var (
 )
 
 const (
-	ReferenceFileName        = "metadata.yaml"
-	noReffDirectoryWasPassed = "\"Reference directory is required\""
-	reffDirNotExistsError    = "\"Reference directory doesnt exist\""
-	emptyTypes               = "templates don't contain any types (kind) of resources that are supported by the cluster"
-	DiffSeparator            = "**********************************"
+	ReferenceFileName       = "metadata.yaml"
+	noRefDirectoryWasPassed = "\"Reference directory is required\""
+	refDirNotExistsError    = "\"Reference directory doesn't exist\""
+	emptyTypes              = "templates don't contain any types (kind) of resources that are supported by the cluster"
+	DiffSeparator           = "**********************************"
 )
 
 const (
@@ -120,7 +120,7 @@ type Options struct {
 	templates   []*template.Template
 	local       bool
 	types       []string
-	reff        Reference
+	ref         Reference
 	userConfig  UserConfig
 	Concurrency int
 
@@ -214,10 +214,10 @@ func (o *Options) Complete(f kcmdutil.Factory, cmd *cobra.Command, args []string
 	o.builder = f.NewBuilder()
 
 	if o.templatesDir == "" {
-		return kcmdutil.UsageErrorf(cmd, noReffDirectoryWasPassed)
+		return kcmdutil.UsageErrorf(cmd, noRefDirectoryWasPassed)
 	}
 	if _, err := os.Stat(o.templatesDir); os.IsNotExist(err) && !isURL(o.templatesDir) {
-		return fmt.Errorf(reffDirNotExistsError)
+		return fmt.Errorf(refDirNotExistsError)
 	}
 
 	if isURL(o.templatesDir) {
@@ -230,7 +230,7 @@ func (o *Options) Complete(f kcmdutil.Factory, cmd *cobra.Command, args []string
 		fs = os.DirFS(rootPath)
 	}
 
-	o.reff, err = getReference(fs)
+	o.ref, err = getReference(fs)
 	if err != nil {
 		return err
 	}
@@ -241,7 +241,7 @@ func (o *Options) Complete(f kcmdutil.Factory, cmd *cobra.Command, args []string
 			return err
 		}
 	}
-	o.templates, err = parseTemplates(o.reff.getTemplates(), o.reff.TemplateFunctionFiles, fs)
+	o.templates, err = parseTemplates(o.ref.getTemplates(), o.ref.TemplateFunctionFiles, fs)
 	if err != nil {
 		return err
 	}
@@ -313,7 +313,7 @@ func (o *Options) setupCorrelators() error {
 	if !o.diffAll {
 		erorrsToIgnore = []error{UnknownMatch{}}
 	}
-	o.correlator = NewMetricsCorrelatorDecorator(NewMultiCorrelator(correlators), o.reff.Parts, errorsToIgnore)
+	o.correlator = NewMetricsCorrelatorDecorator(NewMultiCorrelator(correlators), o.ref.Parts, errorsToIgnore)
 	return nil
 }
 
@@ -448,7 +448,7 @@ func (o *Options) Run() error {
 		obj := InfoObject{
 			injectedObjfromTemplate: localRef,
 			clusterobj:              &clusterCR,
-			FieldsToOmit:            o.reff.FieldsToOmit,
+			FieldsToOmit:            o.ref.FieldsToOmit,
 		}
 		diffOutput, err := runDiff(obj, o.IOStreams, o.ShowManagedFields)
 		if err != nil {
@@ -463,7 +463,7 @@ func (o *Options) Run() error {
 	if err != nil {
 		return err
 	}
-	sum := newSummary(&o.reff, o.correlator, numDiffCRs)
+	sum := newSummary(&o.ref, o.correlator, numDiffCRs)
 
 	_, err = Output{Summary: sum, Diffs: &diffs}.Print(o.OutputFormat, o.Out)
 	if err != nil {

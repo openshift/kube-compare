@@ -38,7 +38,7 @@ func TestCompareRun(t *testing.T) {
 	tests := []Test{
 		{
 			name:         "Diff Test Suite Creation When There Are Diffs",
-			referenceDir: "ReffWithTemplateFunctionsRendersAsExpected",
+			referenceDir: "RefWithTemplateFunctionsRendersAsExpected",
 		},
 		{
 			name:         "Creation Of Missing CRs And Unmatched CRs And Diff Tests Suites When No Diffs",
