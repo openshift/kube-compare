@@ -149,6 +149,7 @@ type Test struct {
 	shouldDiffAll         bool
 	outputFormat          string
 	checks                Checks
+	showMore              bool
 }
 
 func (test *Test) getTestDir() string {
@@ -329,6 +330,47 @@ error code:2`),
 			outputFormat: Json,
 			checks:       defaultChecks,
 		},
+		{
+			name:   "Allow Undefined Extras",
+			mode:   []Mode{DefaultMode},
+			checks: defaultChecks,
+		},
+		{
+			name:   "Check No Overwrite",
+			mode:   []Mode{DefaultMode},
+			checks: defaultChecks,
+		},
+		{
+			name:   "Check Probes Merge",
+			mode:   []Mode{DefaultMode},
+			checks: defaultChecks,
+		},
+		{
+			name:   "Only Match Partial",
+			mode:   []Mode{DefaultMode},
+			checks: defaultChecks,
+		},
+		{
+			name:   "Only Match Full",
+			mode:   []Mode{DefaultMode},
+			checks: defaultChecks,
+		},
+		{
+			name:   "Check Probes Only Match",
+			mode:   []Mode{DefaultMode},
+			checks: defaultChecks,
+		},
+		{
+			name:     "Show More Flag",
+			mode:     []Mode{DefaultMode},
+			showMore: true,
+			checks:   defaultChecks,
+		},
+		{
+			name:   "Allow Undefined Extras Via Merge Helper",
+			mode:   []Mode{DefaultMode},
+			checks: defaultChecks,
+		},
 	}
 	tf := cmdtesting.NewTestFactory()
 	testFlags := flag.NewFlagSet("test", flag.ContinueOnError)
@@ -409,6 +451,7 @@ func getCommand(t *testing.T, test *Test, modeIndex int, tf *cmdtesting.TestFact
 			require.NoError(t, cmd.Flags().Set("reference", path.Join(test.getTestDir(), TestRefDirName)))
 		}
 	}
+	require.NoError(t, cmd.Flags().Set("show-more", fmt.Sprintf("%v", test.showMore)))
 	return cmd
 }
 

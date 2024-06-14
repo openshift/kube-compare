@@ -1,0 +1,32 @@
+
+**********************************
+
+Cluster CR: v1_Pod_liveness-exec
+Reference File: pod.yaml
+Diff Output: diff -u -N TEMP/v1_pod_liveness-exec TEMP/v1_pod_liveness-exec
+--- TEMP/v1_pod_liveness-exec	DATE
++++ TEMP/v1_pod_liveness-exec	DATE
+@@ -12,10 +12,12 @@
+     - touch /tmp/healthy; sleep 30; rm -f /tmp/healthy; sleep 600
+     image: registry.k8s.io/busybox
+     livenessProbe:
+-      exec:
+-        command:
+-        - cat
+-        - /tmp/healthy
++      httpGet:
++        httpHeaders:
++        - name: Custom-Header
++          value: Awesome
++        path: /healthz
++        port: 8080
+       initialDelaySeconds: 5
+       periodSeconds: 5
+     name: liveness
+
+**********************************
+
+Summary
+CRs with diffs: 1
+No CRs are missing from the cluster
+No CRs are unmatched to reference CRs

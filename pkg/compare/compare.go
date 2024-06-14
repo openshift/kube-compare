@@ -15,6 +15,7 @@ import (
 	"strings"
 	"text/template"
 
+	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/gosimple/slug"
 	"github.com/openshift/kube-compare/pkg/groups"
 	"github.com/samber/lo"
@@ -114,10 +115,11 @@ type Options struct {
 	diffAll            bool
 	ShowManagedFields  bool
 	OutputFormat       string
+	showMore           bool
 
 	builder     *resource.Builder
 	correlator  *MetricsCorrelatorDecorator
-	templates   []*template.Template
+	templates   []*ReferenceTemplate
 	local       bool
 	types       []string
 	ref         Reference
@@ -171,6 +173,7 @@ func NewCmd(f kcmdutil.Factory, streams genericiooptions.IOStreams) *cobra.Comma
 	cmd.Flags().BoolVarP(&options.diffAll, "all-resources", "A", options.diffAll,
 		"If present, In live mode will try to match all resources that are from the types mentioned in the reference. "+
 			"In local mode will try to match all resources passed to the command")
+	cmd.Flags().BoolVarP(&options.showMore, "show-more", "v", options.showMore, "Will match reference exactly")
 
 	cmd.Flags().StringVarP(&options.OutputFormat, "output", "o", "", fmt.Sprintf(`Output format. One of: (%s)`, strings.Join(OutputFormats, ", ")))
 	kcmdutil.CheckErr(cmd.RegisterFlagCompletionFunc(
@@ -242,7 +245,7 @@ func (o *Options) Complete(f kcmdutil.Factory, cmd *cobra.Command, args []string
 			return err
 		}
 	}
-	o.templates, err = parseTemplates(o.ref.getTemplates(), o.ref.TemplateFunctionFiles, fs)
+	o.templates, err = parseTemplates(o.ref.getTemplates(), o.ref.TemplateFunctionFiles, fs, o)
 	if err != nil {
 		return err
 	}
@@ -371,7 +374,7 @@ func getSupportedResourceTypes(client discovery.CachedDiscoveryInterface) (map[s
 
 // findAllRequestedSupportedTypes divides the requested types in to two groups: supported types and unsupported types based on if they are specified as supported.
 // The list of supported types will include the types in the form of {kind}.{group}.
-func findAllRequestedSupportedTypes(supportedTypesWithGroups map[string][]string, requestedTypes map[string][]*template.Template) ([]string, []string) {
+func findAllRequestedSupportedTypes(supportedTypesWithGroups map[string][]string, requestedTypes map[string][]*ReferenceTemplate) ([]string, []string) {
 	var typesIncludingGroup []string
 	var notSupportedTypes []string
 	for kind := range requestedTypes {
@@ -438,22 +441,31 @@ func (o *Options) Run() error {
 
 	err := r.Visit(func(info *resource.Info, _ error) error { // ignoring previous errors
 		clusterCRMapping, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(info.Object)
-		clusterCR := unstructured.Unstructured{Object: clusterCRMapping}
+		clusterCR := &unstructured.Unstructured{Object: clusterCRMapping}
 
-		temp, err := o.correlator.Match(&clusterCR)
+		temp, err := o.correlator.Match(clusterCR)
 		if err != nil {
 			return err
 		}
 
-		localRef, err := executeYAMLTemplate(temp, clusterCR.Object)
+		localRef, err := temp.Exec(clusterCR.Object)
 		if err != nil {
 			return err
+		}
+
+
+
+
+		allowMerge := temp.allowMerge
+		if o.showMore {
+			allowMerge = false
 		}
 
 		obj := InfoObject{
 			injectedObjFromTemplate: localRef,
-			clusterObj:              &clusterCR,
+			clusterObj:              clusterCR,
 			FieldsToOmit:            o.ref.FieldsToOmit,
+			allowMerge:              allowMerge,
 		}
 		diffOutput, err := runDiff(obj, o.IOStreams, o.ShowManagedFields)
 		if err != nil {
@@ -462,7 +474,8 @@ func (o *Options) Run() error {
 		if diffOutput.Len() > 0 {
 			numDiffCRs += 1
 		}
-		diffs = append(diffs, DiffSum{DiffOutput: diffOutput.String(), CorrelatedTemplate: temp.Name(), CRName: apiKindNamespaceName(&clusterCR)})
+
+		diffs = append(diffs, DiffSum{DiffOutput: diffOutput.String(), CorrelatedTemplate: temp.Name(), CRName: apiKindNamespaceName(clusterCR)})
 		return err
 	})
 	if err != nil {
@@ -488,6 +501,7 @@ type InfoObject struct {
 	injectedObjFromTemplate *unstructured.Unstructured
 	clusterObj              *unstructured.Unstructured
 	FieldsToOmit            [][]string
+	allowMerge              bool
 }
 
 // Live Returns the cluster version of the object
@@ -498,8 +512,15 @@ func (obj InfoObject) Live() runtime.Object {
 
 // Merged Returns the Injected Reference Version of the Resource
 func (obj InfoObject) Merged() (runtime.Object, error) {
+	var err error
+	if obj.allowMerge {
+		obj.injectedObjFromTemplate, err = mergeManifests(obj.injectedObjFromTemplate, obj.clusterObj)
+		if err != nil {
+			klog.Errorf("failed to properly merge the manifests for %s some diff may be incorrect: %s", apiKindNamespaceName(obj.clusterObj), err)
+		}
+	}
 	omitFields(obj.injectedObjFromTemplate.Object, obj.FieldsToOmit)
-	return obj.injectedObjFromTemplate, nil
+	return obj.injectedObjFromTemplate, err
 }
 
 func omitFields(object map[string]any, fields [][]string) {
@@ -512,6 +533,32 @@ func omitFields(object map[string]any, fields [][]string) {
 			}
 		}
 	}
+}
+
+// mergeManifests will return an attempt to update the localRef with the clusterCR. In the case of an error it will return an unmodified localRef.
+func mergeManifests(localRef, clusterCR *unstructured.Unstructured) (updateLocalRef *unstructured.Unstructured, err error) {
+	localRefData, err := json.Marshal(localRef)
+	if err != nil {
+		return localRef, fmt.Errorf("failed to marshal reference CR: %w", err)
+	}
+
+	clusterCRData, err := json.Marshal(clusterCR.Object)
+	if err != nil {
+		return localRef, fmt.Errorf("failed to marshal cluster CR: %w", err)
+	}
+
+	localRefUpdatedData, err := jsonpatch.MergePatch(clusterCRData, localRefData)
+	if err != nil {
+		return localRef, fmt.Errorf("failed to merge cluster and reference CRs: %w", err)
+	}
+
+	localRefUpdatedObj := make(map[string]any)
+	err = json.Unmarshal(localRefUpdatedData, &localRefUpdatedObj)
+	if err != nil {
+		return localRef, fmt.Errorf("failed to unmarshal updated manifest: %w", err)
+	}
+
+	return &unstructured.Unstructured{Object: localRefUpdatedObj}, nil
 }
 
 func (obj InfoObject) Name() string {

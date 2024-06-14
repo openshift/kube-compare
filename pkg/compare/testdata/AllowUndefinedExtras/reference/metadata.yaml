@@ -1,0 +1,7 @@
+Parts:
+  - name: ExamplePart
+    Components:
+      - name: Namespace
+        type: Required
+        requiredTemplates:
+          - namespace.yaml

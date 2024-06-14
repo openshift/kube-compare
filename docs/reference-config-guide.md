@@ -41,7 +41,7 @@ Thus, the file `metadata.yaml` includes an array denoted by `Parts` of one or mo
 ```yaml
 # Every part denotes typically denotes a workload or set of workloads
  Parts:
-  - name: ExamplePart1 
+  - name: ExamplePart1
     Components:
       - name: ExampleComponent1
         ---- here goes ExampleComponent1 configuration ----
@@ -104,4 +104,131 @@ spec:
     {{- if .sepc.selector.tier }} #2 optional fields
     tier: frontend
     {{- end }}
+```
+
+# Per-template configuration
+
+## Pre-merging
+
+If you don't want to check live-manifest exactly matches your template you can enable merging.
+This will do a strategic merge of the template into the manifest which will remove features not mentioned in the template from the diff.
+This can be useful when dealing with annotation or labels which may be of no consiquence to your check.
+Note that this could cover up differences in things you do care about so use it with care.
+This can be configured for a manifest by adding
+`# cluster-compare: allow-undefined-extras=true` in your template
+
+example when comparing the template:
+
+```yaml
+# cluster-compare: allow-undefined-extras=true
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: openshift-storage
+  annotations:
+    workload.openshift.io/allowed: management
+  labels:
+    openshift.io/cluster-monitoring: "true"
+```
+
+to the manifest:
+
+```yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  annotations:
+    openshift.io/sa.scc.mcs: s0:c29,c14
+    openshift.io/sa.scc.supplemental-groups: 1000840000/10000
+    openshift.io/sa.scc.uid-range: 1000840000/10000
+    reclaimspace.csiaddons.openshift.io/schedule: '@weekly'
+  creationTimestamp: "2024-06-07T17:40:07Z"
+  labels:
+    kubernetes.io/metadata.name: openshift-storage
+    olm.operatorgroup.uid/ffcf3f2d-3e37-4772-97bc-983cdfce128b: ""
+    pod-security.kubernetes.io/audit: privileged
+    pod-security.kubernetes.io/audit-version: v1.24
+    pod-security.kubernetes.io/warn: privileged
+    pod-security.kubernetes.io/warn-version: v1.24
+    security.openshift.io/scc.podSecurityLabelSync: "true"
+  name: openshift-storage
+  resourceVersion: "13323419"
+  uid: 507a5a4e-4fca-4dc3-b246-36359cbe07bf
+spec:
+  finalizers:
+  - kubernetes
+status:
+  phase: Active
+```
+
+you will get a diff of:
+
+```shell
+**********************************
+
+Cluster CR: v1_Namespace_openshift-storage
+Reference File: namespace.yaml
+Diff Output: diff -u -N TEMP/v1_namespace_openshift-storage TEMP/v1_namespace_openshift-storage
+--- TEMP/v1_namespace_openshift-storage DATE
++++ TEMP/v1_namespace_openshift-storage DATE
+@@ -6,11 +6,9 @@
+     openshift.io/sa.scc.supplemental-groups: 1000840000/10000
+     openshift.io/sa.scc.uid-range: 1000840000/10000
+     reclaimspace.csiaddons.openshift.io/schedule: '@weekly'
+-    workload.openshift.io/allowed: management
+   labels:
+     kubernetes.io/metadata.name: openshift-storage
+     olm.operatorgroup.uid/ffcf3f2d-3e37-4772-97bc-983cdfce128b: ""
+-    openshift.io/cluster-monitoring: "true"
+     pod-security.kubernetes.io/audit: privileged
+     pod-security.kubernetes.io/audit-version: v1.24
+     pod-security.kubernetes.io/warn: privileged
+
+**********************************
+
+Summary
+CRs with diffs: 1
+No CRs are missing from the cluster
+No CRs are unmatched to reference CRs
+```
+
+instead of
+
+```shell
+**********************************
+
+Cluster CR: v1_Namespace_openshift-storage
+Reference File: namespace.yaml
+Diff Output: diff -u -N TEMP/v1_namespace_openshift-storage TEMP/v1_namespace_openshift-storage
+--- TEMP/v1_namespace_openshift-storage DATE
++++ TEMP/v1_namespace_openshift-storage DATE
+@@ -2,7 +2,19 @@
+ kind: Namespace
+ metadata:
+   annotations:
+-    workload.openshift.io/allowed: management
++    openshift.io/sa.scc.mcs: s0:c29,c14
++    openshift.io/sa.scc.supplemental-groups: 1000840000/10000
++    openshift.io/sa.scc.uid-range: 1000840000/10000
++    reclaimspace.csiaddons.openshift.io/schedule: '@weekly'
+   labels:
+-    openshift.io/cluster-monitoring: "true"
++    kubernetes.io/metadata.name: openshift-storage
++    olm.operatorgroup.uid/ffcf3f2d-3e37-4772-97bc-983cdfce128b: ""
++    pod-security.kubernetes.io/audit: privileged
++    pod-security.kubernetes.io/audit-version: v1.24
++    pod-security.kubernetes.io/warn: privileged
++    pod-security.kubernetes.io/warn-version: v1.24
++    security.openshift.io/scc.podSecurityLabelSync: "true"
+   name: openshift-storage
++spec:
++  finalizers:
++  - kubernetes
+
+**********************************
+
+Summary
+CRs with diffs: 1
+No CRs are missing from the cluster
+No CRs are unmatched to reference CRs
 ```
