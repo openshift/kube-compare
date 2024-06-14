@@ -116,7 +116,7 @@ type Options struct {
 	OutputFormat       string
 
 	builder     *resource.Builder
-	corelator   *MetricsCorelatorDecorator
+	correlator  *MetricsCorrelatorDecorator
 	templates   []*template.Template
 	local       bool
 	types       []string
@@ -246,7 +246,7 @@ func (o *Options) Complete(f kcmdutil.Factory, cmd *cobra.Command, args []string
 		return err
 	}
 
-	err = o.setupCorelators()
+	err = o.setupCorrelators()
 	if err != nil {
 		return err
 	}
@@ -265,27 +265,27 @@ func (o *Options) Complete(f kcmdutil.Factory, cmd *cobra.Command, args []string
 	return o.setLiveSearchTypes(f)
 }
 
-// setupCorelators initializes a chain of corelators based on the provided options.
-// The correlation chain consists of base corelators wrapped with decorator corelators.
-// This function configures the following base corelators:
-//  1. ExactMatchCorelator - Matches CRs based on pairs specifying, for each cluster CR, its matching template.
-//     The pairs are read from the diff config and provided to the corelator.
-//  2. GroupCorelator - Matches CRs based on groups of fields that are similar in cluster resources and templates.
+// setupCorrelators initializes a chain of correlators based on the provided options.
+// The correlation chain consists of base correlators wrapped with decorator correlators.
+// This function configures the following base correlators:
+//  1. ExactMatchCorrelator - Matches CRs based on pairs specifying, for each cluster CR, its matching template.
+//     The pairs are read from the diff config and provided to the correlator.
+//  2. GroupCorrelator - Matches CRs based on groups of fields that are similar in cluster resources and templates.
 //
-// The base corelators are combined using a MultiCorelator, which attempts to match a template for each base corelator
-// in the specified sequence. The MultiCorelator is further wrapped with a MetricsCorelatorDecorator.
+// The base correlators are combined using a MultiCorrelator, which attempts to match a template for each base correlator
+// in the specified sequence. The MultiCorrelator is further wrapped with a MetricsCorrelatorDecorator.
 // This decorator not only correlates templates but also records metrics, allowing retrieval that then can be used to create a summary.
-func (o *Options) setupCorelators() error {
-	var corelators []Corelator
+func (o *Options) setupCorrelators() error {
+	var correlators []Correlator
 	if len(o.userConfig.CorrelationSettings.ManualCorrelation.CorrelationPairs) > 0 {
-		manualCorelator, err := NewExactMatchCorelator(o.userConfig.CorrelationSettings.ManualCorrelation.CorrelationPairs, o.templates)
+		manualCorrelator, err := NewExactMatchCorrelator(o.userConfig.CorrelationSettings.ManualCorrelation.CorrelationPairs, o.templates)
 		if err != nil {
 			return err
 		}
-		corelators = append(corelators, manualCorelator)
+		correlators = append(correlators, manualCorrelator)
 	}
 
-	// These fields are used by the GroupCorelator who attempts to match templates based on the following priority order:
+	// These fields are used by the GroupCorrelator who attempts to match templates based on the following priority order:
 	// apiVersion_name_namespace_kind. If no single match is found, it proceeds to trying matching by apiVersion_name_kind,
 	// then namespace_kind, and finally kind alone.
 	//
@@ -301,19 +301,19 @@ func (o *Options) setupCorelators() error {
 		{{"apiVersion"}, {"kind"}},
 		{{"kind"}},
 	}
-	groupCorelator, err := NewGroupCorelator(fieldGroups, o.templates)
+	groupCorrelator, err := NewGroupCorrelator(fieldGroups, o.templates)
 	if err != nil {
 		return err
 	}
 
-	corelators = append(corelators, groupCorelator)
+	correlators = append(correlators, groupCorrelator)
 
 	var erorrsToIgnore []error
 
 	if !o.diffAll {
 		erorrsToIgnore = []error{UnknownMatch{}}
 	}
-	o.corelator = NewMetricsCorelatorDecorator(NewMultiCorealtor(corelators), o.reff.Parts, erorrsToIgnore)
+	o.correlator = NewMetricsCorrelatorDecorator(NewMultiCorrelator(correlators), o.reff.Parts, errorsToIgnore)
 	return nil
 }
 
@@ -435,7 +435,7 @@ func (o *Options) Run() error {
 		clusterCRMapping, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(info.Object)
 		clusterCR := unstructured.Unstructured{Object: clusterCRMapping}
 
-		temp, err := o.corelator.Match(&clusterCR)
+		temp, err := o.correlator.Match(&clusterCR)
 		if err != nil {
 			return err
 		}
@@ -463,7 +463,7 @@ func (o *Options) Run() error {
 	if err != nil {
 		return err
 	}
-	sum := newSummary(&o.reff, o.corelator, numDiffCRs)
+	sum := newSummary(&o.reff, o.correlator, numDiffCRs)
 
 	_, err = Output{Summary: sum, Diffs: &diffs}.Print(o.OutputFormat, o.Out)
 	if err != nil {
@@ -543,7 +543,7 @@ type Summary struct {
 	NumDiffCRs   int                            `json:"NumDiffCRs"`
 }
 
-func newSummary(reference *Reference, c *MetricsCorelatorDecorator, numDiffCRs int) *Summary {
+func newSummary(reference *Reference, c *MetricsCorrelatorDecorator, numDiffCRs int) *Summary {
 	s := Summary{NumDiffCRs: numDiffCRs}
 	s.RequiredCRS, s.NumMissing = reference.getMissingCRs(c.MatchedTemplatesNames)
 	s.UnmatchedCRS = lo.Map(c.UnMatchedCRs, func(r *unstructured.Unstructured, i int) string {
