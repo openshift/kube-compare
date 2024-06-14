@@ -457,5 +457,5 @@ this enhancement:
 
 Another option is the builtin diff command:
 diff -t -y -w <(yq 'sort_keys(..)' /path/to/reference/config/cr) <(yq 'sort_keys(..)' /path/to/input/cr )
-The command works well on Comparison of two offline files but doesn't handle one-to-many matches and does not supress
+The command works well on Comparison of two offline files but doesn't handle one-to-many matches and does not suppress
 known managed fields and expected user variations.
