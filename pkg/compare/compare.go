@@ -308,10 +308,10 @@ func (o *Options) setupCorrelators() error {
 
 	correlators = append(correlators, groupCorrelator)
 
-	var erorrsToIgnore []error
+	var errorsToIgnore []error
 
 	if !o.diffAll {
-		erorrsToIgnore = []error{UnknownMatch{}}
+		errorsToIgnore = []error{UnknownMatch{}}
 	}
 	o.correlator = NewMetricsCorrelatorDecorator(NewMultiCorrelator(correlators), o.ref.Parts, errorsToIgnore)
 	return nil
@@ -446,8 +446,8 @@ func (o *Options) Run() error {
 		}
 
 		obj := InfoObject{
-			injectedObjfromTemplate: localRef,
-			clusterobj:              &clusterCR,
+			injectedObjFromTemplate: localRef,
+			clusterObj:              &clusterCR,
 			FieldsToOmit:            o.ref.FieldsToOmit,
 		}
 		diffOutput, err := runDiff(obj, o.IOStreams, o.ShowManagedFields)
@@ -480,21 +480,21 @@ func (o *Options) Run() error {
 
 // InfoObject matches the diff.Object interface, it contains the objects that shall be compared.
 type InfoObject struct {
-	injectedObjfromTemplate *unstructured.Unstructured
-	clusterobj              *unstructured.Unstructured
+	injectedObjFromTemplate *unstructured.Unstructured
+	clusterObj              *unstructured.Unstructured
 	FieldsToOmit            [][]string
 }
 
 // Live Returns the cluster version of the object
 func (obj InfoObject) Live() runtime.Object {
-	omitFields(obj.clusterobj.Object, obj.FieldsToOmit)
-	return obj.clusterobj
+	omitFields(obj.clusterObj.Object, obj.FieldsToOmit)
+	return obj.clusterObj
 }
 
 // Merged Returns the Injected Reference Version of the Resource
 func (obj InfoObject) Merged() (runtime.Object, error) {
-	omitFields(obj.injectedObjfromTemplate.Object, obj.FieldsToOmit)
-	return obj.injectedObjfromTemplate, nil
+	omitFields(obj.injectedObjFromTemplate.Object, obj.FieldsToOmit)
+	return obj.injectedObjFromTemplate, nil
 }
 
 func omitFields(object map[string]any, fields [][]string) {
@@ -510,7 +510,7 @@ func omitFields(object map[string]any, fields [][]string) {
 }
 
 func (obj InfoObject) Name() string {
-	return slug.Make(apiKindNamespaceName(obj.clusterobj))
+	return slug.Make(apiKindNamespaceName(obj.clusterObj))
 }
 
 // DiffSum Contains the diff output and correlation info of a specific CR
