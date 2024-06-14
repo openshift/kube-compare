@@ -99,19 +99,19 @@ hardware, os configuratoin, etc (unless available through the api) out of scope.
 
 To Compare a known valid reference configuration with a live cluster:
 
-`kubectl cluster-compare -r <referenceConfigurationDirecotry>`
+`kubectl cluster-compare -r <referenceConfigurationDirectory>`
 
 To Compare a known valid reference configuration with a local set of CRs:
 
-`kubectl cluster-compare -r <referenceConfigurationDirecotry> -f <inputConfiguration>`
+`kubectl cluster-compare -r <referenceConfigurationDirectory> -f <inputConfiguration>`
 
 To Compare a known valid reference configuration with a live cluster and with a user config:
 
-`kubectl cluster-compare -r <referenceConfigurationDirecotry> -c <userConfig>`
+`kubectl cluster-compare -r <referenceConfigurationDirectory> -c <userConfig>`
 
 To Run a known valid reference configuration with a support archive output:
 
-`kubectl cluster-compare -r <referenceConfigurationDirecotry> -f "must-gather*/*/cluster-scoped-resources","must-gather*/*/namespaces" -R`
+`kubectl cluster-compare -r <referenceConfigurationDirectory> -f "must-gather*/*/cluster-scoped-resources","must-gather*/*/namespaces" -R`
 
 ## Understanding the output
 
