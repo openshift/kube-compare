@@ -3,7 +3,7 @@ new: true
 new-from-rev: 722af08
 run:
   concurrency: 6
-  deadline: 5m
+  timeout: 5m
 linters:
   disable-all: true
   enable:
