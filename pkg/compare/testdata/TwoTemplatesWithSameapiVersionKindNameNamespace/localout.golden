@@ -4,7 +4,7 @@ More then one template with same apiVersion, metadata_name, metadata_namespace, 
 
 Summary
 CRs with diffs: 0
-CRs in reference missing from the cluster: 1 
+CRs in reference missing from the cluster: 1
 ExamplePart:
   DemonSets:
   - apps.v1.DaemonSet.kube-system.kindnet.yaml

@@ -41,7 +41,7 @@ Diff Output: diff -u -N TEMP/apps-v1_deployment_kubernetes-dashboard_kubernetes-
 
 Summary
 CRs with diffs: 1
-CRs in reference missing from the cluster: 1 
+CRs in reference missing from the cluster: 1
 ExamplePart:
   Dashboard:
   - deploymentDashboard.yaml

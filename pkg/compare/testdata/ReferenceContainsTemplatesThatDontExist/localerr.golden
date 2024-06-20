@@ -1,2 +1,2 @@
-error: an error occurred while parsing template: apps.v1.DaemonSet.kube-system.kindnet.yaml specified in the config. error: template: pattern matches no files: `apps.v1.DaemonSet.kube-system.kindnet.yaml` 
+error: an error occurred while parsing template: apps.v1.DaemonSet.kube-system.kindnet.yaml specified in the config. error: template: pattern matches no files: `apps.v1.DaemonSet.kube-system.kindnet.yaml`
 error code:2

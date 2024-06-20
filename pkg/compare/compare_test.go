@@ -178,7 +178,7 @@ func TestCompareRun(t *testing.T) {
 				Err: Check{
 					checkType: matchRegex,
 					value: strings.TrimSpace(`
-error: Reference config file not found. error: open .*metadata.yaml: no such file or directory 
+error: Reference config file not found. error: open .*metadata.yaml: no such file or directory
 error code:2`),
 				},
 			},
@@ -232,7 +232,7 @@ error code:2`),
 				Err: Check{
 					checkType: matchRegex,
 					value: strings.TrimSpace(`
-error: User Config File not found. error: open .*testdata/UserConfigDoesntExist/userconfig.yaml: no such file or directory 
+error: User Config File not found. error: open .*testdata/UserConfigDoesntExist/userconfig.yaml: no such file or directory
 error code:2`),
 				},
 			},
@@ -342,7 +342,7 @@ error code:2`),
 				klog.SetOutputBySeverity("INFO", out)
 				cmd := getCommand(t, &test, i, tf, &IOStream) // nolint:gosec
 				cmdutil.BehaviorOnFatal(func(str string, code int) {
-					errorStr := fmt.Sprintf("%s \nerror code:%d\n", removeInconsistentInfo(t, str), code)
+					errorStr := fmt.Sprintf("%s\nerror code:%d\n", removeInconsistentInfo(t, str), code)
 					test.checks.Err.check(t, test, mode, errorStr)
 					panic("Expected Error Test Case")
 				})
