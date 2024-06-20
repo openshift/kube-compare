@@ -1,0 +1,12 @@
+{{- $values := list (dict)}}
+{{- if .Values.ns}}
+{{- $values = .Values.ns }}
+{{- end }}
+{{- range $values -}}
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kubernetes-dashboard
+ 
+{{ end -}}

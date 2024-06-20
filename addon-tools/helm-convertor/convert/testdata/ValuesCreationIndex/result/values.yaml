@@ -1,0 +1,4 @@
+service:
+- metadata:
+    labels:
+      k8s-app: {}

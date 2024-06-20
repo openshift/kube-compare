@@ -1,0 +1,16 @@
+{{- $values := list (dict)}}
+{{- if .Values.service}}
+{{- $values = .Values.service }}
+{{- end }}
+{{- range $values -}}
+---
+kind: Service
+apiVersion: v1
+spec:
+  ports:
+    {{- range .spec.ports }}
+    - port: {{ .port }}
+      targetPort: {{ .targetPort }}
+    {{ end }}
+ 
+{{ end -}}

@@ -1,0 +1,8 @@
+parts:
+  - name: ExamplePart
+    components:
+      - name: DemonSets
+        type: Required
+        requiredTemplates:
+          - path: sa.yaml
+          - path: secret.yaml

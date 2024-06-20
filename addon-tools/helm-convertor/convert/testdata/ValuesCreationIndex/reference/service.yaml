@@ -1,0 +1,10 @@
+kind: Service
+apiVersion: v1
+metadata:
+  labels:
+    k8s-app: {{if .metadata.labels}}{{ index ( index .metadata "labels") "k8s-app" }}{{ end }} # tests also recursive index
+  name: name
+  namespace: kubernetes-dashboard
+spec:
+  selector:
+    k8s-app: "example"

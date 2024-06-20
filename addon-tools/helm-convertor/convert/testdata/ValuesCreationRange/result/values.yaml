@@ -1,0 +1,5 @@
+service:
+- spec:
+    ports:
+    - port: {}
+      targetPort: {}
