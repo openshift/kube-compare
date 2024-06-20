@@ -37,7 +37,7 @@ func FuncMap() template.FuncMap {
 	extra := template.FuncMap{
 		"toToml":        toTOML,
 		"toYaml":        toYAML,
-		"fromYaml":      fromYAML,
+		"fromYaml":      FromYAML,
 		"fromYamlArray": fromYAMLArray,
 		"toJson":        toJSON,
 		"fromJson":      fromJSON,
@@ -64,13 +64,13 @@ func toYAML(v any) string {
 	return strings.TrimSuffix(string(data), "\n")
 }
 
-// fromYAML converts a YAML document into a map[string]any.
+// FromYAML converts a YAML document into a map[string]any.
 //
 // This is not a general-purpose YAML parser, and will not parse all valid
 // YAML documents. Additionally, because its intended use is within templates
 // it tolerates errors. It will insert the returned error message string into
 // m["Error"] in the returned map.
-func fromYAML(str string) map[string]any {
+func FromYAML(str string) map[string]any {
 	m := map[string]any{}
 
 	if err := yaml.Unmarshal([]byte(str), &m); err != nil {
