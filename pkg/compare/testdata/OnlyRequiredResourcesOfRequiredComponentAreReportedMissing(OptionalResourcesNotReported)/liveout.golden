@@ -10,7 +10,7 @@ Diff Output: None
 
 Summary
 CRs with diffs: 0
-CRs in reference missing from the cluster: 5 
+CRs in reference missing from the cluster: 5
 ExamplePart1:
   Dashboard1:
   - cm.yaml

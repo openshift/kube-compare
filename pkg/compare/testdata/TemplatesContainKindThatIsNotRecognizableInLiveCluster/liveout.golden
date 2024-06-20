@@ -10,7 +10,7 @@ Diff Output: None
 
 Summary
 CRs with diffs: 0
-CRs in reference missing from the cluster: 1 
+CRs in reference missing from the cluster: 1
 ExamplePart:
   DemonSets:
   - apps.v1.KindNotSupportedByCluster.kube-system.kindnet.yaml

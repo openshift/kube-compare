@@ -562,7 +562,7 @@ func (s Summary) String() string {
 Summary
 CRs with diffs: {{ .NumDiffCRs }}
 {{- if ne (len  .RequiredCRS) 0 }}
-CRs in reference missing from the cluster: {{.NumMissing}} 
+CRs in reference missing from the cluster: {{.NumMissing}}
 {{ toYaml .RequiredCRS}}
 {{- else}}
 No CRs are missing from the cluster
