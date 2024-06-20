@@ -404,6 +404,11 @@ error code:2`),
 			name:   "Invalid Resources Are Skipped",
 			checks: defaultChecks,
 		},
+		{
+			name:   "Ref Contains Templates With Function Templates In Same File",
+			mode:   []Mode{DefaultMode},
+			checks: defaultChecks,
+		},
 	}
 	tf := cmdtesting.NewTestFactory()
 	testFlags := flag.NewFlagSet("test", flag.ContinueOnError)
