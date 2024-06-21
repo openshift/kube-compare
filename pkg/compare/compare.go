@@ -108,12 +108,13 @@ const (
 var OutputFormats = []string{Json, Yaml}
 
 type Options struct {
-	CRs                resource.FilenameOptions
-	templatesDir       string
-	diffConfigFileName string
-	diffAll            bool
-	ShowManagedFields  bool
-	OutputFormat       string
+	CRs                 resource.FilenameOptions
+	templatesDir        string
+	diffConfigFileName  string
+	diffAll             bool
+	ShowManagedFields   bool
+	OutputFormat        string
+	saveLiveManifestsTo string
 
 	builder     *resource.Builder
 	correlator  *MetricsCorrelatorDecorator
@@ -171,6 +172,7 @@ func NewCmd(f kcmdutil.Factory, streams genericiooptions.IOStreams) *cobra.Comma
 	cmd.Flags().BoolVarP(&options.diffAll, "all-resources", "A", options.diffAll,
 		"If present, In live mode will try to match all resources that are from the types mentioned in the reference. "+
 			"In local mode will try to match all resources passed to the command")
+	cmd.Flags().StringVarP(&options.saveLiveManifestsTo, "manifest-save-path", "s", "", "Path to directory where live manifests should be saved.")
 
 	cmd.Flags().StringVarP(&options.OutputFormat, "output", "o", "", fmt.Sprintf(`Output format. One of: (%s)`, strings.Join(OutputFormats, ", ")))
 	kcmdutil.CheckErr(cmd.RegisterFlagCompletionFunc(
@@ -218,7 +220,13 @@ func (o *Options) Complete(f kcmdutil.Factory, cmd *cobra.Command, args []string
 		return kcmdutil.UsageErrorf(cmd, noRefDirectoryWasPassed)
 	}
 	if _, err := os.Stat(o.templatesDir); os.IsNotExist(err) && !isURL(o.templatesDir) {
-		return fmt.Errorf(refDirNotExistsError)
+		return errors.New(refDirNotExistsError)
+	}
+
+	if o.saveLiveManifestsTo != "" {
+		if _, err := os.Stat(o.saveLiveManifestsTo); os.IsNotExist(err) {
+			return fmt.Errorf("invalid live manifest save path: %w", err)
+		}
 	}
 
 	if isURL(o.templatesDir) {
@@ -455,6 +463,18 @@ func (o *Options) Run() error {
 			clusterObj:              &clusterCR,
 			FieldsToOmit:            o.ref.FieldsToOmit,
 		}
+
+		if o.saveLiveManifestsTo != "" {
+			f, err := os.Create(filepath.Join(o.saveLiveManifestsTo, fmt.Sprintf("%s.yaml", obj.Name())))
+			if err != nil {
+				klog.Error(err)
+			}
+			_, err = obj.saveLive(f)
+			if err != nil {
+				klog.Error(err)
+			}
+		}
+
 		diffOutput, err := runDiff(obj, o.IOStreams, o.ShowManagedFields)
 		if err != nil {
 			return err
@@ -516,6 +536,18 @@ func omitFields(object map[string]any, fields [][]string) {
 
 func (obj InfoObject) Name() string {
 	return slug.Make(apiKindNamespaceName(obj.clusterObj))
+}
+
+func (obj InfoObject) saveLive(w io.Writer) (int, error) {
+	content, err := yaml.Marshal(obj.clusterObj.Object)
+	if err != nil {
+		return 0, fmt.Errorf("failed to convert live manifest to yaml: %w", err)
+	}
+	n, err := w.Write(content)
+	if err != nil {
+		return n, fmt.Errorf("failed to write live manifest to disk: %w", err)
+	}
+	return n, nil
 }
 
 // DiffSum Contains the diff output and correlation info of a specific CR
