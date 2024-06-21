@@ -16,6 +16,7 @@ import (
 	"text/template"
 
 	"github.com/gosimple/slug"
+	"github.com/openshift/kube-compare/pkg/funcmap"
 	"github.com/openshift/kube-compare/pkg/groups"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
@@ -575,7 +576,7 @@ No CRs are unmatched to reference CRs
 {{- end }}
 `
 	var buf bytes.Buffer
-	tmpl, _ := template.New("Summary").Funcs(template.FuncMap{"toYaml": toYAML}).Parse(t)
+	tmpl, _ := template.New("Summary").Funcs(template.FuncMap{"toYaml": funcmap.ToYAML}).Parse(t)
 	_ = tmpl.Execute(&buf, s)
 	return buf.String()
 }
