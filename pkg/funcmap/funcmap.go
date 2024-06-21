@@ -1,6 +1,6 @@
 // SPDX-License-Identifier:Apache-2.0
 
-package compare
+package funcmap
 
 import (
 	"bytes"
@@ -35,13 +35,13 @@ func FuncMap() template.FuncMap {
 
 	// Add some extra functionality
 	extra := template.FuncMap{
-		"toToml":        toTOML,
-		"toYaml":        toYAML,
-		"fromYaml":      fromYAML,
-		"fromYamlArray": fromYAMLArray,
-		"toJson":        toJSON,
-		"fromJson":      fromJSON,
-		"fromJsonArray": fromJSONArray,
+		"toToml":        ToTOML,
+		"toYaml":        ToYAML,
+		"fromYaml":      FromYAML,
+		"fromYamlArray": FromYAMLArray,
+		"toJson":        ToJSON,
+		"fromJson":      FromJSON,
+		"fromJsonArray": FromJSONArray,
 	}
 
 	for k, v := range extra {
@@ -51,11 +51,11 @@ func FuncMap() template.FuncMap {
 	return f
 }
 
-// toYAML takes an interface, marshals it to yaml, and returns a string. It will
+// ToYAML takes an interface, marshals it to yaml, and returns a string. It will
 // always return a string, even on marshal error (empty string).
 //
 // This is designed to be called from a template.
-func toYAML(v any) string {
+func ToYAML(v any) string {
 	data, err := yaml.Marshal(v)
 	if err != nil {
 		// Swallow errors inside of a template.
@@ -64,13 +64,13 @@ func toYAML(v any) string {
 	return strings.TrimSuffix(string(data), "\n")
 }
 
-// fromYAML converts a YAML document into a map[string]any.
+// FromYAML converts a YAML document into a map[string]any.
 //
 // This is not a general-purpose YAML parser, and will not parse all valid
 // YAML documents. Additionally, because its intended use is within templates
 // it tolerates errors. It will insert the returned error message string into
 // m["Error"] in the returned map.
-func fromYAML(str string) map[string]any {
+func FromYAML(str string) map[string]any {
 	m := map[string]any{}
 
 	if err := yaml.Unmarshal([]byte(str), &m); err != nil {
@@ -79,13 +79,13 @@ func fromYAML(str string) map[string]any {
 	return m
 }
 
-// fromYAMLArray converts a YAML array into a []any.
+// FromYAMLArray converts a YAML array into a []any.
 //
 // This is not a general-purpose YAML parser, and will not parse all valid
 // YAML documents. Additionally, because its intended use is within templates
 // it tolerates errors. It will insert the returned error message string as
 // the first and only item in the returned array.
-func fromYAMLArray(str string) []any {
+func FromYAMLArray(str string) []any {
 	a := []any{}
 
 	if err := yaml.Unmarshal([]byte(str), &a); err != nil {
@@ -94,11 +94,11 @@ func fromYAMLArray(str string) []any {
 	return a
 }
 
-// toTOML takes an interface, marshals it to toml, and returns a string. It will
+// ToTOML takes an interface, marshals it to toml, and returns a string. It will
 // always return a string, even on marshal error (empty string).
 //
 // This is designed to be called from a template.
-func toTOML(v any) string {
+func ToTOML(v any) string {
 	b := bytes.NewBuffer(nil)
 	e := toml.NewEncoder(b)
 	err := e.Encode(v)
@@ -108,11 +108,11 @@ func toTOML(v any) string {
 	return b.String()
 }
 
-// toJSON takes an interface, marshals it to json, and returns a string. It will
+// ToJSON takes an interface, marshals it to json, and returns a string. It will
 // always return a string, even on marshal error (empty string).
 //
 // This is designed to be called from a template.
-func toJSON(v any) string {
+func ToJSON(v any) string {
 	data, err := json.Marshal(v)
 	if err != nil {
 		// Swallow errors inside of a template.
@@ -121,13 +121,13 @@ func toJSON(v any) string {
 	return string(data)
 }
 
-// fromJSON converts a JSON document into a map[string]any.
+// FromJSON converts a JSON document into a map[string]any.
 //
 // This is not a general-purpose JSON parser, and will not parse all valid
 // JSON documents. Additionally, because its intended use is within templates
 // it tolerates errors. It will insert the returned error message string into
 // m["Error"] in the returned map.
-func fromJSON(str string) map[string]any {
+func FromJSON(str string) map[string]any {
 	m := make(map[string]any)
 
 	if err := json.Unmarshal([]byte(str), &m); err != nil {
@@ -136,13 +136,13 @@ func fromJSON(str string) map[string]any {
 	return m
 }
 
-// fromJSONArray converts a JSON array into a []any.
+// FromJSONArray converts a JSON array into a []any.
 //
 // This is not a general-purpose JSON parser, and will not parse all valid
 // JSON documents. Additionally, because its intended use is within templates
 // it tolerates errors. It will insert the returned error message string as
 // the first and only item in the returned array.
-func fromJSONArray(str string) []any {
+func FromJSONArray(str string) []any {
 	a := []any{}
 
 	if err := json.Unmarshal([]byte(str), &a); err != nil {
