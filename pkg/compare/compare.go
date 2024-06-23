@@ -130,12 +130,19 @@ type Options struct {
 
 func NewCmd(f kcmdutil.Factory, streams genericiooptions.IOStreams) *cobra.Command {
 	options := NewOptions(streams)
+	example := compareExample
+	if strings.HasPrefix(filepath.Base(os.Args[0]), "oc-") {
+		example = strings.ReplaceAll(compareExample, "kubectl", "oc")
+	} else if !strings.HasPrefix(filepath.Base(os.Args[0]), "kubectl-") {
+		example = strings.ReplaceAll(compareExample, "kubectl ", "")
+	}
+
 	cmd := &cobra.Command{
 		Use:                   "compare -r <Reference Directory>",
 		DisableFlagsInUseLine: true,
 		Short:                 i18n.T("Compare a reference configuration and a set of cluster configuration CRs."),
 		Long:                  compareLong,
-		Example:               compareExample,
+		Example:               example,
 		Run: func(cmd *cobra.Command, args []string) {
 			kcmdutil.CheckDiffErr(options.Complete(f, cmd, args))
 			// `kubectl cluster-compare` propagates the error code from
