@@ -4,6 +4,7 @@ package compare
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -196,4 +197,30 @@ func executeYAMLTemplate(temp *template.Template, params map[string]any) (*unstr
 func extractMetadata(t *template.Template) (*unstructured.Unstructured, error) {
 	yamlTemplate, err := executeYAMLTemplate(t, map[string]any{})
 	return yamlTemplate, err
+}
+
+type PatchSave struct {
+	Name  string
+	Patch string
+}
+
+func getPatches(path string) (map[string][]string, error) {
+	patches := make(map[string][]string)
+
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return patches, fmt.Errorf("failed to open patches file %s: %w", path, err)
+	}
+
+	data := make([]PatchSave, 0)
+	err = json.Unmarshal(content, &data)
+	if err != nil {
+		return patches, fmt.Errorf("failed to unmarshal patches file %s: %w", path, err)
+	}
+
+	for _, p := range data {
+		patches[p.Name] = append(patches[p.Name], p.Patch)
+	}
+
+	return patches, nil
 }

@@ -15,6 +15,7 @@ import (
 	"strings"
 	"text/template"
 
+	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/gosimple/slug"
 	"github.com/openshift/kube-compare/pkg/groups"
 	"github.com/samber/lo"
@@ -114,6 +115,9 @@ type Options struct {
 	diffAll            bool
 	ShowManagedFields  bool
 	OutputFormat       string
+	PatchesSavePath    string
+	PatchesLoadPath    string
+	patches            map[string][]string
 
 	builder     *resource.Builder
 	correlator  *MetricsCorrelatorDecorator
@@ -173,6 +177,10 @@ func NewCmd(f kcmdutil.Factory, streams genericiooptions.IOStreams) *cobra.Comma
 			"In local mode will try to match all resources passed to the command")
 
 	cmd.Flags().StringVarP(&options.OutputFormat, "output", "o", "", fmt.Sprintf(`Output format. One of: (%s)`, strings.Join(OutputFormats, ", ")))
+
+	cmd.Flags().StringVarP(&options.PatchesSavePath, "patches-save-path", "p", "", "Path file where patches should be saved.")
+	cmd.Flags().StringVarP(&options.PatchesLoadPath, "patches-load-path", "q", "", "Path file where patches should be loaded from.")
+
 	kcmdutil.CheckErr(cmd.RegisterFlagCompletionFunc(
 		"output",
 		func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
@@ -234,6 +242,15 @@ func (o *Options) Complete(f kcmdutil.Factory, cmd *cobra.Command, args []string
 	o.ref, err = getReference(fs)
 	if err != nil {
 		return err
+	}
+
+	if o.PatchesLoadPath != "" {
+		o.patches, err = getPatches(o.PatchesLoadPath)
+		if err != nil {
+			return err
+		}
+	} else {
+		o.patches = make(map[string][]string)
 	}
 
 	if o.diffConfigFileName != "" {
@@ -455,6 +472,11 @@ func (o *Options) Run() error {
 			clusterObj:              &clusterCR,
 			FieldsToOmit:            o.ref.FieldsToOmit,
 		}
+		crName := apiKindNamespaceName(&clusterCR)
+		if patches, ok := o.patches[crName]; ok {
+			obj.patches = patches
+		}
+
 		diffOutput, err := runDiff(obj, o.IOStreams, o.ShowManagedFields)
 		if err != nil {
 			return err
@@ -462,7 +484,13 @@ func (o *Options) Run() error {
 		if diffOutput.Len() > 0 {
 			numDiffCRs += 1
 		}
-		diffs = append(diffs, DiffSum{DiffOutput: diffOutput.String(), CorrelatedTemplate: temp.Name(), CRName: apiKindNamespaceName(&clusterCR)})
+
+		patch, err := obj.getPatch()
+		if err != nil {
+			klog.Error(err)
+		}
+
+		diffs = append(diffs, DiffSum{DiffOutput: diffOutput.String(), CorrelatedTemplate: temp.Name(), CRName: apiKindNamespaceName(&clusterCR), patch: patch})
 		return err
 	})
 	if err != nil {
@@ -470,9 +498,21 @@ func (o *Options) Run() error {
 	}
 	sum := newSummary(&o.ref, o.correlator, numDiffCRs)
 
-	_, err = Output{Summary: sum, Diffs: &diffs}.Print(o.OutputFormat, o.Out)
+	output := Output{Summary: sum, Diffs: &diffs}
+	_, err = output.Print(o.OutputFormat, o.Out)
 	if err != nil {
 		return err
+	}
+
+	if o.PatchesSavePath != "" {
+		f, err := os.Create(o.PatchesSavePath)
+		if err != nil {
+			return fmt.Errorf("failed to open file to save patches to %s: %w", o.PatchesSavePath, err)
+		}
+		_, err = output.PrintPatches(f)
+		if err != nil {
+			return fmt.Errorf("failed save patches to file %s: %w", o.PatchesSavePath, err)
+		}
 	}
 
 	// We will return exit code 1 in case there are differences between the reference CRs and cluster CRs.
@@ -488,6 +528,7 @@ type InfoObject struct {
 	injectedObjFromTemplate *unstructured.Unstructured
 	clusterObj              *unstructured.Unstructured
 	FieldsToOmit            [][]string
+	patches                 []string
 }
 
 // Live Returns the cluster version of the object
@@ -496,9 +537,33 @@ func (obj InfoObject) Live() runtime.Object {
 	return obj.clusterObj
 }
 
+func mergePaches(original *unstructured.Unstructured, patches []string) *unstructured.Unstructured {
+	data, err := original.MarshalJSON()
+	if err != nil {
+		klog.Errorf("failed to marshal template")
+	}
+	for i, p := range patches {
+		newData, err := jsonpatch.MergePatch(data, []byte(p))
+		if err != nil {
+			klog.Errorf("failed to apply patch %d: skipping patch", i)
+		}
+		data = newData
+	}
+	obj := make(map[string]any)
+	err = json.Unmarshal(data, &obj)
+	if err != nil {
+		klog.Errorf("failed to unmarshal patched manifest: %s", err)
+		return original
+	}
+	return &unstructured.Unstructured{Object: obj}
+}
+
 // Merged Returns the Injected Reference Version of the Resource
 func (obj InfoObject) Merged() (runtime.Object, error) {
 	omitFields(obj.injectedObjFromTemplate.Object, obj.FieldsToOmit)
+	if len(obj.patches) > 0 {
+		obj.injectedObjFromTemplate = mergePaches(obj.injectedObjFromTemplate, obj.patches)
+	}
 	return obj.injectedObjFromTemplate, nil
 }
 
@@ -518,11 +583,41 @@ func (obj InfoObject) Name() string {
 	return slug.Make(apiKindNamespaceName(obj.clusterObj))
 }
 
+func (obj InfoObject) getPatch() (string, error) {
+	localRuntime, err := obj.Merged()
+	if err != nil {
+		return "", err
+	}
+	liveRuntime := obj.Live()
+
+	live, ok := liveRuntime.(*unstructured.Unstructured)
+	if !ok {
+		return "", err
+	}
+	local, ok := localRuntime.(*unstructured.Unstructured)
+	if !ok {
+		return "", err
+	}
+
+	localData, err := local.MarshalJSON()
+	if err != nil {
+		return "", fmt.Errorf("failed to produce patch: failed to marshal local manifest: %w", err)
+	}
+	liveData, err := live.MarshalJSON()
+	if err != nil {
+		return "", fmt.Errorf("failed to produce patch: failed to marshal live manifest: %w", err)
+	}
+
+	patch, err := jsonpatch.CreateMergePatch(localData, liveData)
+	return string(patch), err
+}
+
 // DiffSum Contains the diff output and correlation info of a specific CR
 type DiffSum struct {
 	DiffOutput         string `json:"DiffOutput"`
 	CorrelatedTemplate string `json:"CorrelatedTemplate"`
 	CRName             string `json:"CRName"`
+	patch              string
 }
 
 func (s DiffSum) String() string {
@@ -621,6 +716,23 @@ func (o Output) Print(format string, out io.Writer) (int, error) {
 	n, err := out.Write(content)
 	if err != nil {
 		return n, fmt.Errorf("error occurred when writing output: %w", err)
+	}
+	return n, nil
+}
+
+func (o Output) PrintPatches(out io.Writer) (int, error) {
+	patches := make([]PatchSave, 0)
+	for _, diff := range *o.Diffs {
+		patches = append(patches, PatchSave{Name: diff.CRName, Patch: diff.patch})
+	}
+
+	content, err := json.Marshal(patches)
+	if err != nil {
+		return 0, fmt.Errorf("marshaling patched failed: %w", err)
+	}
+	n, err := out.Write(content)
+	if err != nil {
+		return n, fmt.Errorf("failed to write content: %w", err)
 	}
 	return n, nil
 }
