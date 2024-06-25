@@ -168,7 +168,7 @@ be added as pairs of `apiVersion_kind_name: <Template File Name>`.
 When there is no manual match for a CR the command will try to match a template for the resource by looking at the
 4-tuple: apiVersion, kind, namespace and name . The Correlation is based on which fields in the templates that are not
 user-variable. Templates get matched to resources based on all the features from the 4-tuple that are declared fixed (
-not user-variable) in the templates.  
+not user-variable) in the templates.
 For example a template with a fixed namespace, kind, name and templated (user-variable) apiVersion will only be a
 potential match by the kind-namespace-name criterion.
 
@@ -323,6 +323,18 @@ correlationSettings:
       v1_Service_guestbook_frontendService: "frontend-service.yaml"
 
 ```
+
+#### Acceptable diffs
+
+It is possible save a set of diffs as patches. These can then be passed back into the tools as a set of acceptable diffs.
+
+To save a set of diff patches you can run:
+
+`kubectl cluster-compare -r <referenceConfigurationDirectory> -p patchfile.json`
+
+Then to pass them back into the tool you run:
+
+`kubectl cluster-compare -r <referenceConfigurationDirectory> -q patchfile.json`
 
 ### Implementation Details
 

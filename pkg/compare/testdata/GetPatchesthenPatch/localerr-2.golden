@@ -1,0 +1,15 @@
+
+**********************************
+
+Cluster CR: apps/v1_Deployment_kubernetes-dashboard_dashboard-metrics-scraper
+Reference File: deploymentMetrics.yaml
+Diff Output: None
+
+**********************************
+
+Summary
+CRs with diffs: 0
+ExamplePart:
+  Dashboard:
+  - deploymentDashboard.yaml
+No CRs are unmatched to reference CRs

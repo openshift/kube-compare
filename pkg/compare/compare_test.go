@@ -54,18 +54,14 @@ const (
 type Check struct {
 	checkType checkType
 	value     string
-	checkOut  bool
+	suffix    string
 }
 
 func (c Check) getPath(test Test, mode Mode) string {
 	if c.value != "" {
 		return path.Join(test.getTestDir(), c.value)
 	}
-	suffix := "err.golden"
-	if c.checkOut {
-		suffix = "out.golden"
-	}
-	return path.Join(test.getTestDir(), string(mode.crSource)+suffix)
+	return path.Join(test.getTestDir(), string(mode.crSource)+c.suffix)
 }
 
 func (c Check) check(t *testing.T, test Test, mode Mode, value string) {
@@ -97,10 +93,11 @@ func checkFile(t *testing.T, fileName, value string) {
 
 var defaultCheckOut = Check{
 	checkType: matchFile,
-	checkOut:  true,
+	suffix:    "out.golden",
 }
 var defaultCheckErr = Check{
 	checkType: matchFile,
+	suffix:    "err.golden",
 }
 
 type CRSource string
@@ -149,10 +146,50 @@ type Test struct {
 	shouldDiffAll         bool
 	outputFormat          string
 	checks                Checks
+	patchInFile           string
+	outputPatchFile       bool
+	patchOutDir           string
+	patchOutFile          string
 }
 
 func (test *Test) getTestDir() string {
 	return path.Join(TestDirs, strings.ReplaceAll(test.name, " ", ""))
+}
+
+func (test *Test) getPatchOutFile() (string, error) {
+	if test.patchOutDir == "" {
+		patchOutDir, err := os.MkdirTemp("", "testPatches")
+		test.patchOutDir = patchOutDir
+		if err != nil {
+			return "", err // nolint:wrapcheck
+		}
+		test.patchOutFile = path.Join(path.Join(test.patchOutDir, "patches.yml"))
+	}
+	return test.patchOutFile, nil
+}
+
+func (test *Test) cleanupPatches() error {
+	return os.RemoveAll(test.patchOutDir) // nolint:wrapcheck
+}
+
+func (test *Test) Cleanup() error {
+	return test.cleanupPatches()
+}
+
+func runTest(t *testing.T, test *Test, index int, tf *cmdtesting.TestFactory, mode Mode) {
+	IOStream, _, out, _ := genericiooptions.NewTestIOStreams()
+	klog.SetOutputBySeverity("INFO", out)
+	cmd := getCommand(t, test, index, tf, &IOStream) // nolint:gosec
+	cmdutil.BehaviorOnFatal(func(str string, code int) {
+		errorStr := fmt.Sprintf("%s\nerror code:%d\n", removeInconsistentInfo(t, str), code)
+		test.checks.Err.check(t, *test, mode, errorStr)
+		panic("Expected Error Test Case")
+	})
+	defer func() {
+		_ = recover()
+		test.checks.Out.check(t, *test, mode, removeInconsistentInfo(t, out.String()))
+	}()
+	cmd.Run(cmd, []string{})
 }
 
 // TestCompareRun ensures that Run command calls the right actions
@@ -338,21 +375,49 @@ error code:2`),
 	for _, test := range tests {
 		for i, mode := range test.mode {
 			t.Run(test.name+mode.String(), func(t *testing.T) {
-				IOStream, _, out, _ := genericiooptions.NewTestIOStreams()
-				klog.SetOutputBySeverity("INFO", out)
-				cmd := getCommand(t, &test, i, tf, &IOStream) // nolint:gosec
-				cmdutil.BehaviorOnFatal(func(str string, code int) {
-					errorStr := fmt.Sprintf("%s\nerror code:%d\n", removeInconsistentInfo(t, str), code)
-					test.checks.Err.check(t, test, mode, errorStr)
-					panic("Expected Error Test Case")
-				})
-				defer func() {
-					_ = recover()
-					test.checks.Out.check(t, test, mode, removeInconsistentInfo(t, out.String()))
-				}()
-				cmd.Run(cmd, []string{})
+				runTest(t, &test, i, tf, mode) // nolint: gosec
+				defer test.Cleanup()
 			})
 		}
+	}
+}
+
+func TestCompareRunPatches(t *testing.T) {
+	test := Test{
+		name:            "Get Patches then Patch",
+		mode:            []Mode{DefaultMode},
+		outputPatchFile: true,
+		checks: Checks{
+			Err: Check{
+				checkType: matchFile,
+				suffix:    "err-1.golden",
+			},
+			Out: Check{
+				checkType: matchFile,
+				suffix:    "out-1.golden",
+			},
+		},
+	}
+
+	tf := cmdtesting.NewTestFactory()
+	testFlags := flag.NewFlagSet("test", flag.ContinueOnError)
+	klog.InitFlags(testFlags)
+	klog.LogToStderr(false)
+	_ = testFlags.Parse([]string{"--skip_headers"})
+	for i, mode := range test.mode {
+		t.Run(test.name+mode.String(), func(t *testing.T) {
+			runTest(t, &test, i, tf, mode)
+
+			// Use patch output as input to another run
+			test.outputPatchFile = true
+			test.patchInFile = test.patchOutFile
+			test.patchOutFile = ""
+			test.checks.Out.suffix = "out-2.golden"
+			test.checks.Err.suffix = "err-2.golden"
+			runTest(t, &test, i, tf, mode)
+
+			defer test.Cleanup()
+		})
 	}
 }
 
@@ -409,6 +474,17 @@ func getCommand(t *testing.T, test *Test, modeIndex int, tf *cmdtesting.TestFact
 			require.NoError(t, cmd.Flags().Set("reference", path.Join(test.getTestDir(), TestRefDirName)))
 		}
 	}
+
+	if test.outputPatchFile {
+		patchOutFile, err := test.getPatchOutFile()
+		require.NoError(t, err)
+		require.NoError(t, cmd.Flags().Set("patches-save-path", patchOutFile))
+	}
+
+	if test.patchInFile != "" {
+		require.NoError(t, cmd.Flags().Set("patches-load-path", test.patchInFile))
+	}
+
 	return cmd
 }
 
