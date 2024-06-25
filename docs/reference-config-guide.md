@@ -64,8 +64,8 @@ Components:
   - name: ExampleComponent1
     type: Optional
     requiredTemplates:
-      - RequiredTemplate1.yaml
-      - RequiredTemplate2.yaml
+      - path: RequiredTemplate1.yaml
+      - path: RequiredTemplate2.yaml
 ```
 
 ### Example Reference Configuration CR
@@ -114,13 +114,24 @@ If you don't want to check live-manifest exactly matches your template you can e
 This will do a strategic merge of the template into the manifest which will remove features not mentioned in the template from the diff.
 This can be useful when dealing with annotation or labels which may be of no consiquence to your check.
 Note that this could cover up differences in things you do care about so use it with care.
-This can be configured for a manifest by adding
-`# cluster-compare: allow-undefined-extras=true` in your template
+This can be configured for a manifest by adding config to the metadata.yaml
+
+```yaml
+Parts:
+  - name: ExamplePart
+    Components:
+      - name: Namespace
+        type: Required
+        requiredTemplates:
+          - path: namespace.yaml
+            config:
+              allow-undefined-extras: true
+```
+
 
 example when comparing the template:
 
 ```yaml
-# cluster-compare: allow-undefined-extras=true
 apiVersion: v1
 kind: Namespace
 metadata:
