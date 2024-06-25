@@ -4,4 +4,4 @@ Parts:
       - name: Dashboard
         type: Required
         requiredTemplates:
-          - dir/deploymentMetrics.yaml
+          - path: dir/deploymentMetrics.yaml

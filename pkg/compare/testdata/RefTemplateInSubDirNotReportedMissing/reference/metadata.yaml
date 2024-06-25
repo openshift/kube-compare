@@ -4,6 +4,6 @@ Parts:
       - name: Dashboard1
         type: Required
         requiredTemplates:
-          - a/g.yaml
+          - path: a/g.yaml
 
 

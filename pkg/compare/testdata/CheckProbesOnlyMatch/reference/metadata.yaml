@@ -4,4 +4,6 @@ Parts:
       - name: Namespace
         type: Required
         requiredTemplates:
-          - pod.yaml
+          - path: pod.yaml
+            config:
+              allow-undefined-extras: false

@@ -4,28 +4,28 @@ Parts:
       - name: Dashboard1
         type: Required
         requiredTemplates:
-          - cm.yaml
+          - path: cm.yaml
         optionalTemplates:
-          - sa.yaml
-          - secret.yaml
-          - service.yaml
+          - path: sa.yaml
+          - path: secret.yaml
+          - path: service.yaml
       - name: Dashboard2
         type: Required
         requiredTemplates:
-          - deploymentDashboard.yaml
-          - deploymentMetrics.yaml
+          - path: deploymentDashboard.yaml
+          - path: deploymentMetrics.yaml
   - name: ExamplePart2
     Components:
       - name: Dashboard1
         type: Required
         requiredTemplates:
-          - cr.yaml
+          - path: cr.yaml
         optionalTemplates:
-          - ns.yaml
-          - rb.yaml
-          - role.yaml
+          - path: ns.yaml
+          - path: rb.yaml
+          - path: role.yaml
       - name: Dashboard2
         type: Required
         requiredTemplates:
-          - crb.yaml
+          - path: crb.yaml
 

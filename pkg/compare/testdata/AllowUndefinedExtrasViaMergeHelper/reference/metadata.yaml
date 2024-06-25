@@ -4,4 +4,4 @@ Parts:
       - name: Namespace
         type: Required
         requiredTemplates:
-          - namespace.yaml
+          - path: namespace.yaml

@@ -92,6 +92,10 @@ func checkFile(t *testing.T, fileName, value string) {
 	if err != nil {
 		t.Fatalf("test %s failed reading .golden file: %s", fileName, err)
 	}
+	fmt.Println(string(expected))
+	fmt.Println("-------------------")
+	fmt.Println(value)
+	fmt.Println("-------------------")
 	require.Equal(t, string(expected), value)
 }
 

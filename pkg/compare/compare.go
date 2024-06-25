@@ -453,7 +453,7 @@ func (o *Options) Run() error {
 			return err
 		}
 
-		allowMerge := temp.allowMerge
+		allowMerge := temp.Config.AllowMerge
 		if o.showMore {
 			allowMerge = false
 		}

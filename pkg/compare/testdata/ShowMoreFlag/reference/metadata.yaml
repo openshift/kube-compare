@@ -4,5 +4,5 @@ Parts:
       - name: Namespace
         type: Required
         requiredTemplates:
-          - namespace-1.yaml
-          - namespace-2.yaml
+          - path: namespace-1.yaml
+          - path: namespace-2.yaml

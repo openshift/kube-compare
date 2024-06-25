@@ -3,7 +3,6 @@
 package compare
 
 import (
-	"bufio"
 	"bytes"
 	"errors"
 	"fmt"
@@ -11,12 +10,9 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"strconv"
-	"strings"
 	"text/template"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/klog/v2"
 	"sigs.k8s.io/yaml"
 )
 
@@ -39,14 +35,28 @@ const (
 )
 
 type Component struct {
-	Name              string        `json:"name"`
-	Type              ComponentType `json:"type,omitempty"`
-	RequiredTemplates []string      `json:"requiredTemplates,omitempty"`
-	OptionalTemplates []string      `json:"optionalTemplates,omitempty"`
+	Name string        `json:"name"`
+	Type ComponentType `json:"type,omitempty"`
+	// Config 			  ReferenceTemplateConfig         `json:"config,omitempty"` // TODO figure out how to make this work
+	RequiredTemplates []*ReferenceTemplate `json:"requiredTemplates,omitempty"`
+	OptionalTemplates []*ReferenceTemplate `json:"optionalTemplates,omitempty"`
+}
+type ReferenceTemplateConfig struct {
+	AllowMerge bool `json:"allow-undefined-extras,omitempty"`
 }
 
-func (r *Reference) getTemplates() []string {
-	var templates []string
+type ReferenceTemplate struct {
+	*template.Template
+	Path   string                  `json:"path"`
+	Config ReferenceTemplateConfig `json:"config,omitempty"`
+}
+
+func (rf ReferenceTemplate) Exec(params map[string]any) (*unstructured.Unstructured, error) {
+	return executeYAMLTemplate(rf.Template, params)
+}
+
+func (r *Reference) getTemplates() []*ReferenceTemplate {
+	var templates []*ReferenceTemplate
 	for _, part := range r.Parts {
 		for _, comp := range part.Components {
 			templates = append(templates, comp.RequiredTemplates...)
@@ -59,8 +69,8 @@ func (r *Reference) getTemplates() []string {
 func (c *Component) getMissingCRs(matchedTemplates map[string]bool) []string {
 	var crs []string
 	for _, temp := range c.RequiredTemplates {
-		if wasMatched := matchedTemplates[temp]; !wasMatched {
-			crs = append(crs, temp)
+		if wasMatched := matchedTemplates[temp.Path]; !wasMatched {
+			crs = append(crs, temp.Path)
 		}
 	}
 	return crs
@@ -136,50 +146,16 @@ func parseYaml[T any](fsys fs.FS, filePath string, structType *T, fileNotFoundEr
 	return nil
 }
 
-type ReferenceTemplate struct {
-	*template.Template
-	allowMerge bool
-	config     map[string]string
-}
-
-func (rf ReferenceTemplate) Exec(params map[string]any) (*unstructured.Unstructured, error) {
-	return executeYAMLTemplate(rf.Template, params)
-}
-
-func NewReferenceTemplate(temp *template.Template) (*ReferenceTemplate, error) {
-	rf := &ReferenceTemplate{Template: temp, config: make(map[string]string), allowMerge: true}
-
-	config, err := extractCommentMap(temp)
-	if err != nil {
-		return rf, err
-	}
-
-	rf.config = config
-	v, ok := config["allow-undefined-extras"]
-	if ok {
-		var b bool
-		b, err = strconv.ParseBool(v)
-		if err != nil {
-			err = fmt.Errorf("failed to parse allow-undefined-extras value to bool: %w", err)
-		} else {
-			rf.allowMerge = b
-		}
-	}
-
-	return rf, err
-}
-
-func parseTemplates(templatePaths, functionTemplates []string, fsys fs.FS, o *Options) ([]*ReferenceTemplate, error) {
-	var templates []*ReferenceTemplate
+func parseTemplates(templateReference []*ReferenceTemplate, functionTemplates []string, fsys fs.FS, o *Options) ([]*ReferenceTemplate, error) {
 	var errs []error
-	for _, temp := range templatePaths {
-		parsedTemp, err := template.New(path.Base(temp)).Funcs(FuncMap(o)).ParseFS(fsys, temp)
+	for _, temp := range templateReference {
+		parsedTemp, err := template.New(path.Base(temp.Path)).Funcs(FuncMap(o)).ParseFS(fsys, temp.Path)
 		if err != nil {
-			errs = append(errs, fmt.Errorf(templatesCantBeParsed, temp, err))
+			errs = append(errs, fmt.Errorf(templatesCantBeParsed, temp.Path, err))
 			continue
 		}
 		// recreate template with new name that includes path from reference root:
-		parsedTemp, _ = template.New(temp).Funcs(FuncMap(o)).AddParseTree(temp, parsedTemp.Tree)
+		parsedTemp, _ = template.New(temp.Path).Funcs(FuncMap(o)).AddParseTree(temp.Path, parsedTemp.Tree)
 		if len(functionTemplates) > 0 {
 			parsedTemp, err = parsedTemp.ParseFS(fsys, functionTemplates...)
 			if err != nil {
@@ -187,13 +163,9 @@ func parseTemplates(templatePaths, functionTemplates []string, fsys fs.FS, o *Op
 				continue
 			}
 		}
-		tf, err := NewReferenceTemplate(parsedTemp)
-		if err != nil {
-			errs = append(errs, err)
-		}
-		templates = append(templates, tf)
+		temp.Template = parsedTemp
 	}
-	return templates, errors.Join(errs...) // nolint:wrapcheck
+	return templateReference, errors.Join(errs...) // nolint:wrapcheck
 }
 
 type UserConfig struct {
@@ -243,39 +215,4 @@ func executeYAMLTemplate(temp *template.Template, params map[string]any) (*unstr
 func extractMetadata(t *ReferenceTemplate) (*unstructured.Unstructured, error) {
 	yamlTemplate, err := t.Exec(map[string]any{})
 	return yamlTemplate, err
-}
-
-func extractCommentMap(temp *template.Template) (map[string]string, error) {
-	config := make(map[string]string)
-	raw, _ := executeYAMLTemplatRaw(temp, map[string]any{})
-	scanner := bufio.NewScanner(bytes.NewReader(raw))
-	errs := make([]error, 0)
-	for scanner.Scan() {
-		line := scanner.Text()
-		if !strings.HasPrefix(line, "#") {
-			continue
-		}
-		comment := strings.Trim(line, "# ")
-		mapStr, found := strings.CutPrefix(comment, "cluster-compare:")
-		if !found {
-			continue
-		}
-		mapStr = strings.TrimSpace(mapStr)
-		for _, kv := range strings.Split(mapStr, ";") {
-			pair := strings.Split(kv, "=")
-			switch len(pair) {
-			case 2:
-				config[pair[0]] = pair[1]
-			default:
-				err := fmt.Errorf("failed to parse template comment config: invalid format in %s expecting the form key=value, got %s", line, kv)
-				klog.Error(err)
-				errs = append(errs, err)
-			}
-		}
-	}
-
-	if err := scanner.Err(); err != nil {
-		klog.Errorf("failed to read metadata: %s", err)
-	}
-	return config, errors.Join(errs...)
 }
