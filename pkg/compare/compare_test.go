@@ -8,6 +8,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -46,9 +47,11 @@ var defaultConcurrency = "4"
 type checkType string
 
 const (
+	matchNull   checkType = "null"
 	matchFile   checkType = "file"
 	matchPrefix checkType = "prefix"
 	matchRegex  checkType = "regex"
+	matchDir    checkType = "dirs"
 )
 
 type Check struct {
@@ -70,6 +73,8 @@ func (c Check) getPath(test Test, mode Mode) string {
 
 func (c Check) check(t *testing.T, test Test, mode Mode, value string) {
 	switch c.checkType {
+	case matchNull:
+		return
 	case matchFile:
 		checkFile(t, c.getPath(test, mode), value)
 	case matchPrefix:
@@ -78,6 +83,36 @@ func (c Check) check(t *testing.T, test Test, mode Mode, value string) {
 			"value %s does not start with %s", value, c.value)
 	case matchRegex:
 		require.Regexp(t, c.value, value)
+	case matchDir:
+		reference_dir := c.value
+		if c.value == "" {
+			reference_dir = "saved"
+		}
+		require.NoError(t,
+			filepath.WalkDir(value, func(path string, d fs.DirEntry, err error) error {
+				if err != nil {
+					return err
+				}
+				if d.IsDir() {
+					return nil
+				}
+
+				relitivePath, err := filepath.Rel(value, path)
+				if err != nil {
+					return err // nolint:wrapcheck
+				}
+				content, err := os.ReadFile(path)
+				if err != nil {
+					return err // nolint:wrapcheck
+				}
+
+				Check{
+					checkType: matchFile,
+					value:     filepath.Join(reference_dir, relitivePath),
+				}.check(t, test, mode, string(content))
+				return nil
+			}),
+		)
 	}
 }
 
@@ -102,6 +137,7 @@ var defaultCheckOut = Check{
 var defaultCheckErr = Check{
 	checkType: matchFile,
 }
+var nullCheck = Check{checkType: matchNull}
 
 type CRSource string
 
@@ -132,13 +168,15 @@ func (m *Mode) String() string {
 var DefaultMode = Mode{crSource: Local, refSource: LocalRef}
 
 type Checks struct {
-	Out Check
-	Err Check
+	Out   Check
+	Err   Check
+	Saved Check
 }
 
 var defaultChecks = Checks{
-	Out: defaultCheckOut,
-	Err: defaultCheckErr,
+	Out:   defaultCheckOut,
+	Err:   defaultCheckErr,
+	Saved: nullCheck,
 }
 
 type Test struct {
@@ -149,10 +187,29 @@ type Test struct {
 	shouldDiffAll         bool
 	outputFormat          string
 	checks                Checks
+	saveLiveManifests     bool
+	saveLiveManifestsPath string
 }
 
 func (test *Test) getTestDir() string {
 	return path.Join(TestDirs, strings.ReplaceAll(test.name, " ", ""))
+}
+
+func (test *Test) cleanupSaveDir() {
+	os.RemoveAll(test.saveLiveManifestsPath)
+}
+
+func (test *Test) cleanup() {
+	test.cleanupSaveDir()
+}
+
+func (test *Test) makeSaveDir() error {
+	dir, err := os.MkdirTemp("", "SavedLiveManifests")
+	if err != nil {
+		return err // nolint:wrapcheck
+	}
+	test.saveLiveManifestsPath = dir
+	return nil
 }
 
 // TestCompareRun ensures that Run command calls the right actions
@@ -329,6 +386,16 @@ error code:2`),
 			outputFormat: Json,
 			checks:       defaultChecks,
 		},
+		{
+			name: "Save Live  Manifests",
+			mode: []Mode{{Live, LocalRef}},
+			checks: Checks{
+				Out:   defaultCheckOut,
+				Err:   defaultCheckErr,
+				Saved: Check{checkType: matchDir},
+			},
+			saveLiveManifests: true,
+		},
 	}
 	tf := cmdtesting.NewTestFactory()
 	testFlags := flag.NewFlagSet("test", flag.ContinueOnError)
@@ -349,6 +416,8 @@ error code:2`),
 				defer func() {
 					_ = recover()
 					test.checks.Out.check(t, test, mode, removeInconsistentInfo(t, out.String()))
+					test.checks.Saved.check(t, test, mode, test.saveLiveManifestsPath)
+					defer test.cleanup()
 				}()
 				cmd.Run(cmd, []string{})
 			})
@@ -409,6 +478,14 @@ func getCommand(t *testing.T, test *Test, modeIndex int, tf *cmdtesting.TestFact
 			require.NoError(t, cmd.Flags().Set("reference", path.Join(test.getTestDir(), TestRefDirName)))
 		}
 	}
+
+	if test.saveLiveManifests {
+		if test.saveLiveManifestsPath == "" {
+			test.makeSaveDir()
+		}
+		require.NoError(t, cmd.Flags().Set("manifest-save-path", test.saveLiveManifestsPath))
+	}
+
 	return cmd
 }
 
