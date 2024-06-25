@@ -115,7 +115,6 @@ type Options struct {
 	diffAll            bool
 	ShowManagedFields  bool
 	OutputFormat       string
-	showMore           bool
 
 	builder     *resource.Builder
 	correlator  *MetricsCorrelatorDecorator
@@ -173,7 +172,6 @@ func NewCmd(f kcmdutil.Factory, streams genericiooptions.IOStreams) *cobra.Comma
 	cmd.Flags().BoolVarP(&options.diffAll, "all-resources", "A", options.diffAll,
 		"If present, In live mode will try to match all resources that are from the types mentioned in the reference. "+
 			"In local mode will try to match all resources passed to the command")
-	cmd.Flags().BoolVarP(&options.showMore, "show-more", "v", options.showMore, "Will match reference exactly")
 
 	cmd.Flags().StringVarP(&options.OutputFormat, "output", "o", "", fmt.Sprintf(`Output format. One of: (%s)`, strings.Join(OutputFormats, ", ")))
 	kcmdutil.CheckErr(cmd.RegisterFlagCompletionFunc(
@@ -453,16 +451,11 @@ func (o *Options) Run() error {
 			return err
 		}
 
-		allowMerge := temp.Config.AllowMerge
-		if o.showMore {
-			allowMerge = false
-		}
-
 		obj := InfoObject{
 			injectedObjFromTemplate: localRef,
 			clusterObj:              clusterCR,
 			FieldsToOmit:            o.ref.FieldsToOmit,
-			allowMerge:              allowMerge,
+			allowMerge:              temp.Config.AllowMerge,
 		}
 		diffOutput, err := runDiff(obj, o.IOStreams, o.ShowManagedFields)
 		if err != nil {
