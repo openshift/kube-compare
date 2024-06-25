@@ -142,7 +142,7 @@ func parseTemplates(templatePaths, functionTemplates []string, fsys fs.FS) ([]*t
 			continue
 		}
 		// recreate template with new name that includes path from reference root:
-		parsedTemp, _ = template.New(temp).Funcs(FuncMap()).AddParseTree(temp, parsedTemp.Tree)
+		parsedTemp, _ = parsedTemp.New(temp).AddParseTree(temp, parsedTemp.Lookup(path.Base(temp)).Tree)
 		if len(functionTemplates) > 0 {
 			parsedTemp, err = parsedTemp.ParseFS(fsys, functionTemplates...)
 			if err != nil {

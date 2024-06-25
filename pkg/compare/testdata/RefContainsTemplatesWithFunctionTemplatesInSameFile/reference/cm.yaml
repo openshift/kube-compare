@@ -1,0 +1,11 @@
+{{- define "addBlob" -}}
+  function was called successfully from same file
+  {{- end -}}
+
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  labels:
+    k8s-app: kubernetes-dashboard {{- template "addBlob" }}
+  name: kubernetes-dashboard-settings
+  namespace: kubernetes-dashboard
