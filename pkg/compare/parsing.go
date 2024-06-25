@@ -149,13 +149,13 @@ func parseYaml[T any](fsys fs.FS, filePath string, structType *T, fileNotFoundEr
 func parseTemplates(templateReference []*ReferenceTemplate, functionTemplates []string, fsys fs.FS, o *Options) ([]*ReferenceTemplate, error) {
 	var errs []error
 	for _, temp := range templateReference {
-		parsedTemp, err := template.New(path.Base(temp.Path)).Funcs(FuncMap(o)).ParseFS(fsys, temp.Path)
+		parsedTemp, err := template.New(path.Base(temp.Path)).Funcs(FuncMap()).ParseFS(fsys, temp.Path)
 		if err != nil {
 			errs = append(errs, fmt.Errorf(templatesCantBeParsed, temp.Path, err))
 			continue
 		}
 		// recreate template with new name that includes path from reference root:
-		parsedTemp, _ = template.New(temp.Path).Funcs(FuncMap(o)).AddParseTree(temp.Path, parsedTemp.Tree)
+		parsedTemp, _ = template.New(temp.Path).Funcs(FuncMap()).AddParseTree(temp.Path, parsedTemp.Tree)
 		if len(functionTemplates) > 0 {
 			parsedTemp, err = parsedTemp.ParseFS(fsys, functionTemplates...)
 			if err != nil {

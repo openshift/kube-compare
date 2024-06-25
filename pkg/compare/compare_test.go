@@ -350,30 +350,10 @@ error code:2`),
 			checks: defaultChecks,
 		},
 		{
-			name:   "Only Match Partial",
-			mode:   []Mode{DefaultMode},
-			checks: defaultChecks,
-		},
-		{
-			name:   "Only Match Full",
-			mode:   []Mode{DefaultMode},
-			checks: defaultChecks,
-		},
-		{
-			name:   "Check Probes Only Match",
-			mode:   []Mode{DefaultMode},
-			checks: defaultChecks,
-		},
-		{
 			name:     "Show More Flag",
 			mode:     []Mode{DefaultMode},
 			showMore: true,
 			checks:   defaultChecks,
-		},
-		{
-			name:   "Allow Undefined Extras Via Merge Helper",
-			mode:   []Mode{DefaultMode},
-			checks: defaultChecks,
 		},
 	}
 	tf := cmdtesting.NewTestFactory()

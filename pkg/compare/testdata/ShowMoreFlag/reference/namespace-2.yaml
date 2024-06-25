@@ -1,8 +1,0 @@
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: openshift-storage-diff
-  annotations:
-{{ merge (or .metadata.annotations (dict)) "workload.openshift.io/allowed: management" | indent 4}}
-  labels:
-{{ merge (or .metadata.annotations (dict)) `openshift.io/cluster-monitoring: "true"` | indent 4}}

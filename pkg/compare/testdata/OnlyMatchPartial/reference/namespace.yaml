@@ -1,9 +1,0 @@
-# cluster-compare: allow-undefined-extras=true
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: openshift-storage
-  annotations:
-{{ onlyMatch (or .metadata.annotations (dict)) "workload.openshift.io/allowed: management" | indent 4}}
-  labels:
-    openshift.io/cluster-monitoring: "true"

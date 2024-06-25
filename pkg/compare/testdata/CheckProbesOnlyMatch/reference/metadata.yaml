@@ -1,9 +1,0 @@
-Parts:
-  - name: ExamplePart
-    Components:
-      - name: Namespace
-        type: Required
-        requiredTemplates:
-          - path: pod.yaml
-            config:
-              allow-undefined-extras: false

@@ -10,7 +10,6 @@ import (
 
 	"github.com/BurntSushi/toml"
 	"github.com/Masterminds/sprig/v3"
-	jsonpatch "github.com/evanphx/json-patch"
 	"sigs.k8s.io/yaml"
 )
 
@@ -29,7 +28,7 @@ import (
 //
 // These are late-bound in Engine.Render().  The
 // version included in the FuncMap is a placeholder.
-func FuncMap(o *Options) template.FuncMap {
+func FuncMap() template.FuncMap {
 	f := sprig.TxtFuncMap()
 	delete(f, "env")
 	delete(f, "expandenv")
@@ -43,8 +42,6 @@ func FuncMap(o *Options) template.FuncMap {
 		"toJson":        toJSON,
 		"fromJson":      fromJSON,
 		"fromJsonArray": fromJSONArray,
-		"onlyMatch":     onlyMatch,
-		"merge":         mergeWrapper(o),
 	}
 
 	for k, v := range extra {
@@ -152,46 +149,4 @@ func fromJSONArray(str string) []any {
 		a = []any{err.Error()}
 	}
 	return a
-}
-
-// onlyMatch does the inverse of the merge function
-//
-// Can be useful when using allow-undefined-extras=true
-// as the merges will cancel out allowing you to be more
-// specific for a block.
-// If an error occurs it will return error message string
-func onlyMatch(data any, matchObj string) string {
-	if data == nil {
-		return matchObj
-	}
-	patch, err := jsonpatch.CreateMergePatch([]byte(toJSON(data)), []byte(toJSON(fromYAML(matchObj))))
-	if err != nil {
-		return err.Error()
-	}
-	return string(patch)
-}
-
-// merge does a merges mergeObj into the data structure provided
-//
-// Can be useful when you want allow undefined extras
-// If an error occurs it will return error message string
-func merge(data any, mergeObj string) string {
-	if data == nil {
-		return mergeObj
-	}
-	merged, err := jsonpatch.MergePatch([]byte(toJSON(fromYAML(mergeObj))), []byte(toJSON(data)))
-	if err != nil {
-		return err.Error()
-	}
-	return string(merged)
-}
-
-// mergeWrapper extends the effect of the show-more flag to the merge helper function
-func mergeWrapper(o *Options) func(data any, mergeObj string) string {
-	return func(data any, mergeObj string) string {
-		if o.showMore {
-			return mergeObj
-		}
-		return merge(data, mergeObj)
-	}
 }

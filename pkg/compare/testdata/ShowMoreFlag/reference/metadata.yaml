@@ -4,5 +4,6 @@ Parts:
       - name: Namespace
         type: Required
         requiredTemplates:
-          - path: namespace-1.yaml
-          - path: namespace-2.yaml
+          - path: namespace.yaml
+            config:
+              allow-undefined-extras: true

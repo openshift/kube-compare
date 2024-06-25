@@ -5,6 +5,6 @@ Parts:
         type: Required
         requiredTemplates:
           - path: pod.yaml
-            conifg:
-              allow-undefined-extras: false
+            config:
+              allow-undefined-extras: true
 
