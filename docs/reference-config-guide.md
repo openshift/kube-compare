@@ -128,7 +128,6 @@ Parts:
               allow-undefined-extras: true
 ```
 
-
 example when comparing the template:
 
 ```yaml

@@ -146,7 +146,7 @@ func parseYaml[T any](fsys fs.FS, filePath string, structType *T, fileNotFoundEr
 	return nil
 }
 
-func parseTemplates(templateReference []*ReferenceTemplate, functionTemplates []string, fsys fs.FS, o *Options) ([]*ReferenceTemplate, error) {
+func parseTemplates(templateReference []*ReferenceTemplate, functionTemplates []string, fsys fs.FS) ([]*ReferenceTemplate, error) {
 	var errs []error
 	for _, temp := range templateReference {
 		parsedTemp, err := template.New(path.Base(temp.Path)).Funcs(FuncMap()).ParseFS(fsys, temp.Path)

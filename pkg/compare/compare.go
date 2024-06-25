@@ -243,7 +243,7 @@ func (o *Options) Complete(f kcmdutil.Factory, cmd *cobra.Command, args []string
 			return err
 		}
 	}
-	o.templates, err = parseTemplates(o.ref.getTemplates(), o.ref.TemplateFunctionFiles, fs, o)
+	o.templates, err = parseTemplates(o.ref.getTemplates(), o.ref.TemplateFunctionFiles, fs)
 	if err != nil {
 		return err
 	}
