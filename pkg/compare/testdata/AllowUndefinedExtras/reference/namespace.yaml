@@ -1,4 +1,3 @@
-# cluster-compare: allow-undefined-extras=true
 apiVersion: v1
 kind: Namespace
 metadata:

@@ -92,10 +92,6 @@ func checkFile(t *testing.T, fileName, value string) {
 	if err != nil {
 		t.Fatalf("test %s failed reading .golden file: %s", fileName, err)
 	}
-	fmt.Println(string(expected))
-	fmt.Println("-------------------")
-	fmt.Println(value)
-	fmt.Println("-------------------")
 	require.Equal(t, string(expected), value)
 }
 
@@ -339,12 +335,7 @@ error code:2`),
 			checks: defaultChecks,
 		},
 		{
-			name:   "Check No Overwrite",
-			mode:   []Mode{DefaultMode},
-			checks: defaultChecks,
-		},
-		{
-			name:   "Check Probes Merge",
+			name:   "Check Merging Does Not Overwrite Template Config",
 			mode:   []Mode{DefaultMode},
 			checks: defaultChecks,
 		},

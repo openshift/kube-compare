@@ -35,9 +35,8 @@ const (
 )
 
 type Component struct {
-	Name string        `json:"name"`
-	Type ComponentType `json:"type,omitempty"`
-	// Config 			  ReferenceTemplateConfig         `json:"config,omitempty"` // TODO figure out how to make this work
+	Name              string               `json:"name"`
+	Type              ComponentType        `json:"type,omitempty"`
 	RequiredTemplates []*ReferenceTemplate `json:"requiredTemplates,omitempty"`
 	OptionalTemplates []*ReferenceTemplate `json:"optionalTemplates,omitempty"`
 }
@@ -192,20 +191,14 @@ func parseDiffConfig(filePath string) (UserConfig, error) {
 
 const noValue = "<no value>"
 
-func executeYAMLTemplatRaw(temp *template.Template, params map[string]any) ([]byte, error) {
+func executeYAMLTemplate(temp *template.Template, params map[string]any) (*unstructured.Unstructured, error) {
 	var buf bytes.Buffer
 	err := temp.Execute(&buf, params)
 	if err != nil {
-		return []byte{}, fmt.Errorf("failed to constuct template: %w", err)
-	}
-	return buf.Bytes(), nil
-}
-func executeYAMLTemplate(temp *template.Template, params map[string]any) (*unstructured.Unstructured, error) {
-	content, err := executeYAMLTemplatRaw(temp, params)
-	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to constuct template: %w", err)
 	}
 	data := make(map[string]any)
+	content := buf.Bytes()
 	err = yaml.Unmarshal(bytes.ReplaceAll(content, []byte(noValue), []byte("")), &data)
 	if err != nil {
 		return nil, fmt.Errorf("template: %s isn't a yaml file after injection. yaml unmarshal error: %w. The Template After Execution: %s", temp.Name(), err, string(content))
