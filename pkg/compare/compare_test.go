@@ -330,7 +330,7 @@ error code:2`),
 			checks:       defaultChecks,
 		},
 		{
-			name:   "Allow Undefined Extras",
+			name:   "Check Ignore Unspecified Fields Config",
 			mode:   []Mode{DefaultMode},
 			checks: defaultChecks,
 		},
