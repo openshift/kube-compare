@@ -5,4 +5,4 @@ metadata:
   annotations:
     workload.openshift.io/allowed: management
   labels:
-    openshift.io/cluster-monitoring: "true"
+    openshift.io/cluster-monitoring: "true" # Check this field doesn't get overwritten
