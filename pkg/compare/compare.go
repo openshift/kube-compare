@@ -506,7 +506,7 @@ func (obj InfoObject) Merged() (runtime.Object, error) {
 	if obj.allowMerge {
 		obj.injectedObjFromTemplate, err = mergeManifests(obj.injectedObjFromTemplate, obj.clusterObj)
 		if err != nil {
-			klog.Errorf("failed to properly merge the manifests for %s some diff may be incorrect: %s", apiKindNamespaceName(obj.clusterObj), err)
+			klog.Errorf("failed to properly merge the manifests for %s some diff may be incorrect: %s", obj.Name(), err)
 		}
 	}
 	omitFields(obj.injectedObjFromTemplate.Object, obj.FieldsToOmit)
