@@ -434,7 +434,7 @@ func (o *Options) Run() error {
 		return fmt.Errorf("failed to collect resources: %w", err)
 	}
 	r.IgnoreErrors(func(err error) bool {
-		return containOnly(err, []error{MultipleMatches{}, UnknownMatch{}})
+		return containOnly(err, []error{MultipleMatches{}, UnknownMatch{}, MergeError{}})
 	})
 
 	err := r.Visit(func(info *resource.Info, _ error) error { // ignoring previous errors
@@ -500,13 +500,22 @@ func (obj InfoObject) Live() runtime.Object {
 	return obj.clusterObj
 }
 
+type MergeError struct {
+	obj *InfoObject
+	err error
+}
+
+func (e MergeError) Error() string {
+	return fmt.Sprintf("failed to properly merge the manifests for %s some diff may be incorrect: %s", e.obj.Name(), e.err)
+}
+
 // Merged Returns the Injected Reference Version of the Resource
 func (obj InfoObject) Merged() (runtime.Object, error) {
 	var err error
 	if obj.allowMerge {
 		obj.injectedObjFromTemplate, err = mergeManifests(obj.injectedObjFromTemplate, obj.clusterObj)
 		if err != nil {
-			klog.Errorf("failed to properly merge the manifests for %s some diff may be incorrect: %s", obj.Name(), err)
+			return obj.injectedObjFromTemplate, &MergeError{obj: &obj, err: err}
 		}
 	}
 	omitFields(obj.injectedObjFromTemplate.Object, obj.FieldsToOmit)
