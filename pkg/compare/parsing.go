@@ -41,7 +41,7 @@ type Component struct {
 	OptionalTemplates []*ReferenceTemplate `json:"optionalTemplates,omitempty"`
 }
 type ReferenceTemplateConfig struct {
-	AllowMerge bool `json:"allow-undefined-extras,omitempty"`
+	AllowMerge bool `json:"ignore-unspecified-fields,omitempty"`
 }
 
 type ReferenceTemplate struct {

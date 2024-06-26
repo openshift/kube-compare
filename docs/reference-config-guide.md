@@ -125,7 +125,7 @@ Parts:
         requiredTemplates:
           - path: namespace.yaml
             config:
-              allow-undefined-extras: true
+              ignore-unspecified-fields: true
 ```
 
 example when comparing the template:
