@@ -329,6 +329,16 @@ error code:2`),
 			outputFormat: Json,
 			checks:       defaultChecks,
 		},
+		{
+			name:   "Check Ignore Unspecified Fields Config",
+			mode:   []Mode{DefaultMode},
+			checks: defaultChecks,
+		},
+		{
+			name:   "Check Merging Does Not Overwrite Template Config",
+			mode:   []Mode{DefaultMode},
+			checks: defaultChecks,
+		},
 	}
 	tf := cmdtesting.NewTestFactory()
 	testFlags := flag.NewFlagSet("test", flag.ContinueOnError)

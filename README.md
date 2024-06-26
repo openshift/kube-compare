@@ -168,7 +168,7 @@ be added as pairs of `apiVersion_kind_name: <Template File Name>`.
 When there is no manual match for a CR the command will try to match a template for the resource by looking at the
 4-tuple: apiVersion, kind, namespace and name . The Correlation is based on which fields in the templates that are not
 user-variable. Templates get matched to resources based on all the features from the 4-tuple that are declared fixed (
-not user-variable) in the templates.  
+not user-variable) in the templates.
 For example a template with a fixed namespace, kind, name and templated (user-variable) apiVersion will only be a
 potential match by the kind-namespace-name criterion.
 
@@ -290,16 +290,16 @@ Parts:
       - name: redis
         type: Required
         requiredTemplates:
-          - redis-master-deployment.yaml
-          - redis-master-service.yaml
+          - path: redis-master-deployment.yaml
+          - path: redis-master-service.yaml
         optionalTemplates:
-          - redis-replica-deployment.yaml
-          - redis-replica-service.yaml
+          - path: redis-replica-deployment.yaml
+          - path: redis-replica-service.yaml
       - name: frontend
         type: Required
         requiredTemplates:
-          - frontend-deployment.yaml
-          - frontend-service.yaml
+          - path: frontend-deployment.yaml
+          - path: frontend-service.yaml
 
 ```
 

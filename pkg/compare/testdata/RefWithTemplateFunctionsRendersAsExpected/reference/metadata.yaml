@@ -4,7 +4,7 @@ Parts:
       - name: DemonSets
         type: Required
         requiredTemplates:
-          - cm.yaml
+          - path: cm.yaml
 
 templateFunctionFiles:
   - validate_functions

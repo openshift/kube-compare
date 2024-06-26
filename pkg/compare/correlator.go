@@ -9,7 +9,6 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	"text/template"
 
 	"github.com/openshift/kube-compare/pkg/groups"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -21,7 +20,7 @@ var fieldSeparator = "_"
 // Correlator provides an abstraction that allow the usage of different Resource correlation logics
 // in the kubectl cluster-compare. The correlation process Matches for each Resource a template.
 type Correlator interface {
-	Match(*unstructured.Unstructured) (*template.Template, error)
+	Match(*unstructured.Unstructured) (*ReferenceTemplate, error)
 }
 
 // UnknownMatch an error that can be returned by a Correlator in a case no template was matched for a Resource.
@@ -43,7 +42,7 @@ func apiKindNamespaceName(r *unstructured.Unstructured) string {
 // MultipleMatches an error that can be returned by a Correlator in a case multiple template Matches were found for a Resource.
 type MultipleMatches struct {
 	Resource *unstructured.Unstructured
-	Matches  []*template.Template
+	Matches  []*ReferenceTemplate
 }
 
 func (e MultipleMatches) Error() string {
@@ -59,7 +58,7 @@ func NewMultiCorrelator(correlators []Correlator) *MultiCorrelator {
 	return &MultiCorrelator{correlators: correlators}
 }
 
-func (c MultiCorrelator) Match(object *unstructured.Unstructured) (*template.Template, error) {
+func (c MultiCorrelator) Match(object *unstructured.Unstructured) (*ReferenceTemplate, error) {
 	var errs []error
 	for _, core := range c.correlators {
 		temp, err := core.Match(object)
@@ -75,13 +74,13 @@ func (c MultiCorrelator) Match(object *unstructured.Unstructured) (*template.Tem
 // The names of the resources are in the apiVersion-kind-namespace-name format.
 // For fields that are not namespaced apiVersion-kind-name format will be used.
 type ExactMatchCorrelator struct {
-	apiKindNamespaceName map[string]*template.Template
+	apiKindNamespaceName map[string]*ReferenceTemplate
 }
 
-func NewExactMatchCorrelator(crToTemplate map[string]string, templates []*template.Template) (*ExactMatchCorrelator, error) {
+func NewExactMatchCorrelator(crToTemplate map[string]string, templates []*ReferenceTemplate) (*ExactMatchCorrelator, error) {
 	core := ExactMatchCorrelator{}
-	core.apiKindNamespaceName = make(map[string]*template.Template)
-	nameToTemplate := make(map[string]*template.Template)
+	core.apiKindNamespaceName = make(map[string]*ReferenceTemplate)
+	nameToTemplate := make(map[string]*ReferenceTemplate)
 	for _, temp := range templates {
 		nameToTemplate[temp.Name()] = temp
 	}
@@ -96,7 +95,7 @@ func NewExactMatchCorrelator(crToTemplate map[string]string, templates []*templa
 	return &core, nil
 }
 
-func (c ExactMatchCorrelator) Match(object *unstructured.Unstructured) (*template.Template, error) {
+func (c ExactMatchCorrelator) Match(object *unstructured.Unstructured) (*ReferenceTemplate, error) {
 	temp, ok := c.apiKindNamespaceName[apiKindNamespaceName(object)]
 	if !ok {
 		return nil, UnknownMatch{Resource: object}
@@ -117,7 +116,7 @@ type GroupCorrelator struct {
 	// List of Hash functions for groups of fields organized in same order of fieldGroups
 	GroupFunctions []func(unstructured2 *unstructured.Unstructured) (group string, err error)
 	// List of template mappings by different grouping (hashing) options
-	templatesByGroups []map[string][]*template.Template
+	templatesByGroups []map[string][]*ReferenceTemplate
 }
 
 // NewGroupCorrelator creates a new GroupCorrelator using inputted fieldGroups and generated GroupFunctions and templatesByGroups.
@@ -126,7 +125,7 @@ type GroupCorrelator struct {
 // For fieldsGroups =  {{{"metadata", "namespace"}, {"kind"}}, {{"kind"}}} and the following templates: [fixedKindTemplate, fixedNamespaceKindTemplate]
 // the fixedNamespaceKindTemplate will be added to a mapping where the keys are  in the format of `namespace_kind`. The fixedKindTemplate
 // will be added to a mapping where the keys are  in the format of `kind`.
-func NewGroupCorrelator(fieldGroups [][][]string, templates []*template.Template) (*GroupCorrelator, error) {
+func NewGroupCorrelator(fieldGroups [][][]string, templates []*ReferenceTemplate) (*GroupCorrelator, error) {
 	var functionGroups []func(*unstructured.Unstructured) (group string, err error)
 	sort.Slice(fieldGroups, func(i, j int) bool {
 		return len(fieldGroups[i]) >= len(fieldGroups[j])
@@ -206,7 +205,7 @@ func areFieldsNotTemplated(cr *unstructured.Unstructured, group [][]string) bool
 	return true
 }
 
-func getTemplatesName(templates []*template.Template) string {
+func getTemplatesName(templates []*ReferenceTemplate) string {
 	var names []string
 	for _, temp := range templates {
 		names = append(names, temp.Name())
@@ -215,7 +214,7 @@ func getTemplatesName(templates []*template.Template) string {
 	return strings.Join(names, ", ")
 }
 
-func (c *GroupCorrelator) Match(object *unstructured.Unstructured) (*template.Template, error) {
+func (c *GroupCorrelator) Match(object *unstructured.Unstructured) (*ReferenceTemplate, error) {
 	var multipleMatchError error
 	for i, group := range c.templatesByGroups {
 		group_hash, _ := c.GroupFunctions[i](object)
@@ -255,7 +254,7 @@ func NewMetricsCorrelatorDecorator(correlator Correlator, parts []Part, errsToIg
 	return &cr
 }
 
-func (c *MetricsCorrelatorDecorator) Match(object *unstructured.Unstructured) (*template.Template, error) {
+func (c *MetricsCorrelatorDecorator) Match(object *unstructured.Unstructured) (*ReferenceTemplate, error) {
 	temp, err := (*c.correlator).Match(object)
 	if err != nil && !containOnly(err, c.errsToIgnore) {
 		c.addUNMatch(object)
@@ -290,7 +289,7 @@ func containOnly(err error, errTypes []error) bool {
 	return true
 }
 
-func (c *MetricsCorrelatorDecorator) addMatch(temp *template.Template) {
+func (c *MetricsCorrelatorDecorator) addMatch(temp *ReferenceTemplate) {
 	c.matchedLock.Lock()
 	c.MatchedTemplatesNames[temp.Name()] = true
 	c.matchedLock.Unlock()

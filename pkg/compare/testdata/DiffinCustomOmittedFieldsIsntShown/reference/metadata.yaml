@@ -4,7 +4,7 @@ Parts:
       - name: Dashboard
         type: Required
         requiredTemplates:
-          - deploymentMetrics.yaml
+          - path: deploymentMetrics.yaml
 
 fieldsToOmit:
   - - "spec"

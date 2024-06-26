@@ -4,14 +4,14 @@ Parts:
       - name: DemonSets
         type: Required
         requiredTemplates:
-          - cm.yaml
-          - cr.yaml
-          - crb.yaml
-          - deploymentDashboard.yaml
-          - deploymentMetrics.yaml
-          - ns.yaml
-          - rb.yaml
-          - role.yaml
-          - sa.yaml
-          - secret.yaml
-          - service.yaml
+          - path: cm.yaml
+          - path: cr.yaml
+          - path: crb.yaml
+          - path: deploymentDashboard.yaml
+          - path: deploymentMetrics.yaml
+          - path: ns.yaml
+          - path: rb.yaml
+          - path: role.yaml
+          - path: sa.yaml
+          - path: secret.yaml
+          - path: service.yaml

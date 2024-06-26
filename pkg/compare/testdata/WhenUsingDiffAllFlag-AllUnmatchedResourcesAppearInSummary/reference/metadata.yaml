@@ -4,6 +4,6 @@ Parts:
       - name: DemonSets
         type: Required
         requiredTemplates:
-          - apps.v1.DaemonSet.kube-system.kindnet.yaml
+          - path: apps.v1.DaemonSet.kube-system.kindnet.yaml
         optionalTemplates:
-          - apps.v1.DaemonSet.kube-system.kindnet2.yaml
+          - path: apps.v1.DaemonSet.kube-system.kindnet2.yaml
