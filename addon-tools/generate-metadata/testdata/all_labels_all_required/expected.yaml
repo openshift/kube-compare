@@ -1,0 +1,8 @@
+Parts:
+  - name: Part1
+    Components:
+      - name: Component1
+        type: Required
+        requiredTemplates:
+          - cm.yaml
+          - cr.yaml
