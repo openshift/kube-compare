@@ -13,4 +13,5 @@ Summary:
     ExamplePart:
       Dashboard:
       - deploymentMetrics.yaml
+  TotalCRs: 1
   UnmatchedCRS: []

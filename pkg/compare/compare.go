@@ -478,6 +478,7 @@ func (o *Options) Run() error {
 	if err != nil {
 		return fmt.Errorf("error occurred while trying to process resources: %w", err)
 	}
+
 	sum := newSummary(&o.ref, o.correlator, numDiffCRs)
 
 	_, err = Output{Summary: sum, Diffs: &diffs}.Print(o.OutputFormat, o.Out)
@@ -599,11 +600,13 @@ type Summary struct {
 	NumMissing   int                            `json:"NumMissing"`
 	UnmatchedCRS []string                       `json:"UnmatchedCRS"`
 	NumDiffCRs   int                            `json:"NumDiffCRs"`
+	TotalCRs     int                            `json:"TotalCRs"`
 }
 
 func newSummary(reference *Reference, c *MetricsCorrelatorDecorator, numDiffCRs int) *Summary {
 	s := Summary{NumDiffCRs: numDiffCRs}
 	s.RequiredCRS, s.NumMissing = reference.getMissingCRs(c.MatchedTemplatesNames)
+	s.TotalCRs = len(c.MatchedTemplatesNames)
 	s.UnmatchedCRS = lo.Map(c.UnMatchedCRs, func(r *unstructured.Unstructured, i int) string {
 		return apiKindNamespaceName(r)
 	})
@@ -613,7 +616,7 @@ func newSummary(reference *Reference, c *MetricsCorrelatorDecorator, numDiffCRs 
 func (s Summary) String() string {
 	t := `
 Summary
-CRs with diffs: {{ .NumDiffCRs }}
+CRs with diffs: {{ .NumDiffCRs }}/{{ .TotalCRs }}
 {{- if ne (len  .RequiredCRS) 0 }}
 CRs in reference missing from the cluster: {{.NumMissing}}
 {{ toYaml .RequiredCRS}}
