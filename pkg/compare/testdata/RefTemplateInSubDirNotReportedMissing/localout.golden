@@ -18,6 +18,6 @@ Diff Output: diff -u -N TEMP/v1_configmap_kubernetes-dashboard_kubernetes-dashbo
 **********************************
 
 Summary
-CRs with diffs: 1
+CRs with diffs: 1/1
 No CRs are missing from the cluster
 No CRs are unmatched to reference CRs
