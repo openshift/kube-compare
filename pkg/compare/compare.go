@@ -255,7 +255,7 @@ func (o *Options) Complete(f kcmdutil.Factory, cmd *cobra.Command, args []string
 			return err
 		}
 	}
-	o.templates, err = parseTemplates(o.ref.getTemplates(), o.ref.TemplateFunctionFiles, fs)
+	o.templates, err = parseTemplates(o.ref.getTemplates(), o.ref.TemplateFunctionFiles, fs, &o.ref)
 	if err != nil {
 		return err
 	}
@@ -484,7 +484,7 @@ func (o *Options) Run() error {
 		obj := InfoObject{
 			injectedObjFromTemplate: localRef,
 			clusterObj:              clusterCR,
-			FieldsToOmit:            o.ref.FieldsToOmit,
+			FieldsToOmit:            temp.FieldsToOmit(o.ref.FieldsToOmit),
 			allowMerge:              temp.Config.AllowMerge,
 		}
 		diffOutput, err := runDiff(obj, o.IOStreams, o.ShowManagedFields)
@@ -521,7 +521,7 @@ func (o *Options) Run() error {
 type InfoObject struct {
 	injectedObjFromTemplate *unstructured.Unstructured
 	clusterObj              *unstructured.Unstructured
-	FieldsToOmit            [][]string
+	FieldsToOmit            []*ManifestPath
 	allowMerge              bool
 }
 
@@ -553,8 +553,35 @@ func (obj InfoObject) Merged() (runtime.Object, error) {
 	return obj.injectedObjFromTemplate, err
 }
 
-func omitFields(object map[string]any, fields [][]string) {
-	for _, field := range fields {
+func findFieldPaths(object map[string]any, fields []*ManifestPath) [][]string {
+	result := make([][]string, 0)
+	for _, f := range fields {
+		if !f.IsPrefix {
+			result = append(result, f.parts)
+		} else {
+			start := f.parts[:len(f.parts)-1]
+			prefix := f.parts[len(f.parts)-1]
+
+			val, _, _ := unstructured.NestedFieldNoCopy(object, start...)
+			if mapping, ok := val.(map[string]any); ok {
+				for key := range mapping {
+					if strings.HasPrefix(key, prefix) {
+						newPath := start
+						newPath = append(newPath, key)
+						result = append(result, newPath)
+					}
+				}
+			}
+		}
+	}
+
+	return result
+}
+
+func omitFields(object map[string]any, fields []*ManifestPath) {
+	fieldPaths := findFieldPaths(object, fields)
+
+	for _, field := range fieldPaths {
 		unstructured.RemoveNestedField(object, field...)
 		for i := 0; i <= len(field); i++ {
 			val, _, _ := unstructured.NestedFieldNoCopy(object, field[:len(field)-i]...)

@@ -4,22 +4,25 @@ package compare
 
 import (
 	"bytes"
+	"encoding/csv"
 	"errors"
 	"fmt"
 	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 	"text/template"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/yaml"
 )
 
 type Reference struct {
-	Parts                 []Part     `json:"parts"`
-	TemplateFunctionFiles []string   `json:"templateFunctionFiles,omitempty"`
-	FieldsToOmit          [][]string `json:"fieldsToOmit,omitempty"`
+	Parts                 []Part       `json:"parts"`
+	TemplateFunctionFiles []string     `json:"templateFunctionFiles,omitempty"`
+	FieldsToOmit          FieldsToOmit `json:"fieldsToOmit,omitempty"`
 }
 
 type Part struct {
@@ -34,6 +37,49 @@ const (
 	Optional ComponentType = "Optional"
 )
 
+const (
+	fieldsToOmitBuiltInOverwritten = `fieldsToOmit.Map contains the key "%s", this will be overwritten with default values`
+	fieldsToOmitDefaultNotFound    = `fieldsToOmit's defaultOmitRef "%s" not found in items`
+	fieldsToOmitRefsNotFound       = `fieldsToOmitRefs entry "%s" not found it fieldsToOmit Items`
+)
+
+type FieldsToOmit struct {
+	DefaultOmitRef string                     `json:"defaultOmitRef,omitempty"`
+	Items          map[string][]*ManifestPath `json:"items,omitempty"`
+}
+
+// Setup FieldsToOmit to be used by setting defaults
+// and processing the item strings into paths
+func (toOmit *FieldsToOmit) process() error {
+	if toOmit.Items == nil {
+		toOmit.Items = make(map[string][]*ManifestPath)
+	}
+
+	if _, ok := toOmit.Items[builtInPathsKey]; ok {
+		klog.Warningf(fieldsToOmitBuiltInOverwritten, builtInPathsKey)
+	}
+
+	toOmit.Items[builtInPathsKey] = builtInPaths
+
+	if toOmit.DefaultOmitRef == "" {
+		toOmit.DefaultOmitRef = builtInPathsKey
+	}
+
+	if _, ok := toOmit.Items[toOmit.DefaultOmitRef]; !ok {
+		return fmt.Errorf(fieldsToOmitDefaultNotFound, toOmit.DefaultOmitRef)
+	}
+	errs := make([]error, 0)
+	for _, pathsArray := range toOmit.Items {
+		for _, path := range pathsArray {
+			err := path.Process()
+			if err != nil {
+				errs = append(errs, err)
+			}
+		}
+	}
+	return errors.Join(errs...)
+}
+
 type Component struct {
 	Name              string               `json:"name"`
 	Type              ComponentType        `json:"type,omitempty"`
@@ -41,7 +87,8 @@ type Component struct {
 	OptionalTemplates []*ReferenceTemplate `json:"optionalTemplates,omitempty"`
 }
 type ReferenceTemplateConfig struct {
-	AllowMerge bool `json:"ignore-unspecified-fields,omitempty"`
+	AllowMerge       bool     `json:"ignore-unspecified-fields,omitempty"`
+	FieldsToOmitRefs []string `json:"fieldsToOmitRefs,omitempty"`
 }
 
 type ReferenceTemplate struct {
@@ -49,6 +96,28 @@ type ReferenceTemplate struct {
 	Path     string                  `json:"path"`
 	Config   ReferenceTemplateConfig `json:"config,omitempty"`
 	metadata *unstructured.Unstructured
+}
+
+func (rf ReferenceTemplate) FieldsToOmit(fieldsToOmit FieldsToOmit) []*ManifestPath {
+	result := make([]*ManifestPath, 0)
+	if len(rf.Config.FieldsToOmitRefs) == 0 {
+		return fieldsToOmit.Items[fieldsToOmit.DefaultOmitRef]
+	}
+
+	for _, feildsRef := range rf.Config.FieldsToOmitRefs {
+		result = append(result, fieldsToOmit.Items[feildsRef]...)
+	}
+	return result
+}
+
+func (rf ReferenceTemplate) ValidateFieldsToOmit(fieldsToOmit FieldsToOmit) error {
+	errs := make([]error, 0)
+	for _, feildsRef := range rf.Config.FieldsToOmitRefs {
+		if _, ok := fieldsToOmit.Items[feildsRef]; !ok {
+			errs = append(errs, fmt.Errorf(fieldsToOmitRefsNotFound, feildsRef))
+		}
+	}
+	return errors.Join(errs...)
 }
 
 const noValue = "<no value>"
@@ -119,15 +188,36 @@ func (r *Reference) getMissingCRs(matchedTemplates map[string]bool) (map[string]
 	return crs, count
 }
 
-var defaultFieldsToOmit = [][]string{{"metadata", "uid"},
-	{"metadata", "resourceVersion"},
-	{"metadata", "generation"},
-	{"metadata", "generateName"},
-	{"metadata", "creationTimestamp"},
-	{"metadata", "finalizers"},
-	{"kubectl.kubernetes.io/last-applied-configuration"},
-	{"metadata", "annotations", "kubectl.kubernetes.io/last-applied-configuration"},
-	{"status"},
+const builtInPathsKey = "cluster-compare-built-in"
+
+var builtInPaths = []*ManifestPath{
+	{PathToKey: "metadata.resourceVersion"},
+	{PathToKey: "metadata.generation"},
+	{PathToKey: "metadata.uid"},
+	{PathToKey: "metadata.generateName"},
+	{PathToKey: "metadata.creationTimestamp"},
+	{PathToKey: "metadata.finalizers"},
+	{PathToKey: `"kubectl.kubernetes.io/last-applied-configuration"`},
+	{PathToKey: `metadata.annotations."kubectl.kubernetes.io/last-applied-configuration"`},
+	{PathToKey: "status"},
+}
+
+type ManifestPath struct {
+	PathToKey string `json:"pathToKey"`
+	IsPrefix  bool   `json:"isPrefix,omitempty"`
+	parts     []string
+}
+
+func (p *ManifestPath) Process() error {
+	pathToKey, _ := strings.CutPrefix(p.PathToKey, ".")
+	r := csv.NewReader(strings.NewReader(pathToKey))
+	r.Comma = '.'
+	fields, err := r.Read()
+	if err != nil {
+		return fmt.Errorf("failed to parse path: %w", err)
+	}
+	p.parts = fields
+	return nil
 }
 
 const (
@@ -135,8 +225,8 @@ const (
 	refConfigNotInFormat           = "Reference config isn't in correct format. error: %w"
 	userConfNotExistsError         = "User Config File not found. error: %w"
 	userConfigNotInFormat          = "User config file isn't in correct format. error: %w"
-	templatesCantBeParsed          = "an error occurred while parsing template: %s specified in the config. error: %v"
-	templatesFunctionsCantBeParsed = "an error occurred while parsing the template function files specified in the config. error: %v"
+	templatesCantBeParsed          = "an error occurred while parsing template: %s specified in the config. error: %w"
+	templatesFunctionsCantBeParsed = "an error occurred while parsing the template function files specified in the config. error: %w"
 )
 
 func getReference(fsys fs.FS) (Reference, error) {
@@ -145,8 +235,9 @@ func getReference(fsys fs.FS) (Reference, error) {
 	if err != nil {
 		return result, err
 	}
-	if len(result.FieldsToOmit) == 0 {
-		result.FieldsToOmit = defaultFieldsToOmit
+	err = result.FieldsToOmit.process()
+	if err != nil {
+		return result, err
 	}
 	return result, nil
 }
@@ -163,7 +254,7 @@ func parseYaml[T any](fsys fs.FS, filePath string, structType *T, fileNotFoundEr
 	return nil
 }
 
-func parseTemplates(templateReference []*ReferenceTemplate, functionTemplates []string, fsys fs.FS) ([]*ReferenceTemplate, error) {
+func parseTemplates(templateReference []*ReferenceTemplate, functionTemplates []string, fsys fs.FS, ref *Reference) ([]*ReferenceTemplate, error) {
 	var errs []error
 	for _, temp := range templateReference {
 		parsedTemp, err := template.New(path.Base(temp.Path)).Funcs(FuncMap()).ParseFS(fsys, temp.Path)
@@ -180,6 +271,10 @@ func parseTemplates(templateReference []*ReferenceTemplate, functionTemplates []
 		}
 		temp.Template = parsedTemp
 		temp.metadata, err = temp.Exec(map[string]any{}) // Extract Metadata
+		if err != nil {
+			errs = append(errs, err)
+		}
+		err = temp.ValidateFieldsToOmit(ref.FieldsToOmit)
 		if err != nil {
 			errs = append(errs, err)
 		}
