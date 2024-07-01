@@ -20,31 +20,21 @@ import (
 )
 
 type Reference struct {
-	Parts                 []Part              `json:"parts"`
-	TemplateFunctionFiles []string            `json:"templateFunctionFiles,omitempty"`
-	FieldsToOmit          map[string][]string `json:"fieldsToOmit,omitempty"`
-	processedFieldsToOmit map[string][]Path
+	Parts                 []Part             `json:"parts"`
+	TemplateFunctionFiles []string           `json:"templateFunctionFiles,omitempty"`
+	FieldsToOmit          map[string][]*Path `json:"fieldsToOmit,omitempty"`
 }
 
 func (r *Reference) ProcessFieldsToOmit() error {
-	r.processedFieldsToOmit = make(map[string][]Path)
-	for key, pathsArray := range r.FieldsToOmit {
-		processedPaths := make([]Path, 0)
+	for _, pathsArray := range r.FieldsToOmit {
 		for _, path := range pathsArray {
-			p, err := NewPath(path)
+			err := path.Process()
 			if err != nil {
-				klog.Errorf("skipping path: %s", err)
-				continue
+				return err
 			}
-			processedPaths = append(processedPaths, p)
-		}
-		if len(processedPaths) == 0 {
-			klog.Errorf("skipping key: no paths in key %s", key)
-		} else {
-			r.processedFieldsToOmit[key] = processedPaths
+
 		}
 	}
-
 	return nil
 }
 
@@ -77,8 +67,8 @@ type ReferenceTemplate struct {
 	FieldsToOmitRefs []string                `json:"fieldsToOmitRefs,omitempty"`
 }
 
-func (rf ReferenceTemplate) FeildsToOmit(feildsToOmit map[string][]Path) []Path {
-	result := make([]Path, 0)
+func (rf ReferenceTemplate) FeildsToOmit(feildsToOmit map[string][]*Path) []*Path {
+	result := make([]*Path, 0)
 	if len(rf.FieldsToOmitRefs) == 0 {
 		return feildsToOmit[defaultFieldsToOmitKey]
 	}
@@ -143,27 +133,29 @@ func (r *Reference) getMissingCRs(matchedTemplates map[string]bool) (map[string]
 }
 
 var defaultFieldsToOmitKey = "default"
-var defaultFieldsToOmit = map[string][]string{
+var defaultFieldsToOmit = map[string][]*Path{
 	defaultFieldsToOmitKey: {
-		"metadata.resourceVersion",
-		"metadata.generation",
-		"metadata.uid",
-		"metadata.generateName",
-		"metadata.creationTimestamp",
-		"metadata.finalizers",
-		`"kubectl.kubernetes.io/last-applied-configuration"`,
-		`metadata.annotations."kubectl.kubernetes.io/last-applied-configuration"`,
-		"status",
+		PathOrFatal("metadata.resourceVersion", false),
+		PathOrFatal("metadata.generation", false),
+		PathOrFatal("metadata.uid", false),
+		PathOrFatal("metadata.generateName", false),
+		PathOrFatal("metadata.creationTimestamp", false),
+		PathOrFatal("metadata.finalizers", false),
+		PathOrFatal(`"kubectl.kubernetes.io/last-applied-configuration"`, false),
+		PathOrFatal(`metadata.annotations."kubectl.kubernetes.io/last-applied-configuration"`, false),
+		PathOrFatal("status", false),
 	},
 }
 
 type Path struct {
-	parts []string
+	Path    string `json:"path"`
+	IsRegex bool   `json:"isRegex,omitempty"`
+	parts   []string
 }
 
-func NewPath(path string) (Path, error) {
-	fields, err := splitFields(path)
-	return Path{parts: fields}, err
+func (p *Path) Process() (err error) {
+	p.parts, err = splitFields(p.Path)
+	return err
 }
 
 // splitFields splits a dot delmited path into parts
@@ -198,6 +190,15 @@ func splitFields(path string) ([]string, error) {
 		}
 	}
 	return splitPath, nil
+}
+
+func PathOrFatal(path string, isRegex bool) *Path {
+	p := &Path{Path: path, IsRegex: isRegex}
+	err := p.Process()
+	if err != nil {
+		klog.Fatalf("failed to produce path from %s: %s", path, err)
+	}
+	return p
 }
 
 const (
