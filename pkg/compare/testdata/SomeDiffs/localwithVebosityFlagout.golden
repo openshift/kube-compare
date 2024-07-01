@@ -1,0 +1,29 @@
+**********************************
+
+Cluster CR: apps/v1_Deployment_kubernetes-dashboard_kubernetes-dashboard
+Reference File: deploymentDashboard.yaml
+Diff Output: None
+
+**********************************
+
+Cluster CR: apps/v1_Deployment_kubernetes-dashboard_dashboard-metrics-scraper
+Reference File: deploymentMetrics.yaml
+Diff Output: diff -u -N TEMP/apps-v1_deployment_kubernetes-dashboard_dashboard-metrics-scraper TEMP/apps-v1_deployment_kubernetes-dashboard_dashboard-metrics-scraper
+--- TEMP/apps-v1_deployment_kubernetes-dashboard_dashboard-metrics-scraper	DATE
++++ TEMP/apps-v1_deployment_kubernetes-dashboard_dashboard-metrics-scraper	DATE
+@@ -10,7 +10,7 @@
+   revisionHistoryLimit: 10
+   selector:
+     matchLabels:
+-      k8s-app: dashboard-metrics-scraper
++      k8s-app: dashboard-metrics-scraper-diff
+   template:
+     metadata:
+       labels:
+
+**********************************
+
+Summary
+CRs with diffs: 1/2
+No CRs are missing from the cluster
+No CRs are unmatched to reference CRs

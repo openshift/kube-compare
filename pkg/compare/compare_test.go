@@ -55,18 +55,27 @@ const (
 type Check struct {
 	checkType checkType
 	value     string
-	checkOut  bool
+	suffix    string
+}
+
+// withPrefixedSuffix returns a new check with the suffix
+// variable prefixed with the supplied string
+// this allow you to adjust the golden file fetched
+// e.g. if the default is "err.golden" then check.withPrefixedSuffix("other_")
+// the golden file fetched will be "other_err.golden"
+func (c Check) withPrefixedSuffix(prefix string) Check {
+	return Check{
+		checkType: c.checkType,
+		value:     c.value,
+		suffix:    prefix + c.suffix,
+	}
 }
 
 func (c Check) getPath(test Test, mode Mode) string {
 	if c.value != "" {
 		return path.Join(test.getTestDir(), c.value)
 	}
-	suffix := "err.golden"
-	if c.checkOut {
-		suffix = "out.golden"
-	}
-	return path.Join(test.getTestDir(), string(mode.crSource)+suffix)
+	return path.Join(test.getTestDir(), string(mode.crSource)+c.suffix)
 }
 
 func (c Check) check(t *testing.T, test Test, mode Mode, value string) {
@@ -104,12 +113,18 @@ func checkFile(t *testing.T, fileName, value string) {
 	require.Equal(t, expected, value)
 }
 
+const (
+	defaultOutSuffix = "out.golden"
+	defualtErrSuffix = "err.golden"
+)
+
 var defaultCheckOut = Check{
 	checkType: matchFile,
-	checkOut:  true,
+	suffix:    defaultOutSuffix,
 }
 var defaultCheckErr = Check{
 	checkType: matchFile,
+	suffix:    defualtErrSuffix,
 }
 
 type CRSource string
@@ -145,6 +160,16 @@ type Checks struct {
 	Err Check
 }
 
+// withPrefixedSuffix Calls withPrefixedSuffix on each check
+// it produces a new set of checks which point to a different
+// set of golden files. see Check.withPrefixedSuffix for defails.
+func (c Checks) withPrefixedSuffix(suffixPrefix string) Checks {
+	return Checks{
+		Out: c.Out.withPrefixedSuffix(suffixPrefix),
+		Err: c.Err.withPrefixedSuffix(suffixPrefix),
+	}
+}
+
 var defaultChecks = Checks{
 	Out: defaultCheckOut,
 	Err: defaultCheckErr,
@@ -158,6 +183,7 @@ type Test struct {
 	shouldDiffAll         bool
 	outputFormat          string
 	checks                Checks
+	verboseOutput         bool
 }
 
 func (test *Test) getTestDir() string {
@@ -332,7 +358,7 @@ error code:2`),
 			outputFormat: Yaml,
 			checks: Checks{
 				Err: defaultCheckErr,
-				Out: Check{checkType: matchYaml, checkOut: true},
+				Out: Check{checkType: matchYaml, suffix: defaultOutSuffix},
 			},
 		},
 		{
@@ -350,6 +376,28 @@ error code:2`),
 			name:   "Check Merging Does Not Overwrite Template Config",
 			mode:   []Mode{DefaultMode},
 			checks: defaultChecks,
+		},
+		{
+			name:   "NoDiffs",
+			mode:   []Mode{DefaultMode},
+			checks: defaultChecks,
+		},
+		{
+			name:   "SomeDiffs",
+			mode:   []Mode{DefaultMode},
+			checks: defaultChecks,
+		},
+		{
+			name:          "NoDiffs",
+			mode:          []Mode{DefaultMode},
+			checks:        defaultChecks.withPrefixedSuffix("withVebosityFlag"),
+			verboseOutput: true,
+		},
+		{
+			name:          "SomeDiffs",
+			mode:          []Mode{DefaultMode},
+			checks:        defaultChecks.withPrefixedSuffix("withVebosityFlag"),
+			verboseOutput: true,
 		},
 	}
 	tf := cmdtesting.NewTestFactory()
@@ -414,6 +462,9 @@ func getCommand(t *testing.T, test *Test, modeIndex int, tf *cmdtesting.TestFact
 	}
 	if test.outputFormat != "" {
 		require.NoError(t, cmd.Flags().Set("output", test.outputFormat))
+	}
+	if test.verboseOutput {
+		require.NoError(t, cmd.Flags().Set("verbose", "true"))
 	}
 	resourcesDir := path.Join(test.getTestDir(), ResourceDirName)
 	switch mode.crSource {

@@ -98,7 +98,7 @@ const (
 	noRefDirectoryWasPassed = "\"Reference directory is required\""
 	refDirNotExistsError    = "\"Reference directory doesn't exist\""
 	emptyTypes              = "templates don't contain any types (kind) of resources that are supported by the cluster"
-	DiffSeparator           = "**********************************"
+	DiffSeparator           = "**********************************\n"
 )
 
 const (
@@ -113,6 +113,7 @@ type Options struct {
 	templatesDir       string
 	diffConfigFileName string
 	diffAll            bool
+	verboseOutput      bool
 	ShowManagedFields  bool
 	OutputFormat       string
 
@@ -179,6 +180,7 @@ func NewCmd(f kcmdutil.Factory, streams genericiooptions.IOStreams) *cobra.Comma
 	cmd.Flags().BoolVarP(&options.diffAll, "all-resources", "A", options.diffAll,
 		"If present, In live mode will try to match all resources that are from the types mentioned in the reference. "+
 			"In local mode will try to match all resources passed to the command")
+	cmd.Flags().BoolVarP(&options.verboseOutput, "verbose", "v", options.verboseOutput, "Increases the verbosity of the tool")
 
 	cmd.Flags().StringVarP(&options.OutputFormat, "output", "o", "", fmt.Sprintf(`Output format. One of: (%s)`, strings.Join(OutputFormats, ", ")))
 	kcmdutil.CheckErr(cmd.RegisterFlagCompletionFunc(
@@ -481,7 +483,7 @@ func (o *Options) Run() error {
 
 	sum := newSummary(&o.ref, o.correlator, numDiffCRs)
 
-	_, err = Output{Summary: sum, Diffs: &diffs}.Print(o.OutputFormat, o.Out)
+	_, err = Output{Summary: sum, Diffs: &diffs}.Print(o.OutputFormat, o.Out, o.verboseOutput)
 	if err != nil {
 		return err
 	}
@@ -580,18 +582,23 @@ type DiffSum struct {
 }
 
 func (s DiffSum) String() string {
-	t := `Cluster CR: {{ .CRName }}
+	t := `
+Cluster CR: {{ .CRName }}
 Reference File: {{ .CorrelatedTemplate }}
 {{- if ne (len  .DiffOutput) 0 }}
 Diff Output: {{ .DiffOutput }}
-{{- else}}
+{{- else }}
 Diff Output: None
-{{end }}
+{{ end }}
 `
 	var buf bytes.Buffer
 	tmpl, _ := template.New("DiffSummary").Parse(t)
 	_ = tmpl.Execute(&buf, s)
-	return buf.String()
+	return strings.TrimSpace(buf.String())
+}
+
+func (s DiffSum) HasDiff() bool {
+	return s.DiffOutput != ""
 }
 
 // Summary Contains all info included in the Summary output of the compare command
@@ -633,7 +640,7 @@ No CRs are unmatched to reference CRs
 	var buf bytes.Buffer
 	tmpl, _ := template.New("Summary").Funcs(template.FuncMap{"toYaml": toYAML}).Parse(t)
 	_ = tmpl.Execute(&buf, s)
-	return buf.String()
+	return strings.TrimSpace(buf.String())
 }
 
 // Output Contains the complete output of the command
@@ -642,18 +649,29 @@ type Output struct {
 	Diffs   *[]DiffSum `json:"Diffs"`
 }
 
-func (o Output) String() string {
-	var str string
+func (o Output) String(showEmptyDiffs bool) string {
 	sort.Slice(*o.Diffs, func(i, j int) bool {
 		return (*o.Diffs)[i].CorrelatedTemplate+(*o.Diffs)[i].CRName < (*o.Diffs)[j].CorrelatedTemplate+(*o.Diffs)[j].CRName
 	})
+
+	diffParts := []string{}
+
 	for _, diffSum := range *o.Diffs {
-		str += fmt.Sprintf("\n%s%s\n", diffSum.String(), DiffSeparator)
+		if showEmptyDiffs || diffSum.HasDiff() {
+			diffParts = append(diffParts, fmt.Sprintln(diffSum.String()))
+		}
 	}
-	return fmt.Sprintf("\n%s\n%s%s", DiffSeparator, str, o.Summary.String())
+
+	var str string
+	if len(diffParts) > 0 {
+		partsStr := strings.Join(diffParts, fmt.Sprintf("\n%s\n", DiffSeparator))
+		str = fmt.Sprintf("%s\n%s\n%s\n", DiffSeparator, partsStr, DiffSeparator)
+	}
+
+	return fmt.Sprintf("%s%s\n", str, o.Summary.String())
 }
 
-func (o Output) Print(format string, out io.Writer) (int, error) {
+func (o Output) Print(format string, out io.Writer, showEmptyDiffs bool) (int, error) {
 	var (
 		content []byte
 		err     error
@@ -672,7 +690,7 @@ func (o Output) Print(format string, out io.Writer) (int, error) {
 			return 0, fmt.Errorf("failed to marshal output to yaml: %w", err)
 		}
 	default:
-		content = []byte(o.String())
+		content = []byte(o.String(showEmptyDiffs))
 	}
 	n, err := out.Write(content)
 	if err != nil {

@@ -1,12 +1,3 @@
-
-**********************************
-
-Cluster CR: v1_Namespace_kubernetes-dashboard
-Reference File: ns.yaml
-Diff Output: None
-
-**********************************
-
 Summary
 CRs with diffs: 0/1
 CRs in reference missing from the cluster: 5

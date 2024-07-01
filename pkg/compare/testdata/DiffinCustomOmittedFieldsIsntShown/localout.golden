@@ -1,24 +1,3 @@
-
-**********************************
-
-Cluster CR: apps/v1_Deployment_kubernetes-dashboard_dashboard-metrics-scraper
-Reference File: deploymentMetrics.yaml
-Diff Output: None
-
-**********************************
-
-Cluster CR: apps/v1_Deployment_kubernetes-dashboard_kubernetes-dashboard
-Reference File: deploymentMetrics.yaml
-Diff Output: None
-
-**********************************
-
-Cluster CR: apps/v1_Deployment_kubernetes-dashboard_kubernetes-dashboard
-Reference File: deploymentMetrics.yaml
-Diff Output: None
-
-**********************************
-
 Summary
 CRs with diffs: 0/1
 No CRs are missing from the cluster

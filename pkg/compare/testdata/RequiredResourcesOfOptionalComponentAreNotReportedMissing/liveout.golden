@@ -1,13 +1,4 @@
 Reference Contains Templates With Types (kind) Not Supported By Cluster: ClusterRole, ClusterRoleBinding, ConfigMap, Deployment, Role, RoleBinding, Secret, Service, ServiceAccount
-
-**********************************
-
-Cluster CR: v1_Namespace_kubernetes-dashboard
-Reference File: ns.yaml
-Diff Output: None
-
-**********************************
-
 Summary
 CRs with diffs: 0/1
 No CRs are missing from the cluster
