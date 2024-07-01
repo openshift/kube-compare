@@ -8,6 +8,6 @@ Parts:
 
 fieldsToOmit:
   all:
-    - spec.selector.matchLabels.k8s-app
-    - metadata.labels.k8s-app
-    - spec.template.metadata.labels.k8s-app
+    - '"spec"."selector"."matchLabels"."k8s-app"'
+    - '"metadata"."labels"."k8s-app"'
+    - '"spec"."template"."metadata"."labels"."k8s-app"'

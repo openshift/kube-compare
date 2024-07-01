@@ -461,7 +461,7 @@ func (o *Options) Run() error {
 		obj := InfoObject{
 			injectedObjFromTemplate: localRef,
 			clusterObj:              clusterCR,
-			FieldsToOmit:            o.ref.FieldsToOmit,
+			FieldsToOmit:            temp.FeildsToOmit(o.ref.processedFieldsToOmit),
 			allowMerge:              temp.Config.AllowMerge,
 		}
 		diffOutput, err := runDiff(obj, o.IOStreams, o.ShowManagedFields)
@@ -497,7 +497,7 @@ func (o *Options) Run() error {
 type InfoObject struct {
 	injectedObjFromTemplate *unstructured.Unstructured
 	clusterObj              *unstructured.Unstructured
-	FieldsToOmit            [][]string
+	FieldsToOmit            []Path
 	allowMerge              bool
 }
 
@@ -529,13 +529,13 @@ func (obj InfoObject) Merged() (runtime.Object, error) {
 	return obj.injectedObjFromTemplate, err
 }
 
-func omitFields(object map[string]any, fields [][]string) {
+func omitFields(object map[string]any, fields []Path) {
 	for _, field := range fields {
-		unstructured.RemoveNestedField(object, field...)
-		for i := 0; i <= len(field); i++ {
-			val, _, _ := unstructured.NestedFieldNoCopy(object, field[:len(field)-i]...)
+		unstructured.RemoveNestedField(object, field.parts...)
+		for i := 0; i <= len(field.parts); i++ {
+			val, _, _ := unstructured.NestedFieldNoCopy(object, field.parts[:len(field.parts)-i]...)
 			if mapping, ok := val.(map[string]any); ok && len(mapping) == 0 {
-				unstructured.RemoveNestedField(object, field[:len(field)-i]...)
+				unstructured.RemoveNestedField(object, field.parts[:len(field.parts)-i]...)
 			}
 		}
 	}
