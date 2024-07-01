@@ -10,16 +10,32 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
+	"strings"
 	"text/template"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/yaml"
 )
 
 type Reference struct {
-	Parts                 []Part     `json:"parts"`
-	TemplateFunctionFiles []string   `json:"templateFunctionFiles,omitempty"`
-	FieldsToOmit          [][]string `json:"fieldsToOmit,omitempty"`
+	Parts                 []Part             `json:"parts"`
+	TemplateFunctionFiles []string           `json:"templateFunctionFiles,omitempty"`
+	FieldsToOmit          map[string][]*Path `json:"fieldsToOmit,omitempty"`
+}
+
+func (r *Reference) ProcessFieldsToOmit() error {
+	for _, pathsArray := range r.FieldsToOmit {
+		for _, path := range pathsArray {
+			err := path.Process()
+			if err != nil {
+				return err
+			}
+
+		}
+	}
+	return nil
 }
 
 type Part struct {
@@ -46,8 +62,23 @@ type ReferenceTemplateConfig struct {
 
 type ReferenceTemplate struct {
 	*template.Template
-	Path   string                  `json:"path"`
-	Config ReferenceTemplateConfig `json:"config,omitempty"`
+	Path             string                  `json:"path"`
+	Config           ReferenceTemplateConfig `json:"config,omitempty"`
+	FieldsToOmitRefs []string                `json:"fieldsToOmitRefs,omitempty"`
+}
+
+func (rf ReferenceTemplate) FeildsToOmit(feildsToOmit map[string][]*Path) []*Path {
+	result := make([]*Path, 0)
+	if len(rf.FieldsToOmitRefs) == 0 {
+		return feildsToOmit[defaultFieldsToOmitKey]
+	}
+
+	for _, ref := range rf.FieldsToOmitRefs {
+		if feilds, ok := feildsToOmit[ref]; ok {
+			result = append(result, feilds...)
+		}
+	}
+	return result
 }
 
 func (rf ReferenceTemplate) Exec(params map[string]any) (*unstructured.Unstructured, error) {
@@ -101,15 +132,73 @@ func (r *Reference) getMissingCRs(matchedTemplates map[string]bool) (map[string]
 	return crs, count
 }
 
-var defaultFieldsToOmit = [][]string{{"metadata", "uid"},
-	{"metadata", "resourceVersion"},
-	{"metadata", "generation"},
-	{"metadata", "generateName"},
-	{"metadata", "creationTimestamp"},
-	{"metadata", "finalizers"},
-	{"kubectl.kubernetes.io/last-applied-configuration"},
-	{"metadata", "annotations", "kubectl.kubernetes.io/last-applied-configuration"},
-	{"status"},
+var defaultFieldsToOmitKey = "default"
+var defaultFieldsToOmit = map[string][]*Path{
+	defaultFieldsToOmitKey: {
+		PathOrFatal("metadata.resourceVersion", false),
+		PathOrFatal("metadata.generation", false),
+		PathOrFatal("metadata.uid", false),
+		PathOrFatal("metadata.generateName", false),
+		PathOrFatal("metadata.creationTimestamp", false),
+		PathOrFatal("metadata.finalizers", false),
+		PathOrFatal(`"kubectl.kubernetes.io/last-applied-configuration"`, false),
+		PathOrFatal(`metadata.annotations."kubectl.kubernetes.io/last-applied-configuration"`, false),
+		PathOrFatal("status", false),
+	},
+}
+
+type Path struct {
+	Path    string `json:"path"`
+	IsRegex bool   `json:"isRegex,omitempty"`
+	parts   []string
+}
+
+func (p *Path) Process() (err error) {
+	p.parts, err = splitFields(p.Path)
+	return err
+}
+
+// splitFields splits a dot delmited path into parts
+//
+// unless the dot is within quotes
+func splitFields(path string) ([]string, error) {
+	// 1. Find all sets of quotes
+	r := regexp.MustCompile(`(?U:(".*"))`)
+	matches := r.FindAllStringSubmatch(path, -1)
+	if len(matches) == 0 {
+		return strings.Split(path, "."), nil
+	}
+
+	// 2. replace quoted blocks with placeholder text
+	replaced := make(map[string]string)
+	newPath := path
+	for n, matchParts := range matches {
+		v := fmt.Sprintf("cluster-compare-entry-%d", n)
+		replaced[v] = matchParts[1]
+		newPath = strings.Replace(newPath, matchParts[1], v, 1)
+	}
+
+	if len(r.FindAllStringSubmatch(newPath, -1)) > 0 {
+		return strings.Split(newPath, "."), fmt.Errorf("failed to remove quotes from path %s", path)
+	}
+	// 3. split string with place holders on dots
+	splitPath := strings.Split(newPath, ".")
+	// 4. replace place holder with origonal text without the quotes
+	for i, e := range splitPath {
+		if x, ok := replaced[e]; ok {
+			splitPath[i] = strings.Trim(x, `"`)
+		}
+	}
+	return splitPath, nil
+}
+
+func PathOrFatal(path string, isRegex bool) *Path {
+	p := &Path{Path: path, IsRegex: isRegex}
+	err := p.Process()
+	if err != nil {
+		klog.Fatalf("failed to produce path from %s: %s", path, err)
+	}
+	return p
 }
 
 const (
@@ -129,6 +218,10 @@ func getReference(fsys fs.FS) (Reference, error) {
 	}
 	if len(result.FieldsToOmit) == 0 {
 		result.FieldsToOmit = defaultFieldsToOmit
+	}
+	err = result.ProcessFieldsToOmit()
+	if err != nil {
+		return result, err
 	}
 	return result, nil
 }
