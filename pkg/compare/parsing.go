@@ -142,7 +142,7 @@ func (r *Reference) getMissingCRs(matchedTemplates map[string]bool) (map[string]
 	return crs, count
 }
 
-var defaultFieldsToOmitKey = "all"
+var defaultFieldsToOmitKey = "default"
 var defaultFieldsToOmit = map[string][]string{
 	defaultFieldsToOmitKey: {
 		"metadata.resourceVersion",
