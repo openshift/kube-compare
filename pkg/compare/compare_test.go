@@ -54,18 +54,22 @@ const (
 type Check struct {
 	checkType checkType
 	value     string
-	checkOut  bool
+	suffix    string
+}
+
+func (c Check) withPrefixedSuffix(prefix string) Check {
+	return Check{
+		checkType: c.checkType,
+		value:     c.value,
+		suffix:    prefix + c.suffix,
+	}
 }
 
 func (c Check) getPath(test Test, mode Mode) string {
 	if c.value != "" {
 		return path.Join(test.getTestDir(), c.value)
 	}
-	suffix := "err.golden"
-	if c.checkOut {
-		suffix = "out.golden"
-	}
-	return path.Join(test.getTestDir(), string(mode.crSource)+suffix)
+	return path.Join(test.getTestDir(), string(mode.crSource)+c.suffix)
 }
 
 func (c Check) check(t *testing.T, test Test, mode Mode, value string) {
@@ -97,10 +101,11 @@ func checkFile(t *testing.T, fileName, value string) {
 
 var defaultCheckOut = Check{
 	checkType: matchFile,
-	checkOut:  true,
+	suffix:    "out.golden",
 }
 var defaultCheckErr = Check{
 	checkType: matchFile,
+	suffix:    "err.golden",
 }
 
 type CRSource string
@@ -136,6 +141,13 @@ type Checks struct {
 	Err Check
 }
 
+func (c Checks) withPrefixedSuffix(suffixPrefix string) Checks {
+	return Checks{
+		Out: c.Out.withPrefixedSuffix(suffixPrefix),
+		Err: c.Err.withPrefixedSuffix(suffixPrefix),
+	}
+}
+
 var defaultChecks = Checks{
 	Out: defaultCheckOut,
 	Err: defaultCheckErr,
@@ -149,6 +161,7 @@ type Test struct {
 	shouldDiffAll         bool
 	outputFormat          string
 	checks                Checks
+	verboseOutput         bool
 }
 
 func (test *Test) getTestDir() string {
@@ -339,6 +352,28 @@ error code:2`),
 			mode:   []Mode{DefaultMode},
 			checks: defaultChecks,
 		},
+		{
+			name:   "NoDiffs",
+			mode:   []Mode{DefaultMode},
+			checks: defaultChecks,
+		},
+		{
+			name:   "SomeDiffs",
+			mode:   []Mode{DefaultMode},
+			checks: defaultChecks,
+		},
+		{
+			name:          "NoDiffs",
+			mode:          []Mode{DefaultMode},
+			checks:        defaultChecks.withPrefixedSuffix("withVebosityFlag"),
+			verboseOutput: true,
+		},
+		{
+			name:          "SomeDiffs",
+			mode:          []Mode{DefaultMode},
+			checks:        defaultChecks.withPrefixedSuffix("withVebosityFlag"),
+			verboseOutput: true,
+		},
 	}
 	tf := cmdtesting.NewTestFactory()
 	testFlags := flag.NewFlagSet("test", flag.ContinueOnError)
@@ -390,6 +425,9 @@ func getCommand(t *testing.T, test *Test, modeIndex int, tf *cmdtesting.TestFact
 	}
 	if test.outputFormat != "" {
 		require.NoError(t, cmd.Flags().Set("output", test.outputFormat))
+	}
+	if test.verboseOutput {
+		require.NoError(t, cmd.Flags().Set("verbose", "true"))
 	}
 	resourcesDir := path.Join(test.getTestDir(), ResourceDirName)
 	switch mode.crSource {
