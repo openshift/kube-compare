@@ -378,9 +378,21 @@ error code:2`),
 	}
 }
 
+var tempRegex *regexp.Regexp
+
+func getTempRegex(t *testing.T) *regexp.Regexp {
+	if tempRegex == nil {
+		tDir, err := os.MkdirTemp("", "tempDirProbe")
+		defer os.RemoveAll(tDir)
+		require.NoError(t, err)
+		tempRegex = regexp.MustCompile(path.Dir(tDir) + `/(?:LIVE|MERGED)-[0-9]*`)
+	}
+	return tempRegex
+}
+
 func removeInconsistentInfo(t *testing.T, text string) string {
 	// remove diff tool generated temp directory path
-	re := regexp.MustCompile(`/[\w|/]+/(?:LIVE|MERGED)-[0-9]*`)
+	re := getTempRegex(t)
 	text = re.ReplaceAllString(text, "TEMP")
 	// remove diff datetime
 	re = regexp.MustCompile(`(\d{4}-\d{2}-\d{2}\s*\d{2}:\d{2}:\d{2}(:?\.\d{9} [+-]\d{4})?)`)
