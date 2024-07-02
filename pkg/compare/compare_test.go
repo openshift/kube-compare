@@ -49,6 +49,7 @@ const (
 	matchFile   checkType = "file"
 	matchPrefix checkType = "prefix"
 	matchRegex  checkType = "regex"
+	matchYaml   checkType = "yaml"
 )
 
 type Check struct {
@@ -78,21 +79,29 @@ func (c Check) check(t *testing.T, test Test, mode Mode, value string) {
 			"value %s does not start with %s", value, c.value)
 	case matchRegex:
 		require.Regexp(t, c.value, value)
+	case matchYaml:
+		expected := getFile(t, c.getPath(test, mode), value)
+		require.YAMLEq(t, expected, value)
 	}
 }
 
-func checkFile(t *testing.T, fileName, value string) {
+func getFile(t *testing.T, fileName, value string) string {
 	if *update {
 		t.Log("update golden file")
 		if err := os.WriteFile(fileName, []byte(value), 0644); err != nil { // nolint:gocritic,gosec
 			t.Fatalf("test %s failed to update golden file: %s", fileName, err)
 		}
 	}
-	expected, err := os.ReadFile(fileName)
+	result, err := os.ReadFile(fileName)
 	if err != nil {
 		t.Fatalf("test %s failed reading .golden file: %s", fileName, err)
 	}
-	require.Equal(t, string(expected), value)
+	return string(result)
+}
+
+func checkFile(t *testing.T, fileName, value string) {
+	expected := getFile(t, fileName, value)
+	require.Equal(t, expected, value)
 }
 
 var defaultCheckOut = Check{
@@ -321,7 +330,10 @@ error code:2`),
 			name:         "YAML Output",
 			mode:         []Mode{DefaultMode},
 			outputFormat: Yaml,
-			checks:       defaultChecks,
+			checks: Checks{
+				Err: defaultCheckErr,
+				Out: Check{checkType: matchYaml, checkOut: true},
+			},
 		},
 		{
 			name:         "JSON Output",
@@ -366,12 +378,24 @@ error code:2`),
 	}
 }
 
+var tempRegex *regexp.Regexp
+
+func getTempRegex(t *testing.T) *regexp.Regexp {
+	if tempRegex == nil {
+		tDir, err := os.MkdirTemp("", "tempDirProbe")
+		defer os.RemoveAll(tDir)
+		require.NoError(t, err)
+		tempRegex = regexp.MustCompile(path.Dir(tDir) + `/(?:LIVE|MERGED)-[0-9]*`)
+	}
+	return tempRegex
+}
+
 func removeInconsistentInfo(t *testing.T, text string) string {
 	// remove diff tool generated temp directory path
-	re := regexp.MustCompile(`\/tmp\/(?:LIVE|MERGED)-[0-9]*`)
+	re := getTempRegex(t)
 	text = re.ReplaceAllString(text, "TEMP")
 	// remove diff datetime
-	re = regexp.MustCompile(`(\d{4}-\d{2}-\d{2}\s*\d{2}:\d{2}:\d{2}\.\d{9} [+-]\d{4})`)
+	re = regexp.MustCompile(`(\d{4}-\d{2}-\d{2}\s*\d{2}:\d{2}:\d{2}(:?\.\d{9} [+-]\d{4})?)`)
 	text = re.ReplaceAllString(text, "DATE")
 	pwd, err := os.Getwd()
 	require.NoError(t, err)
