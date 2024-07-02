@@ -3,7 +3,7 @@ More then one template with same apiVersion, metadata_namespace, kind. These tem
 **********************************
 
 Summary
-CRs with diffs: 0
+CRs with diffs: 0/0
 CRs in reference missing from the cluster: 1
 ExamplePart:
   DemonSets:
