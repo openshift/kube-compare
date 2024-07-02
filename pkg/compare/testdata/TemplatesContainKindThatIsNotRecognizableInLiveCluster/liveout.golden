@@ -1,13 +1,4 @@
 Reference Contains Templates With Types (kind) Not Supported By Cluster: KindNotSupportedByCluster
-
-**********************************
-
-Cluster CR: apps/v1_DaemonSet_
-Reference File: apps.v1.DaemonSet.kube-system.kindnet.yaml
-Diff Output: None
-
-**********************************
-
 Summary
 CRs with diffs: 0/1
 CRs in reference missing from the cluster: 1
