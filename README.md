@@ -1,298 +1,88 @@
-# Cluster Configuration Validation Tool
+# kube-compare
 
-## Summary
+`kube-compare` allows the user to compare an individual manifest or entire running cluster to a reference and find the differences. Expected differences are ignored as are cluster-managed fields, highlighting only differences that are of interest.
 
-The “kubectl cluster-compare” command is capable of performing an intelligent diff between a reference configuration and the
-specific configuration applied to a cluster. The comparison is capable of suppressing diffs of content which is expected
-to be user variable, validating required and optional configuration, and ignoring known runtime variable fields. With
-these capabilities a cluster administrator, solutions architect, support engineers, and others can validate a cluster’s
-configuration against a baseline reference configuration.
+`kube-compare` is intended for administrators, architects, support engineers, and others to quickly check that a configuration is as-expected. For a more detailed description of the purpose and approach of the tool please read the [proposal document](docs/proposal.md).
 
-In addition to the subcommand to perform this comparison, this enhancement defines the structure and method of capturing
-known user variation, optional components, and required content in the reference configuration.
+## Install
 
-## Motivation
-
-Many deployed clusters are based on engineered and validated reference configurations. These
-reference configurations have been designed to ensure a cluster will meet the functional, feature,
-performance and resource requirements for specific use cases. A customer will take this reference
-configuration and adapt it for their particular environment adding variations to account for their
-networking topology, specific servers/hardware in use, optional features, etc. This adapted
-version of the configuration is then applied to their cluster, or replicated across a large
-scale deployment of clusters. When this adapted configuration deviates from the reference
-configuration the impacts may be subtle, transient, or delayed for some period of time. When working
-with these clusters across their lifetimes it is important to be able to validate the configuration
-against the known valid reference configuration to identify potential issues before they impact end
-users, service level agreements, or cluster uptime.
-
-This kubectl cluster-compare command is capable of doing an "intelligent" diff between a reference
-configuration and a set of CRs representative of a deployed production cluster. These CRs may derive
-from many potential sources such as being pulled from a live cluster, extracted from a support archive, or shared
-directly by the customer. The reference configuration is the engineered set of configuration CRs for the use case and
-has been sufficiently annotated to describe
-expected user variations versus required content.
+TODO make this a one-liner to setup the plugin/container
 
 ```shell
-┌──────────────────┐                 ┌──────────────────┐
-│                  │ Adaptation to   │                  │
-│     Published    │    user env     │   Deployed user  │
-│     Reference    ├────────────────►│   Configuration  │
-│   Configuration  │                 │                  │
-│                  │                 │                  │
-└────────┬─────────┘                 └─────────┬────────┘
-         │                                     │
-         │                                     │
-         │        ┌──────────────────┐         │
-         │        │                  │         │
-         └───────►│ Proposed Cluster │◄────────┘
-                  │ Validation Tool  │
-                  │                  │
-                  │                  │
-                  └─────────┬────────┘
-                            │
-                       ┌────▼────┐
-                       │Relevant │
-                       │Diffs    │
-                       │         │
-                       │...      │
-                       │...      │
-                       │...      │
-                       └─────────┘
+make build
 ```
 
-Existing tools meet some of this need but fall short of the goals
+## Run
 
-- kubectl diff: This subcommand allows comparison of a live cluster against a known configuration.
-  There are three shortcomings we need to address:
-  - Ability to handle expected user variation and optional versus required content.
-  - Ability to handle 1 to N mappings where users have multiple instances of a CR which should be validated
-  - Consumption of an offline representation of the cluster configuration.
-- `<get cr> | <key sorting> | diff` : There are various ways of chaining together existing tools
-  to obtain, correlate, and compare/diff two YAML objects. These methods fall short in similar ways as
-  the `kubectl diff`
+A reference configuration is required in order to run. A reference configuration is a directory containing a [`metadata.yaml`](#metadatayaml) and one or more templates.
 
-### Goals
+Specify the directory containing a reference with `-r`, and one or more manifests to compare to it with `-f`.
 
-The design and implementation of this subcommand is guided by the following goals:
+```shell
+./kubectl-cluster_compare -r pkg/compare/testdata/YAMLOutput/reference/ -f pkg/compare/testdata/YAMLOutput/resources/d1.yaml
+```
 
-1. Data driven. New and updated reference configurations do not require a new release/update of the command.
-1. New and updated reference configurations can be “published” asynchronously to the tooling
-1. Can consume input configuration CRs from live cluster, the local filesystem, or a support archive (future
-   enhancement)
-1. Will suppress diffs for runtime variable fields (status, managed metadata, etc)
-1. Will suppress diffs for know user variable content as described by the reference configuration
-1. Will show diffs for content in input configuration which does not match reference
-1. Will show diffs for reference configuration content missing from input configuration
-1. Will show diffs for content in input configuration which is not contained in reference
-1. Allows comparison against 1 to N mappings in the reference configuration (ie an input configuration CR compared
-   against one of several optional implementations in the reference configuration)
-1. Allows comparison against 1 to N mappings to the reference configuration (ie multiple input configuration CRs
-   compared against one reference configuration CR)
+To compare all manifests in a directory use `-R`
 
-### Non-Goals
+```shell
+./kubectl-cluster_compare -r pkg/compare/testdata/YAMLOutput/reference/ -f pkg/compare/testdata/YAMLOutput/resources/ -R
+```
 
-1. Validation which goes beyond what is available through CRs accessible via the API – deeper
-   inspection/analysis is the domain of other tools.
-1. Validation of configuration CRs against CRD -- “linting” validation of their correctness or ability to be
-   successfully applied to a cluster
+## Output
 
-## Proposal
+The tool outputs a diff for each comparison made, and a final summary.
 
-### Terminology
-
-- **drift** -- A significant delta/difference which needs to be brought into compliance or undergo further
-  review/assessment
-
-### Validation Tool Implementation
-
-The validation tool will operate similarly to a standard Linux `diff` tool which operates (recursively) across a
-set of inputs (eg two trees of input). The left hand side of the diff will be a user selected reference
-configuration (see below for structure/contents of the reference) and the right hand side will be a
-collection of the user’s configuration CRs. The logical flow of the tool will be:
-
-1. User invokes the tool with the two inputs: `kubectl cluster-compare <referenceConfig> <userConfig>`
-    1. When the tool is run against a live cluster the `<userConfig>` input is made up of the set of
-       CRs pulled from the cluster based on the reference configuration. Only those CRs included in
-       the reference configuration are pulled from the live cluster. Where the reference
-       configuration indicates user variability in CR name or namespace multiple CRs may be pulled
-       based on the kind and included in the `<userConfig>`.
-    1. When the tool is run against extracted CRs `<userConfig>` is a local directory.
-1. For each CR in `<userConfig>`
-    1. Correlate the CR to a referenceConfig CR using api-kind-namespace-name (see [Correlating
-       CRs](# Correlating-CRs) below)
-    1. Generate a rendered reference CR. Expected user variable content is pulled from the input CR,
-       validated, and inserted into the rendered reference CR.
-    1. Perform and standard Linux `diff` between rendered reference CR and the input CR. Any
-       non-expected variations and/or missing content are reported.
-1. For each unused required reference CR (see [Reference CR Annotations](#
-   Reference-CR-Annotations)) report missing content
-
-As described in the logical flow the tool will report any differences considered outside the expected set
-of variability as defined by the reference configuration (ie the "drift"). The tool will highlight
-this drift for additional analysis/review by the user. In addition to the CR comparison output the tool will output a
-report detailing:
-
-- Input configuration CRs with no match in the reference
-- Required reference CRs with no match in the input configuration
-- Number of drifts found
-
-#### Inputs
-
-The tool consumes two mandatory inputs and supports additional options to control the comparison,
-output, etc.
-
-The reference configuration is a required input. The structure of the reference is described
-below. The minimum requirement is that the reference can be located on the local filesystem (eg
-directory).
-
-The user configuration is an optional input. If specified the user configuration will be pulled from the local
-filesystem. Otherwise the user configuration will be pulled from a live cluster.
-
-#### Correlating CRs
-
-`kubectl cluster-compare` must correlate CRs between reference and input configurations to perform the
-comparisons. `kubectl cluster-compare` correlates CRs by using the apiVersion, kind, namespace and name fields of the CRs to
-perform a nearest match correlation. Optionally the user may provide a manual override of the correlation to identify a
-specific reference configuration CR to be used for a given user input CR. Manual matches are prioritized over the
-automatic of correlation, meaning manual matches override matches by similar values in the specified group of fields.
-
-##### Correlation by manual matches
-
-`kubectl cluster-compare` gets as input a diff config that contains an option to specify manual matches between cluster resources
-and resource templates. The matches can be added to the config as pairs of
-`apiVersion_kind_namespace_name: <Template File Name>`. For cluster scoped CRs that don't have a namespace the matches can
-be added as pairs of `apiVersion_kind_name: <Template File Name>`.
-
-##### Correlation by group of fields (apiVersion, kind, namespace and name)
-
-When there is no manual match for a CR the command will try to match a template for the resource by looking at the
-4-tuple: apiVersion, kind, namespace and name . The Correlation is based on which fields in the templates that are not
-user-variable. Templates get matched to resources based on all the features from the 4-tuple that are declared fixed (
-not user-variable) in the templates.
-For example a template with a fixed namespace, kind, name and templated (user-variable) apiVersion will only be a
-potential match by the kind-namespace-name criterion.
-
-For each resource the group correlation will be done by the next logic:
-
-1. Exact match of apiVersion-kind-namespace-name
-    1. If single result in reference, comparison will be done
-1. Exact Match in 3/4 fields from apiVersion, kind, namespace, name. ( meaning exact match in: kind-namespace-name or
-   apiVersion-kind-name or apiVersion-kind-namespace)
-    1. If single result in reference, comparison will be done
-1. Exact Match in 2/4 fields from apiVersion, kind, namespace, name. ( meaning exact match in: kind-namespace or
-   kind-name or apiVersion-kind)
-    1. If single result in reference, comparison will be done
-1. Match kind
-    1. If single result in reference, comparison will be done
-1. No match – comparison cannot be made and the file is flagged as unmatched.
-
-We can phrase this logic in a more general form. Each CR will be correlated to a template with an exact match in the
-largest number of fields from this group:  apiVersion, kind, namespace, name.
-
-#### Output
-
-The tool will generate standard diff output highlighting content as described in "Categorization of
-differences". Note in this example the cpusets and hugepage count are not highlighted as these are
-expected user variations. The hugepage node is indicated as extra content and the realtime kernel
-setting is indicated as a drift
+Each comparison is surrounded by a line of `*`. The comparison identifies the cluster manifest and reference file being compared and a `diff`:
 
 ```diff
-@@ -8,7 +8,7 @@
-   namespace: MyNamespace
- spec:
-   ports:
--  - port: 8000
-+  - port: 80
-   selector:
-     app: guestbook
-     tier: frontend
+**********************************
 
----
-<next CR>
-…
+Cluster CR: apps/v1_Deployment_kubernetes-dashboard_kubernetes-dashboard
+Reference File: deploymentDashboard.yaml
+Diff Output: diff -u -N /tmp/MERGED-4218954955/apps-v1_deployment_kubernetes-dashboard_kubernetes-dashboard /tmp/LIVE-168878603/apps-v1_deployment_kubernetes-dashboard_kubernetes-dashboard
+--- /tmp/MERGED-4218954955/apps-v1_deployment_kubernetes-dashboard_kubernetes-dashboard 2024-07-02 09:18:04.314476186 -0400
++++ /tmp/LIVE-168878603/apps-v1_deployment_kubernetes-dashboard_kubernetes-dashboard    2024-07-02 09:18:04.314476186 -0400
+@@ -14,7 +14,7 @@
+   template:
+     metadata:
+       labels:
+-        k8s-app: kubernetes-dashboard
++        k8s-app: kubernetes-dashboard-diff
+     spec:
+       containers:
+       - args:
 
-Summary
-Missing 1 required CRs:
-guestbook:
-  frontend:
-  - frontend-deployment.yaml
-No CRs are unmatched
-
+**********************************
 ```
 
-### Reference Configuration Specification
+The output ends with a summary of all comparisons made, which lists differences, and highlights if references were not found for any cluster manifests.
 
-See [Reference Configuration](docs/reference-config-guide.md)
+```shell
+Summary
+CRs with diffs: 1
+CRs in reference missing from the cluster: 1
+ExamplePart:
+  Dashboard:
+  - deploymentMetrics.yaml
+No CRs are unmatched to reference CRs
+```
 
-#### Diff
+## Metadata.yaml
 
-Once the validations are complete we run a diff between the user's input configuration (now
-validated) CR vs the resolved template (user variable input is pulled from input config into the
-resolved template). This final step is needed to error/warn user of remaining drift that validation
-steps may not catch
+At the basic level, `metadata.yaml` lays out a reference configuration in `Part`s, each containing `Component`s and defines the templates and comparison rules.
 
-- E.g use case: reference may have a hardcoded field such as a namespace name and the user must comply.
-
-The primary output of this step is a side-by-side diff as shown in the output section above. To
-achieve this meaningful diff the tool must do perform two operations:
-
-1. Render the CRs into a comparable format. This involves doing a hierarchical sorting of the keys
-   to ensure consistent ordering when the CRs are rendered.
-1. Perform the diff
-
-### Workflow Description
-
-To Compare a known valid reference configuration with a live cluster:
-
-`kubectl cluster-compare -r <referenceConfigurationDirectory>`
-
-To Compare a known valid reference configuration with a local set of CRs:
-
-`kubectl cluster-compare -r <referenceConfigurationDirectory> -f <inputConfiguration>`
-
-To Compare a known valid reference configuration with a live cluster and with a user config:
-
-`kubectl cluster-compare -r <referenceConfigurationDirectory> -c <userConfig>`
-
-To Run a known valid reference configuration against a support archive:
-
-`kubectl cluster-compare -r <referenceConfigurationDirectory> -f "must-gather*/*/cluster-scoped-resources","must-gather*/*/namespaces" -R`
-
-#### Reference Configuration Directory
-
-#### metadata.yaml
-
-The metadata.yaml is a mandatory file for each reference config. The commands entrypoint will be looking for the
-metadata.yaml file in the reference directory. The name of the file is fixed and cant be changed.
-
-The main thing included in the metadata are the list of reference CRs that are grouped by components and parts (as
-described in previous sections). The Parts are specified under the Parts key in the YAML and include a list of
-components under the Components key. The full schema can be found in the appendix.
-
-Another parameter that can be set in the metadata.yaml file is the templateFunctionFiles. This Implementation of the
-command supports the declaration of nested templates in external files that then can be used in all resource templates
-included in the reference. All files including nested templates should be added to the list of files under the
-templateFunctionFiles key.
-
-Also the metadata,yaml includes an optional field: `fieldsToOmit`. Under this key they can specify fields that should
-not appear in the commands output. The fields will not be reported showed in the output for all templates in the
-reference, meaning no need to specify them in the resource templates. The fields included will not be showed in the
-output even if they are specified in the resource templates. Omitted fields can be nested therefore each field is
-represented by a list of strings. As can be seen in the example below.
-
-Example for metadata.yaml:
+The following example describes an one-part guestbook app, with redis and frontend components. The templates it references are stored in the same directory as `metadata.yaml`.
 
 ```yaml
-
 Parts:
   - name: guestbook
     Components:
       - name: redis
-        type: Required
-        requiredTemplates:
+        type: Required # mark the Component as "Required" or "Optional"
+        requiredTemplates: # absence from cluster manifests is considered a diff
           - path: redis-master-deployment.yaml
           - path: redis-master-service.yaml
-        optionalTemplates:
+        optionalTemplates: # will not be reported if missing from cluster manifests
           - path: redis-replica-deployment.yaml
           - path: redis-replica-service.yaml
       - name: frontend
@@ -300,162 +90,24 @@ Parts:
         requiredTemplates:
           - path: frontend-deployment.yaml
           - path: frontend-service.yaml
-
+fieldsToOmit:
+  - - "metadata"
+    - "labels"
+    - "k8s-app" # remove metadata.labels.k8s-app before diff
 ```
 
-#### Diff Config
+`metadata.yaml` supports several other advanced behaviours:
 
-The user has an option to pass a file called the diff config. The diff config includes user preferences and content that
-is specific to the users cluster (not like the metadata.yaml that includes only settings that are valid for the specific
-reference).
+* Declaring predefined fragments using `templateFunctionFiles` that can be used in multiple resource templates.
+* Globally ignoring specific fields by yaml path with `fieldsToOmit`.
+* Ignoring, per template, fields that are not defined in the reference template with `ignore-unspecified-fields`.
 
-In the version the diff config includes an option to specify manual matches between cluster resources and resource
-templates. The matches can be added to the config as pairs of `apiVersion_kind_namespace_name: <Template File Name>`. For
-resources that don't have a namespace the matches can be added as pairs of `apiVersion_kind_name: <Template File Name>`.
-The pairs are listed in the config under correlationSettings.manualCorrelation.correlationPairs as can be seen in the
-example below.
+See the included [test cases](pkg/compare/testdata/) for more examples of reference configs. For a complete explanation of `metadata.yaml` please see [Building a Reference Config](docs/reference-config-guide.md).
 
-```yaml
+## Further Resources
 
-correlationSettings:
-  manualCorrelation:
-    correlationPairs:
-      v1_Service_guestbook_frontendService: "frontend-service.yaml"
+[User Guide](docs/user-guide.md)
 
-```
+[Building a Reference Config](docs/reference-config-guide.md)
 
-### Implementation Details
-
-kubectl cluster-compare implementation includes usage of parts of code from the K8s built-in `diff` command which combines
-patching and an external diff tool via
-`KUBECTL_EXTERNAL_DIFF`.
-The command implementation includes parsing of the reference and other user passed arguments, correlation logic,
-template injecting, calling the diff code and summary creation.
-
-#### Diff command interface
-
-The command calls diff code by using the exported Differ Struct:
-Definition:
-
-```go
-type Differ struct {
-    From *DiffVersion
-    To   *DiffVersion
-}
-
-func (d *Differ) Diff(obj Object, printer Printer, showManagedFields bool) error
-func (d *Differ) Run(diff *DiffProgram) error
-```
-
-The compare command calls the differ.Diif function for each resource, adding the injected resource and the cluster
-resource to the files that should be included in the diff.
-As seen above the differ.Diif function gets as an argument an object that matches the Object interface:
-
-```go
-type Object interface {
-    Live() runtime.Object
-    Merged() (runtime.Object, error)
-    Name() string
-}
-```
-
-The compare command includes a custom implementation of this interface. Where the Live function returns the cluster
-resource and the Merged function returns the injected version of the CR.
-After the differ.Diff function is called for all CRs the differ.Run() is called and the diff is printed out to stdout.
-
-### Risks and Mitigations
-
-1. Risk of false negatives when performing comparisons – Giving the user a false indication that a
-   cluster is compliant will lead to degraded performance or functionality. These could be
-   introduced by bugs in the tool or reference configuration. Leveraging standard templating syntax
-   and libraries for performing the analysis (parsers, template handling, comparison) mitigates the
-   risk.
-
-### Drawbacks
-
-Existing tools can perform a diff of two CRs – This tool extends that functionality to allow for
-expected variations, optional content, and detection of missing/unmatched content.
-
-## Design Details
-
-### Correlators Design
-
-The kubectl cluster-compare uses Different Correlators to correlate between custer resources and their matching reference
-template.
-When Designing the structure of the correlators we tried to come up with a design that will be: easy to add additional
-correlation logics, and will allow chaining of different correlators.
-The Correlators are divided into 2 types:
-Base correlators - implement a specific correlation logic
-Decorator correlators - correlators that wrap other correlators and add an additional behaviour.
-
-The current version includes 2 decorator correlators: MultiCorrelator and MetricsCorrelatorDecorator. And includes 2 Base
-correlators: ExactMatchCorrelator and GroupCorrelator. (detailed information about all of them can be found below)
-To allow easy chaining all the correlators match the correlator interface: (include Errors)
-
-In this Version the correlators are created and initialized in the following chain:
-
-```shell
-                                                                ┌──────────────────────┐
-                                                    <<use>>     │                      │
-                                                   ┌──────────► │                      │
-                                                   │            │ ExactMatchCorrelator │
-┌──────────────────────┐           ┌───────────────┴──────┐     │                      │
-│                      │           │                      │     │                      │
-│                      │           │                      │     └──────────────────────┘
-│  MetricsCorrelator-  ├──────────►│   MultiCorrelator    │
-│      Deorator        │  <<use>>  │                      │     ┌──────────────────────┐
-│                      │           │                      │     │                      │
-└──────────────────────┘           └────────────────┬─────┘     │                      │
-                                                    │           │    GroupCorrelator   │
-                                                    └─────────► │                      │
-                                                    <<use>>     │                      │
-                                                                └──────────────────────┘
-```
-
-#### MultiCorrelator
-
-The MultiCorrelator aggregates multiple correlators while implementing the correlator interface.
-The multiCorrelator stores a list of correlators. It Matches resources to templates by iterating over the list of
-correlators and for each subcorrelator attempts to find a match for the requested resource.
-In case a match is found for one of the correlators, it will be returned without any errors.
-If no match is found a joined error including all sub correlators errors will be returned.
-
-#### MetricsCorrelatorDecorator
-
-Wraps a single correlator, And collects metrics about the correlation. The metrics can be later retrieved and then can
-be used to create a summary output. The MetricsCorrelatorDecorator gathers metrics on which resource templates that have
-been matched and with cluster CRs were not matched.
-
-#### ExactMatchCorrelator
-
-Matches templates by exact match between a predefined config including pairs of Resource names and their equivalent
-template.The exact behavior of this correlator is described in Correlation by manual matches section.
-
-#### GroupCorrelator
-
-The group correlator implements the correlation behavior explained in Correlation by group of fields (apiVersion, kind,
-namespace and name). The correlation behavior in this version is: “Each CR will be correlated to a template with an
-exact match in the largest number of fields from this group:  apiVersion, kind, namespace, name.”
-The group correlator is more generic, and it gets on creation a list of fields that will be used for matching templates.
-In this version the group of fields are fixed:  apiVersion, kind, namespace, name. But it can be changed in the future
-to allow more flexibility in group correlating.
-
-## Alternatives
-
-### kubectl diff
-
-The existing kubectl diff works well for validation of a CR (or set of CRs) on a cluster against
-a known valid configuration. This tool does a good job of suppressing diffs in known managed fields
-(eg metadata, status, etc), however it is lacking in several critical features for the use cases in
-this enhancement:
-
-- Suppression of expected user variations
-- Handling of one-to-many matches
-- Comparison of two offline files
-
-### Command line utilities
-
-Another option is the builtin diff command:
-diff -t -y -w <(yq 'sort_keys(..)' /path/to/reference/config/cr) <(yq 'sort_keys(..)' /path/to/input/cr )
-The command works well on Comparison of two offline files but doesn't handle one-to-many matches and does not suppress
-known managed fields and expected user variations.
+[Developer Intro](docs/dev.md)
