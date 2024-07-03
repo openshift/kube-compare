@@ -99,6 +99,9 @@ const (
 	refDirNotExistsError    = "\"Reference directory doesn't exist\""
 	emptyTypes              = "templates don't contain any types (kind) of resources that are supported by the cluster"
 	DiffSeparator           = "**********************************\n"
+	skipInvalidResources    = "Skipping %s Input contains additional files from supported file extensions" +
+		" (json/yaml) that do not contain a valid resource, error: %s.\n In case this file is " +
+		"expected to be a valid resource modify it accordingly. "
 )
 
 const (
@@ -421,6 +424,13 @@ func runDiff(obj diff.Object, streams genericiooptions.IOStreams, showManagedFie
 	return diffOutput, nil
 }
 
+func extractPath(str string, pathIndex int) string {
+	if split := strings.Split(str, " "); len(split) >= pathIndex {
+		return split[pathIndex]
+	}
+	return "Unknown Path"
+}
+
 // Run uses the factory to parse file arguments (in case of local mode) or gather all cluster resources matching
 // templates types. For each Resource it finds the matching Resource template and
 // injects, compares, and runs against differ.
@@ -443,6 +453,14 @@ func (o *Options) Run() error {
 		return fmt.Errorf("failed to collect resources: %w", err)
 	}
 	r.IgnoreErrors(func(err error) bool {
+		if strings.Contains(err.Error(), "Object 'Kind' is missing") {
+			klog.Warningf(skipInvalidResources, extractPath(err.Error(), 3), "'Kind' is missing")
+			return true
+		}
+		if strings.Contains(err.Error(), "error parsing") {
+			klog.Warningf(skipInvalidResources, extractPath(err.Error(), 2), err.Error()[strings.LastIndex(err.Error(), ":"):])
+			return true
+		}
 		return containOnly(err, []error{MultipleMatches{}, UnknownMatch{}, MergeError{}})
 	})
 

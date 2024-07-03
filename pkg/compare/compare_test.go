@@ -399,6 +399,11 @@ error code:2`),
 			checks:        defaultChecks.withPrefixedSuffix("withVebosityFlag"),
 			verboseOutput: true,
 		},
+		{
+			mode:   []Mode{{Local, LocalRef}},
+			name:   "Invalid Resources Are Skipped",
+			checks: defaultChecks,
+		},
 	}
 	tf := cmdtesting.NewTestFactory()
 	testFlags := flag.NewFlagSet("test", flag.ContinueOnError)
