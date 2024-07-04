@@ -357,7 +357,7 @@ func TestCompareRun(t *testing.T) {
 	_ = testFlags.Parse([]string{"--skip_headers"})
 	for _, test := range tests {
 		for i, mode := range test.mode {
-			t.Run(test.name+mode.String(), func(t *testing.T) {
+			t.Run(test.name+"-"+mode.String(), func(t *testing.T) {
 				IOStream, _, out, _ := genericiooptions.NewTestIOStreams()
 				klog.SetOutputBySeverity("INFO", out)
 				cmd := getCommand(t, &test, i, tf, &IOStream) // nolint:gosec
