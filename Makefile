@@ -19,6 +19,7 @@ OUTPUT_DIR :=_output
 GO_BUILD_BINDIR ?=$(OUTPUT_DIR)/bin
 CROSS_BUILD_BINDIR ?=$(OUTPUT_DIR)/bin
 
+# Build based on OS and Arch. Full list available in https://pkg.go.dev/internal/platform#pkg-variables
 .PHONY: build
 build:
 	mkdir -p $(GO_BUILD_BINDIR)
@@ -59,6 +60,10 @@ markdownlint: markdownlint-image  ## run the markdown linter
 		--env PULL_BASE_SHA=$(PULL_BASE_SHA) \
 		-v $$(pwd):/workdir:Z \
 		$(IMAGE_NAME)-markdownlint:latest
+
+.PHONY: image-build
+image-build:
+	$(ENGINE) build . -t $(IMAGE_NAME):latest
 
 .PHONY: release-dry-run
 release-dry-run:
