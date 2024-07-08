@@ -6,7 +6,7 @@ COPY . .
 RUN go work vendor
 RUN make cross-build --warn-undefined-variables
 
-FROM registry.ci.openshift.org/ocp/builder:rhel-8-golang-1.22-builder-multi-openshift-4.17 AS builder-rhel-9
+FROM registry.ci.openshift.org/ocp/builder:rhel-9-golang-1.22-builder-multi-openshift-4.17 AS builder-rhel-9
 WORKDIR /go/src/github.com/openshift/kube-compare
 COPY . .
 RUN go work vendor
