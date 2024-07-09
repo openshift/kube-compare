@@ -1,0 +1,22 @@
+**********************************
+
+Cluster CR: v1_ConfigMap_kubernetes-dashboard_kubernetes-dashboard-settings
+Reference File: cm.yaml
+Diff Output: diff -u -N TEMP/v1_configmap_kubernetes-dashboard_kubernetes-dashboard-settings TEMP/v1_configmap_kubernetes-dashboard_kubernetes-dashboard-settings
+--- TEMP/v1_configmap_kubernetes-dashboard_kubernetes-dashboard-settings	DATE
++++ TEMP/v1_configmap_kubernetes-dashboard_kubernetes-dashboard-settings	DATE
+@@ -2,6 +2,6 @@
+ kind: ConfigMap
+ metadata:
+   labels:
+-    k8s-app: kubernetes-dashboardfunction was called successfully from same file
++    k8s-app: kubernetes-dashboard
+   name: kubernetes-dashboard-settings
+   namespace: kubernetes-dashboard
+
+**********************************
+
+Summary
+CRs with diffs: 1/1
+No CRs are missing from the cluster
+No CRs are unmatched to reference CRs

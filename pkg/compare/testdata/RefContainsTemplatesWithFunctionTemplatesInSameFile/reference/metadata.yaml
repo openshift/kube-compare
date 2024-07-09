@@ -1,0 +1,7 @@
+Parts:
+  - name: ExamplePart
+    Components:
+      - name: DemonSets
+        type: Required
+        requiredTemplates:
+          - path: cm.yaml
