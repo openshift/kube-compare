@@ -111,3 +111,5 @@ See the included [test cases](pkg/compare/testdata/) for more examples of refere
 [Building a Reference Config](docs/reference-config-guide.md)
 
 [Developer Intro](docs/dev.md)
+
+[Build Image](docs/image-build.md)
