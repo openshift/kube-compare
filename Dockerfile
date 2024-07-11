@@ -12,7 +12,7 @@ COPY . .
 RUN go work vendor
 RUN make cross-build --warn-undefined-variables
 
-FROM --platform=linux/amd64 registry.ci.openshift.org/ocp/4.17:cli
+FROM --platform=linux/amd64 registry.ci.openshift.org/ocp/4.17:cli as final-builder
 
 COPY --from=builder-rhel-9 /go/src/github.com/openshift/kube-compare/_output/bin/ /usr/share/openshift/
 
@@ -33,3 +33,7 @@ COPY --from=builder-rhel-9 /go/src/github.com/openshift/kube-compare/_output/bin
 COPY --from=builder-rhel-9 /go/src/github.com/openshift/kube-compare/_output/bin/linux_s390x/kubectl-cluster_compare /usr/share/openshift/linux_s390x/kube-compare.rhel9
 
 COPY --from=builder-rhel-8 /go/src/github.com/openshift/kube-compare/LICENSE /usr/share/openshift/LICENSE
+
+FROM scratch
+WORKDIR /usr/share/openshift/
+COPY --from=final-builder /usr/share/openshift/ /usr/share/openshift/

@@ -21,4 +21,9 @@ make cross-build
 docker create --name kube-compare kube-compare:latest
 docker cp kube-compare:/usr/share/openshift/linux_amd64/kube-compare.rhel9 ./kube-compare.rhel9
 docker rm -f kube-compare
+
+# run 
+export PATH=$PWD:$PATH
+mv kube-compare.rhel9 kubectl-cluster_compare
+oc cluster-compare -h
 ```
