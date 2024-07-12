@@ -508,11 +508,12 @@ func getCommand(t *testing.T, test *Test, modeIndex int, tf *cmdtesting.TestFact
 }
 
 func setClient(t *testing.T, resources []*unstructured.Unstructured, tf *cmdtesting.TestFactory) {
-	resourcesByType, _ := groups.Divide(resources, func(element *unstructured.Unstructured) ([]int, error) {
-		return []int{0}, nil
-	}, func(e *unstructured.Unstructured) (*unstructured.Unstructured, error) {
-		return e, nil
-	}, createGroupHashFunc([][]string{{"kind"}}))
+	resourcesByType, _ := groups.Divide(
+		resources,
+		func(element *unstructured.Unstructured) ([]int, error) { return []int{0}, nil },
+		func(e *unstructured.Unstructured) (*unstructured.Unstructured, error) { return e, nil },
+		createGroupHashFunc([][]string{{"kind"}}),
+	)
 	resourcesByKind := lo.MapKeys(resourcesByType[0], func(value []*unstructured.Unstructured, key string) string {
 		// Converted to URL Path Format:
 		return fmt.Sprintf("/%ss", strings.ToLower(key))

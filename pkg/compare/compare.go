@@ -336,9 +336,12 @@ func (o *Options) setupCorrelators() error {
 // types supported by the live cluster in order to not raise errors by the visitor. In a case the reference includes types that
 // are not supported by the user a warning will be created.
 func (o *Options) setLiveSearchTypes(f kcmdutil.Factory) error {
-	requestedTypes, err := groups.Divide(o.templates, func(element *unstructured.Unstructured) ([]int, error) {
-		return []int{0}, nil
-	}, extractMetadata, createGroupHashFunc([][]string{{"kind"}}))
+	requestedTypes, err := groups.Divide(
+		o.templates,
+		func(element *unstructured.Unstructured) ([]int, error) { return []int{0}, nil },
+		func(t *ReferenceTemplate) (*unstructured.Unstructured, error) { return t.metadata, nil },
+		createGroupHashFunc([][]string{{"kind"}}),
+	)
 	if err != nil {
 		return fmt.Errorf("failed to group templates: %w", err)
 	}
