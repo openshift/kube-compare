@@ -31,7 +31,7 @@ test:
 
 .PHONY: test-report-creator
 test-report-creator:
-	go test --race ./addon-tools/report-creator/report
+	go test --race ./addon-tools/report-creator/*/
 
 .PHONY: build-report-creator
 build-report-creator:
