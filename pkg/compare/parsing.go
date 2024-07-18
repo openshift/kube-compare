@@ -46,12 +46,30 @@ type ReferenceTemplateConfig struct {
 
 type ReferenceTemplate struct {
 	*template.Template
-	Path   string                  `json:"path"`
-	Config ReferenceTemplateConfig `json:"config,omitempty"`
+	Path     string                  `json:"path"`
+	Config   ReferenceTemplateConfig `json:"config,omitempty"`
+	metadata *unstructured.Unstructured
 }
 
+const noValue = "<no value>"
+
 func (rf ReferenceTemplate) Exec(params map[string]any) (*unstructured.Unstructured, error) {
-	return executeYAMLTemplate(rf.Template, params)
+	var buf bytes.Buffer
+	err := rf.Template.Execute(&buf, params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to constuct template: %w", err)
+	}
+	data := make(map[string]any)
+	content := buf.Bytes()
+	err = yaml.Unmarshal(bytes.ReplaceAll(content, []byte(noValue), []byte("")), &data)
+	if err != nil {
+		return nil, fmt.Errorf("template: %s isn't a yaml file after injection. yaml unmarshal error: %w. The Template After Execution: %s", rf.Name(), err, string(content))
+	}
+	return &unstructured.Unstructured{Object: data}, nil
+}
+
+func (rf ReferenceTemplate) Name() string {
+	return rf.Path
 }
 
 func (r *Reference) getTemplates() []*ReferenceTemplate {
@@ -113,10 +131,10 @@ var defaultFieldsToOmit = [][]string{{"metadata", "uid"},
 }
 
 const (
-	refConfNotExistsError          = "Reference config file not found. error: "
-	refConfigNotInFormat           = "Reference config isn't in correct format. error: "
-	userConfNotExistsError         = "User Config File not found. error: "
-	userConfigNotInFormat          = "User config file isn't in correct format. error: "
+	refConfNotExistsError          = "Reference config file not found. error: %w"
+	refConfigNotInFormat           = "Reference config isn't in correct format. error: %w"
+	userConfNotExistsError         = "User Config File not found. error: %w"
+	userConfigNotInFormat          = "User config file isn't in correct format. error: %w"
 	templatesCantBeParsed          = "an error occurred while parsing template: %s specified in the config. error: %v"
 	templatesFunctionsCantBeParsed = "an error occurred while parsing the template function files specified in the config. error: %v"
 )
@@ -136,11 +154,11 @@ func getReference(fsys fs.FS) (Reference, error) {
 func parseYaml[T any](fsys fs.FS, filePath string, structType *T, fileNotFoundError, parsingError string) error {
 	file, err := fs.ReadFile(fsys, filePath)
 	if err != nil {
-		return fmt.Errorf("%s%w", fileNotFoundError, err)
+		return fmt.Errorf(fileNotFoundError, err)
 	}
 	err = yaml.UnmarshalStrict(file, structType)
 	if err != nil {
-		return fmt.Errorf("%s%w", parsingError, err)
+		return fmt.Errorf(parsingError, err)
 	}
 	return nil
 }
@@ -153,8 +171,6 @@ func parseTemplates(templateReference []*ReferenceTemplate, functionTemplates []
 			errs = append(errs, fmt.Errorf(templatesCantBeParsed, temp.Path, err))
 			continue
 		}
-		// recreate template with new name that includes path from reference root:
-		parsedTemp, _ = parsedTemp.New(temp.Path).AddParseTree(temp.Path, parsedTemp.Lookup(path.Base(temp.Path)).Tree)
 		if len(functionTemplates) > 0 {
 			parsedTemp, err = parsedTemp.ParseFS(fsys, functionTemplates...)
 			if err != nil {
@@ -163,6 +179,10 @@ func parseTemplates(templateReference []*ReferenceTemplate, functionTemplates []
 			}
 		}
 		temp.Template = parsedTemp
+		temp.metadata, err = temp.Exec(map[string]any{}) // Extract Metadata
+		if err != nil {
+			errs = append(errs, err)
+		}
 	}
 	return templateReference, errors.Join(errs...) // nolint:wrapcheck
 }
@@ -187,25 +207,4 @@ func parseDiffConfig(filePath string) (UserConfig, error) {
 	}
 	err = parseYaml(os.DirFS("/"), confPath[1:], &result, userConfNotExistsError, userConfigNotInFormat)
 	return result, err
-}
-
-const noValue = "<no value>"
-
-func executeYAMLTemplate(temp *template.Template, params map[string]any) (*unstructured.Unstructured, error) {
-	var buf bytes.Buffer
-	err := temp.Execute(&buf, params)
-	if err != nil {
-		return nil, fmt.Errorf("failed to constuct template: %w", err)
-	}
-	data := make(map[string]any)
-	content := buf.Bytes()
-	err = yaml.Unmarshal(bytes.ReplaceAll(content, []byte(noValue), []byte("")), &data)
-	if err != nil {
-		return nil, fmt.Errorf("template: %s isn't a yaml file after injection. yaml unmarshal error: %w. The Template After Execution: %s", temp.Name(), err, string(content))
-	}
-	return &unstructured.Unstructured{Object: data}, nil
-}
-func extractMetadata(t *ReferenceTemplate) (*unstructured.Unstructured, error) {
-	yamlTemplate, err := t.Exec(map[string]any{})
-	return yamlTemplate, err
 }

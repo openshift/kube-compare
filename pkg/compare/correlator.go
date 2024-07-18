@@ -134,7 +134,12 @@ func NewGroupCorrelator(fieldGroups [][][]string, templates []*ReferenceTemplate
 		functionGroups = append(functionGroups, createGroupHashFunc(group))
 	}
 	core := GroupCorrelator{fieldGroups: fieldGroups, GroupFunctions: functionGroups}
-	mappings, err := groups.Divide(templates, core.getGroupsFunction(), extractMetadata, functionGroups...)
+	mappings, err := groups.Divide(
+		templates,
+		core.getGroupsFunction(),
+		func(t *ReferenceTemplate) (*unstructured.Unstructured, error) { return t.metadata, nil },
+		functionGroups...,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to group templates: %w", err)
 	}
