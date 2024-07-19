@@ -343,7 +343,13 @@ func (o *Options) setLiveSearchTypes(f kcmdutil.Factory) error {
 		o.templates,
 		func(element *unstructured.Unstructured) ([]int, error) { return []int{0}, nil },
 		func(t *ReferenceTemplate) (*unstructured.Unstructured, error) { return t.metadata, nil },
-		createGroupHashFunc([][]string{{"kind"}}),
+		func(cr *unstructured.Unstructured) (string, error) {
+			kind := cr.GetKind()
+			if kind == "" {
+				return kind, fmt.Errorf("the field kind doesn't exist in resource")
+			}
+			return cr.GetKind(), nil
+		},
 	)
 	if err != nil {
 		return fmt.Errorf("failed to group templates: %w", err)

@@ -410,7 +410,13 @@ func setClient(t *testing.T, resources []*unstructured.Unstructured, tf *cmdtest
 		resources,
 		func(element *unstructured.Unstructured) ([]int, error) { return []int{0}, nil },
 		func(e *unstructured.Unstructured) (*unstructured.Unstructured, error) { return e, nil },
-		createGroupHashFunc([][]string{{"kind"}}),
+		func(cr *unstructured.Unstructured) (string, error) {
+			kind := cr.GetKind()
+			if kind == "" {
+				return kind, fmt.Errorf("the field kind doesn't exist in resource")
+			}
+			return cr.GetKind(), nil
+		},
 	)
 	resourcesByKind := lo.MapKeys(resourcesByType[0], func(value []*unstructured.Unstructured, key string) string {
 		// Converted to URL Path Format:
