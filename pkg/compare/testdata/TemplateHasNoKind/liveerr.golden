@@ -1,2 +1,2 @@
-error: failed to group templates: error while finding group hash for &{map[apiVersion:apps/v1 metadata:map[annotations:map[deprecated.daemonset.template.generation:1] generation:1 labels:map[app:kindnet k8s-app:kindnet tier:node]]]}. Error: the field kind doesn't exist in resource
+error: template missing kind: apps.v1.DaemonSet.kube-system.kindnet.yaml
 error code:2
