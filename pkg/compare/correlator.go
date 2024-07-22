@@ -124,7 +124,7 @@ func NewGroupCorrelator(fieldGroups [][][]string, templates []*ReferenceTemplate
 	objects := templates
 	for _, group := range fieldGroups {
 		fc := FieldCorrelator{Fields: group, hashFunc: createGroupHashFunc(group)}
-		newObjects := fc.Take(objects)
+		newObjects := fc.ClaimTemplates(objects)
 
 		// Ignore if the fc didn't take any objects
 		if len(newObjects) == len(objects) {
@@ -275,7 +275,7 @@ type FieldCorrelator struct {
 	templates map[string][]*ReferenceTemplate
 }
 
-func (f *FieldCorrelator) Take(templates []*ReferenceTemplate) []*ReferenceTemplate {
+func (f *FieldCorrelator) ClaimTemplates(templates []*ReferenceTemplate) []*ReferenceTemplate {
 	if f.templates == nil {
 		f.templates = make(map[string][]*ReferenceTemplate)
 	}
