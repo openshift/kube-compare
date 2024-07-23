@@ -242,3 +242,65 @@ CRs with diffs: 1
 No CRs are missing from the cluster
 No CRs are unmatched to reference CRs
 ```
+
+## Ignoring feilds
+
+It is possible as a reference writter to ignore fields for a given template.
+
+First you must define an entry in `fieldsToOmit.items` e.g.:
+
+```yaml
+fieldsToOmit:
+   items:
+      deployments:
+         - pathToKey: spec.selector.matchLabels.k8s-app # remove spec.selector.matchLabels.k8s-app before diff
+```
+
+This can then be referenced in the entry for the template:
+
+```yaml
+requiredTemplates:
+  - path: redis-master-deployment.yaml
+    config:
+        fieldsToOmitRefs:
+          - deployments
+```
+
+> Note: setting `fieldsToOmitRefs` will replace the default value.
+
+`fieldsToOmit` can define a default value for `fieldsToOmitRefs` using the key `defaultOmitRef`:
+
+```yaml
+fieldsToOmit:
+   defaultOmitRef: default
+   items:
+      defualt:
+         - pathToKey: a.custom.default."k8s.io" # Keys containing dots should be quoted
+```
+
+The default value of `defaultOmitRef` is a built-in list  `cluster-compare-built-in` and can still be referenced even if the `defaultOmitRef` is set.
+
+### pathToKey syntax
+
+The syntax for `pathToKey` is a dot seperated path.
+
+> Limitation: currently we are not able to traverse lists.
+
+The path: `"spec.selector.matchLabels.k8s-app"` will match:
+
+```yaml
+spec:
+  selector:
+    matchLabels:
+      k8s-app: "..."
+```
+
+Segements with dots should be quoted. So to match:
+
+```yaml
+metadata:
+  annotations:
+    workload.openshift.io/allowed: management
+```
+
+you use would use `metadata.annotations."workload.openshift.io/allowed"`.

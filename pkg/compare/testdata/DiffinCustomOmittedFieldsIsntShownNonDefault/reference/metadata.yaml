@@ -5,11 +5,13 @@ Parts:
         type: Required
         requiredTemplates:
           - path: deploymentMetrics.yaml
+            config:
+              fieldsToOmitRefs:
+                - custom
 
 fieldsToOmit:
-  defaultOmitRef: deployment
   items:
-    deployment:
+    custom:
       - pathToKey: spec.selector.matchLabels.k8s-app
       - pathToKey: metadata.labels.k8s-app
       - pathToKey: spec.template.metadata.labels.k8s-app
