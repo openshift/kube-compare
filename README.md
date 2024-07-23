@@ -6,10 +6,11 @@
 
 ## Install
 
-TODO make this a one-liner to setup the plugin/container
+Build the code locally and install it in `/usr/local/bin`:
 
 ```shell
 make build
+sudo make install
 ```
 
 ## Run
