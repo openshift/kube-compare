@@ -6,27 +6,42 @@
 
 ## Install
 
-TODO make this a one-liner to setup the plugin/container
+Build the code locally and install it in `/usr/local/bin`:
 
 ```shell
 make build
+sudo make install
 ```
 
 ## Run
 
 A reference configuration is required in order to run. A reference configuration is a directory containing a [`metadata.yaml`](#metadatayaml) and one or more templates.
 
-Specify the directory containing a reference with `-r`, and one or more manifests to compare to it with `-f`.
+Compare a known valid reference configuration with a live cluster:
 
-```shell
-./kubectl-cluster_compare -r pkg/compare/testdata/YAMLOutput/reference/ -f pkg/compare/testdata/YAMLOutput/resources/d1.yaml
+```bash
+kubectl cluster-compare -r ./reference
+```
+  
+Compare a known valid reference configuration with a local set of CRs:
+
+```bash
+kubectl cluster-compare -r ./reference -f ./crsdir -R
+```
+  
+Compare a known valid reference configuration with a live cluster and with a user config:
+
+```bash
+kubectl cluster-compare -r ./reference -c ./user_config
+```
+  
+Run a known valid reference configuration with an `oc must-gather` output:
+
+```bash
+kubectl cluster-compare -r ./reference -f "must-gather*/*/cluster-scoped-resources","must-gather*/*/namespaces" -R
 ```
 
-To compare all manifests in a directory use `-R`
-
-```shell
-./kubectl-cluster_compare -r pkg/compare/testdata/YAMLOutput/reference/ -f pkg/compare/testdata/YAMLOutput/resources/ -R
-```
+Run `kubectl cluster-compare --help` for a more extensive usage description.
 
 ## Output
 

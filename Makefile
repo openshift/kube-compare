@@ -19,11 +19,21 @@ OUTPUT_DIR :=_output
 GO_BUILD_BINDIR ?=$(OUTPUT_DIR)/bin
 CROSS_BUILD_BINDIR ?=$(OUTPUT_DIR)/bin
 
+# Default locations for `make install`
+PREFIX ?=  /usr/local
+DESTDIR ?= $(PREFIX)/bin
+
 # Build based on OS and Arch. Full list available in https://pkg.go.dev/internal/platform#pkg-variables
 .PHONY: build
 build:
 	mkdir -p $(GO_BUILD_BINDIR)
 	GOOS=$(GOOS) GOARCH=$(GOARCH) go build $(GO_BUILD_FLAGS) -o $(GO_BUILD_BINDIR)/kubectl-cluster_compare ./cmd/kubectl-cluster_compare.go
+
+# Install the plugin and completion script in /usr/local/bin
+.PHONY: install
+install:
+	install kubectl_complete-cluster_compare $(DESTDIR)
+	install $(GO_BUILD_BINDIR)/kubectl-cluster_compare  $(DESTDIR)
 
 .PHONY: test
 test:
