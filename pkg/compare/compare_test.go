@@ -179,7 +179,7 @@ type Test struct {
 	name                  string
 	leaveTemplateDirEmpty bool
 	mode                  []Mode
-	shouldPassUserConfig  bool
+	userConfigFileName    string
 	shouldDiffAll         bool
 	outputFormat          string
 	checks                Checks
@@ -190,256 +190,166 @@ func (test *Test) getTestDir() string {
 	return path.Join(TestDirs, strings.ReplaceAll(test.name, " ", ""))
 }
 
+func (test Test) Clone() Test {
+	newMode := make([]Mode, 0)
+	copy(newMode, test.mode)
+	return Test{
+		name:                  test.name,
+		leaveTemplateDirEmpty: test.leaveTemplateDirEmpty,
+		mode:                  test.mode,
+		userConfigFileName:    test.userConfigFileName,
+		shouldDiffAll:         test.shouldDiffAll,
+		outputFormat:          test.outputFormat,
+		checks:                test.checks,
+		verboseOutput:         test.verboseOutput,
+	}
+}
+
+func (test Test) withModes(modes []Mode) Test {
+	newTest := test.Clone()
+	newTest.mode = modes
+	return newTest
+}
+
+func (test Test) skipReferenceFlag() Test {
+	newTest := test.Clone()
+	newTest.leaveTemplateDirEmpty = true
+	return newTest
+}
+
+func (test Test) withChecks(checks Checks) Test {
+	newTest := test.Clone()
+	newTest.checks = checks
+	return newTest
+}
+
+func (test Test) withUserConfig(userConfigFileName string) Test {
+	newTest := test.Clone()
+	newTest.userConfigFileName = userConfigFileName
+	return newTest
+}
+
+func (test Test) diffAll() Test {
+	newTest := test.Clone()
+	newTest.shouldDiffAll = true
+	return newTest
+}
+
+func (test Test) withVerboseOutput() Test {
+	newTest := test.Clone()
+	newTest.verboseOutput = true
+	return newTest
+}
+
+func (test Test) withOutputFormat(outputFormat string) Test {
+	newTest := test.Clone()
+	newTest.outputFormat = outputFormat
+	return newTest
+}
+
+func defaultTest(name string) Test {
+	return Test{
+		name:   name,
+		mode:   []Mode{DefaultMode},
+		checks: defaultChecks,
+	}
+}
+
+func matchErrorRegexCheck(msg string) Check {
+	return Check{
+		checkType: matchRegex,
+		value:     strings.Join([]string{`error: ` + msg, `error code:2`}, "\n"),
+	}
+}
+
 // TestCompareRun ensures that Run command calls the right actions
 // and returns the expected error.
 func TestCompareRun(t *testing.T) {
 	tests := []Test{
-		{
-			name:                  "No Input",
-			mode:                  []Mode{DefaultMode},
-			leaveTemplateDirEmpty: true,
-			checks:                defaultChecks,
-		},
-		{
-			name:   "Reference Directory Doesnt Exist",
-			mode:   []Mode{DefaultMode},
-			checks: defaultChecks,
-		},
-		{
-			name: "Reference Config File Doesnt Exist",
-			mode: []Mode{DefaultMode},
-			checks: Checks{
-				Out: defaultCheckOut,
-				Err: Check{
-					checkType: matchRegex,
-					value: strings.TrimSpace(`
-error: Reference config file not found. error: open .*metadata.yaml: no such file or directory
-error code:2`),
-				},
-			},
-		},
-		{
-			name:   "Reference Config File Isnt Valid YAML",
-			mode:   []Mode{DefaultMode},
-			checks: defaultChecks,
-		},
-		{
-			name:   "Reference Contains Templates That Dont Exist",
-			mode:   []Mode{DefaultMode},
-			checks: defaultChecks,
-		},
-		{
-			name:   "Reference Contains Templates That Dont Parse",
-			mode:   []Mode{DefaultMode},
-			checks: defaultChecks,
-		},
-		{
-			name:   "Reference Contains Function Templates That Dont Parse",
-			mode:   []Mode{DefaultMode},
-			checks: defaultChecks,
-		},
-		{
-			name:   "Template Isnt YAML After Execution With Empty Map",
-			mode:   []Mode{DefaultMode},
-			checks: defaultChecks,
-		},
-		{
-			name:   "Template Has No Kind",
-			mode:   []Mode{{Live, LocalRef}},
-			checks: defaultChecks,
-		},
-		{
-			name:   "Two Templates With Same apiVersion Kind Name Namespace",
-			mode:   []Mode{DefaultMode},
-			checks: defaultChecks,
-		},
-		{
-			name:   "Two Templates With Same Kind Namespace",
-			mode:   []Mode{DefaultMode},
-			checks: defaultChecks,
-		},
-		{
-			name:                 "User Config Doesnt Exist",
-			shouldPassUserConfig: true,
-			mode:                 []Mode{DefaultMode},
-			checks: Checks{
-				Out: defaultCheckOut,
-				Err: Check{
-					checkType: matchRegex,
-					value: strings.TrimSpace(`
-error: User Config File not found. error: open .*testdata/UserConfigDoesntExist/userconfig.yaml: no such file or directory
-error code:2`),
-				},
-			},
-		},
-		{
-			name:                 "User Config Isnt Correct YAML",
-			shouldPassUserConfig: true,
-			mode:                 []Mode{DefaultMode},
-			checks:               defaultChecks,
-		},
-		{
-			name:                 "User Config Manual Correlation Contains Template That Doesnt Exist",
-			shouldPassUserConfig: true,
-			mode:                 []Mode{DefaultMode},
-			checks:               defaultChecks,
-		},
-		{
-			name:   "Test Local Resource File Doesnt exist",
-			mode:   []Mode{{Local, LocalRef}},
-			checks: defaultChecks,
-		},
-		{
-			name:   "Templates Contain Kind That Is Not Recognizable In Live Cluster",
-			mode:   []Mode{{Live, LocalRef}, {Live, URL}},
-			checks: defaultChecks,
-		},
-		{
-			name:   "All Required Templates Exist And There Are No Diffs",
-			mode:   []Mode{{Live, LocalRef}, {Local, LocalRef}, {Local, URL}, {Live, URL}},
-			checks: defaultChecks,
-		},
-		{
-			name:   "Diff in Custom Omitted Fields Isnt Shown",
-			mode:   []Mode{{Live, LocalRef}, {Local, LocalRef}, {Local, URL}},
-			checks: defaultChecks,
-		},
-		{
-			name:   "Diff in Custom Omitted Fields Isnt Shown All Quoted",
-			mode:   []Mode{DefaultMode},
-			checks: defaultChecks,
-		},
-		{
-			name:   "Diff in Custom Omitted Fields Isnt Shown Leading Dot",
-			mode:   []Mode{DefaultMode},
-			checks: defaultChecks,
-		},
-		{
-			name:   "Diff in Custom Omitted Fields Isnt Shown Non Default",
-			mode:   []Mode{DefaultMode},
-			checks: defaultChecks,
-		},
-		{
-			name:   "Diff in Custom Omitted Fields Isnt Shown Prefix",
-			mode:   []Mode{DefaultMode},
-			checks: defaultChecks,
-		},
-		{
-			name:   "Custom Fields To Omit Default Key Not Found",
-			mode:   []Mode{DefaultMode},
-			checks: defaultChecks,
-		},
-		{
-			name:   "Custom Fields To Omit Ref Entry Not Found",
-			mode:   []Mode{DefaultMode},
-			checks: defaultChecks,
-		},
-		{
-			name:          "When Using Diff All Flag - All Unmatched Resources Appear In Summary",
-			mode:          []Mode{DefaultMode},
-			checks:        defaultChecks,
-			shouldDiffAll: true,
-		},
-		{
-			name:   "Only Resources That Were Not Matched Because Multiple Matches Appear In Summary",
-			mode:   []Mode{DefaultMode},
-			checks: defaultChecks,
-		},
-		{
-			name:                 "Manual Correlation Matches Are Prioritized Over Group Correlation",
-			mode:                 []Mode{{Live, LocalRef}, {Local, LocalRef}},
-			shouldPassUserConfig: true,
-			checks:               defaultChecks,
-		},
-		{
-			name:   "Only Required Resources Of Required Component Are Reported Missing (Optional Resources Not Reported)",
-			mode:   []Mode{{Live, LocalRef}, {Local, LocalRef}},
-			checks: defaultChecks,
-		},
-		{
-			name:   "Required Resources Of Optional Component Are Not Reported Missing",
-			mode:   []Mode{{Live, LocalRef}, {Local, LocalRef}},
-			checks: defaultChecks,
-		},
-		{
-			name:   "Required Resources Of Optional Component Are Reported Missing If At Least One Of Resources In Group Is Included",
-			mode:   []Mode{{Live, LocalRef}, {Local, LocalRef}},
-			checks: defaultChecks,
-		},
-		{
-			name:   "Ref Template In Sub Dir Not Reported Missing",
-			mode:   []Mode{{Live, LocalRef}, {Local, LocalRef}, {Local, URL}},
-			checks: defaultChecks,
-		},
-		{
-			name:                 "Ref Template In Sub Dir Works With Manual Correlation",
-			mode:                 []Mode{{Live, LocalRef}, {Local, LocalRef}, {Local, URL}},
-			checks:               defaultChecks,
-			shouldPassUserConfig: true,
-		},
-		{
-			name:   "Ref With Template Functions Renders As Expected",
-			mode:   []Mode{{Live, LocalRef}, {Local, LocalRef}, {Local, URL}},
-			checks: defaultChecks,
-		},
-		{
-			name:         "YAML Output",
-			mode:         []Mode{DefaultMode},
-			outputFormat: Yaml,
-			checks: Checks{
-				Err: defaultCheckErr,
+		defaultTest("No Input").
+			skipReferenceFlag(),
+		defaultTest("Reference Directory Doesnt Exist"),
+		defaultTest("Reference Config File Doesnt Exist").
+			withChecks(Checks{Out: defaultCheckOut,
+				Err: matchErrorRegexCheck(
+					`Reference config file not found. error: open .*metadata.yaml: no such file or directory`,
+				),
+			}),
+		defaultTest("Reference Config File Isnt Valid YAML"),
+		defaultTest("Reference Contains Templates That Dont Exist"),
+		defaultTest("Reference Contains Templates That Dont Parse"),
+		defaultTest("Reference Contains Function Templates That Dont Parse"),
+		defaultTest("Template Isnt YAML After Execution With Empty Map"),
+		defaultTest("Template Has No Kind").
+			withModes([]Mode{{Live, LocalRef}}),
+		defaultTest("Two Templates With Same apiVersion Kind Name Namespace"),
+		defaultTest("Two Templates With Same Kind Namespace"),
+		defaultTest("User Config Doesnt Exist").
+			withUserConfig(userConfigFileName).
+			withChecks(Checks{Out: defaultCheckOut,
+				Err: matchErrorRegexCheck(
+					`User Config File not found. error: open ` +
+						`.*testdata/UserConfigDoesntExist/userconfig.yaml: no such file or directory`,
+				),
+			}),
+		defaultTest("User Config Isnt Correct YAML").
+			withUserConfig(userConfigFileName),
+		defaultTest("User Config Manual Correlation Contains Template That Doesnt Exist").
+			withUserConfig(userConfigFileName),
+		defaultTest("Test Local Resource File Doesnt exist").
+			withModes([]Mode{{Local, LocalRef}}),
+		defaultTest("Templates Contain Kind That Is Not Recognizable In Live Cluster").
+			withModes([]Mode{{Live, LocalRef}, {Live, URL}}),
+		defaultTest("All Required Templates Exist And There Are No Diffs").
+			withModes([]Mode{{Live, LocalRef}, {Local, LocalRef}, {Local, URL}, {Live, URL}}),
+		defaultTest("Diff in Custom Omitted Fields Isnt Shown").
+			withModes([]Mode{{Live, LocalRef}, {Local, LocalRef}, {Local, URL}}),
+		defaultTest("Diff in Custom Omitted Fields Isnt Shown All Quoted"),
+		defaultTest("Diff in Custom Omitted Fields Isnt Shown Leading Dot"),
+		defaultTest("Diff in Custom Omitted Fields Isnt Shown Non Default"),
+		defaultTest("Diff in Custom Omitted Fields Isnt Shown Prefix"),
+		defaultTest("Custom Fields To Omit Default Key Not Found"),
+		defaultTest("Custom Fields To Omit Ref Entry Not Found"),
+		defaultTest("When Using Diff All Flag - All Unmatched Resources Appear In Summary").
+			diffAll(),
+		defaultTest("Only Resources That Were Not Matched Because Multiple Matches Appear In Summary"),
+		defaultTest("Manual Correlation Matches Are Prioritized Over Group Correlation").
+			withModes([]Mode{{Live, LocalRef}, {Local, LocalRef}}).
+			withUserConfig(userConfigFileName),
+		defaultTest("Only Required Resources Of Required Component Are Reported Missing (Optional Resources Not Reported)").
+			withModes([]Mode{{Live, LocalRef}, {Local, LocalRef}}),
+		defaultTest("Required Resources Of Optional Component Are Not Reported Missing").
+			withModes([]Mode{{Live, LocalRef}, {Local, LocalRef}}),
+		defaultTest("Required Resources Of Optional Component Are Reported Missing If At Least One Of Resources In Group Is Included").
+			withModes([]Mode{{Live, LocalRef}, {Local, LocalRef}}),
+		defaultTest("Ref Template In Sub Dir Not Reported Missing").
+			withModes([]Mode{{Live, LocalRef}, {Local, LocalRef}, {Local, URL}}),
+		defaultTest("Ref Template In Sub Dir Works With Manual Correlation").
+			withModes([]Mode{{Live, LocalRef}, {Local, LocalRef}, {Local, URL}}).
+			withUserConfig(userConfigFileName),
+		defaultTest("Ref With Template Functions Renders As Expected").
+			withModes([]Mode{{Live, LocalRef}, {Local, LocalRef}, {Local, URL}}),
+		defaultTest("YAML Output").
+			withOutputFormat(Yaml).
+			withChecks(Checks{Err: defaultCheckErr,
 				Out: Check{checkType: matchYaml, suffix: defaultOutSuffix},
-			},
-		},
-		{
-			name:         "JSON Output",
-			mode:         []Mode{DefaultMode},
-			outputFormat: Json,
-			checks:       defaultChecks,
-		},
-		{
-			name:   "Check Ignore Unspecified Fields Config",
-			mode:   []Mode{DefaultMode},
-			checks: defaultChecks,
-		},
-		{
-			name:   "Check Merging Does Not Overwrite Template Config",
-			mode:   []Mode{DefaultMode},
-			checks: defaultChecks,
-		},
-		{
-			name:   "NoDiffs",
-			mode:   []Mode{DefaultMode},
-			checks: defaultChecks,
-		},
-		{
-			name:   "SomeDiffs",
-			mode:   []Mode{DefaultMode},
-			checks: defaultChecks,
-		},
-		{
-			name:          "NoDiffs",
-			mode:          []Mode{DefaultMode},
-			checks:        defaultChecks.withPrefixedSuffix("withVebosityFlag"),
-			verboseOutput: true,
-		},
-		{
-			name:          "SomeDiffs",
-			mode:          []Mode{DefaultMode},
-			checks:        defaultChecks.withPrefixedSuffix("withVebosityFlag"),
-			verboseOutput: true,
-		},
-		{
-			mode:   []Mode{{Local, LocalRef}},
-			name:   "Invalid Resources Are Skipped",
-			checks: defaultChecks,
-		},
-		{
-			name:   "Ref Contains Templates With Function Templates In Same File",
-			mode:   []Mode{DefaultMode},
-			checks: defaultChecks,
-		},
+			}),
+		defaultTest("JSON Output").
+			withOutputFormat(Json),
+		defaultTest("Check Ignore Unspecified Fields Config"),
+		defaultTest("Check Merging Does Not Overwrite Template Config"),
+		defaultTest("NoDiffs"),
+		defaultTest("SomeDiffs"),
+		defaultTest("NoDiffs").
+			withVerboseOutput().
+			withChecks(defaultChecks.withPrefixedSuffix("withVebosityFlag")),
+		defaultTest("SomeDiffs").
+			withVerboseOutput().
+			withChecks(defaultChecks.withPrefixedSuffix("withVebosityFlag")),
+		defaultTest("Invalid Resources Are Skipped"),
+		defaultTest("Ref Contains Templates With Function Templates In Same File"),
 	}
+
 	tf := cmdtesting.NewTestFactory()
 	testFlags := flag.NewFlagSet("test", flag.ContinueOnError)
 	klog.InitFlags(testFlags)
@@ -447,7 +357,7 @@ error code:2`),
 	_ = testFlags.Parse([]string{"--skip_headers"})
 	for _, test := range tests {
 		for i, mode := range test.mode {
-			t.Run(test.name+mode.String(), func(t *testing.T) {
+			t.Run(test.name+"-"+mode.String(), func(t *testing.T) {
 				IOStream, _, out, _ := genericiooptions.NewTestIOStreams()
 				klog.SetOutputBySeverity("INFO", out)
 				cmd := getCommand(t, &test, i, tf, &IOStream) // nolint:gosec
@@ -497,8 +407,8 @@ func getCommand(t *testing.T, test *Test, modeIndex int, tf *cmdtesting.TestFact
 	if test.shouldDiffAll {
 		require.NoError(t, cmd.Flags().Set("all-resources", "true"))
 	}
-	if test.shouldPassUserConfig {
-		require.NoError(t, cmd.Flags().Set("diff-config", path.Join(test.getTestDir(), userConfigFileName)))
+	if test.userConfigFileName != "" {
+		require.NoError(t, cmd.Flags().Set("diff-config", path.Join(test.getTestDir(), test.userConfigFileName)))
 	}
 	if test.outputFormat != "" {
 		require.NoError(t, cmd.Flags().Set("output", test.outputFormat))
