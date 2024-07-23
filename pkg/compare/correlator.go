@@ -117,6 +117,7 @@ type GroupCorrelator struct {
 	GroupFunctions []func(unstructured2 *unstructured.Unstructured) (group string, err error)
 	// List of template mappings by different grouping (hashing) options
 	templatesByGroups []map[string][]*ReferenceTemplate
+	getBestMatch      *func(templates []*ReferenceTemplate, CR *unstructured.Unstructured) (*ReferenceTemplate, error)
 }
 
 // NewGroupCorrelator creates a new GroupCorrelator using inputted fieldGroups and generated GroupFunctions and templatesByGroups.
@@ -125,7 +126,7 @@ type GroupCorrelator struct {
 // For fieldsGroups =  {{{"metadata", "namespace"}, {"kind"}}, {{"kind"}}} and the following templates: [fixedKindTemplate, fixedNamespaceKindTemplate]
 // the fixedNamespaceKindTemplate will be added to a mapping where the keys are  in the format of `namespace_kind`. The fixedKindTemplate
 // will be added to a mapping where the keys are  in the format of `kind`.
-func NewGroupCorrelator(fieldGroups [][][]string, templates []*ReferenceTemplate) (*GroupCorrelator, error) {
+func NewGroupCorrelator(fieldGroups [][][]string, templates []*ReferenceTemplate, getBestMatch *func(templates []*ReferenceTemplate, CR *unstructured.Unstructured) (*ReferenceTemplate, error)) (*GroupCorrelator, error) {
 	var functionGroups []func(*unstructured.Unstructured) (group string, err error)
 	sort.Slice(fieldGroups, func(i, j int) bool {
 		return len(fieldGroups[i]) >= len(fieldGroups[j])
@@ -133,7 +134,7 @@ func NewGroupCorrelator(fieldGroups [][][]string, templates []*ReferenceTemplate
 	for _, group := range fieldGroups {
 		functionGroups = append(functionGroups, createGroupHashFunc(group))
 	}
-	core := GroupCorrelator{fieldGroups: fieldGroups, GroupFunctions: functionGroups}
+	core := GroupCorrelator{fieldGroups: fieldGroups, GroupFunctions: functionGroups, getBestMatch: getBestMatch}
 	mappings, err := groups.Divide(
 		templates,
 		core.getGroupsFunction(),
@@ -147,10 +148,10 @@ func NewGroupCorrelator(fieldGroups [][][]string, templates []*ReferenceTemplate
 	for i, mapping := range mappings {
 		res := groups.GetWithMoreThen(mapping, 1)
 		if res != nil {
-			klog.Warningf("More then one template with same %s. These templates wont be used for"+
-				" correlation. To use them use different correlator (manual matching) or remove one of them from the"+
-				" reference.  Template names are: %s", getFields(fieldGroups[i]), getTemplatesName(res))
-
+			klog.Warningf("More then one template with same %s. By Default for each Cluster CR that is correlated "+
+				"to one of these templates the template with the least number of diffs will be used. "+
+				"To use a different template for a specific CR specify it in the diff-config (-c flag) "+
+				"Template names are: %s", getFields(fieldGroups[i]), getTemplatesName(res))
 		}
 	}
 	return &core, nil
@@ -228,6 +229,9 @@ func (c *GroupCorrelator) Match(object *unstructured.Unstructured) (*ReferenceTe
 		case len(templates) == 1:
 			return templates[0], nil
 		case len(templates) > 1 && multipleMatchError == nil:
+			if *c.getBestMatch != nil {
+				return (*c.getBestMatch)(templates, object)
+			}
 			multipleMatchError = MultipleMatches{Resource: object, Matches: templates}
 		}
 	}

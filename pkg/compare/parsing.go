@@ -282,8 +282,16 @@ func parseTemplates(templateReference []*ReferenceTemplate, functionTemplates []
 	return templateReference, errors.Join(errs...) // nolint:wrapcheck
 }
 
+type BestMatchChooseType string
+
+const (
+	None     BestMatchChooseType = "None"
+	NumLines BestMatchChooseType = "NumLines"
+)
+
 type UserConfig struct {
 	CorrelationSettings CorrelationSettings `json:"correlationSettings"`
+	BestMatchType       BestMatchChooseType `json:"bestMatchType"`
 }
 
 type CorrelationSettings struct {

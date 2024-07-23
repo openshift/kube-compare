@@ -7,7 +7,7 @@ metadata:
     deprecated.daemonset.template.generation: "1"
   generation: 1
   labels:
-    app: kindnet
+    app: kindnet2
     k8s-app: kindnet
     tier: node
 
