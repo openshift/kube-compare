@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"math"
 	"os"
 	"path/filepath"
 	"sort"
@@ -119,14 +120,15 @@ type Options struct {
 	ShowManagedFields  bool
 	OutputFormat       string
 
-	builder     *resource.Builder
-	correlator  *MetricsCorrelatorDecorator
-	templates   []*ReferenceTemplate
-	local       bool
-	types       []string
-	ref         Reference
-	userConfig  UserConfig
-	Concurrency int
+	builder        *resource.Builder
+	correlator     *MultiCorrelator
+	metricsTracker *MetricsTracker
+	templates      []*ReferenceTemplate
+	local          bool
+	types          []string
+	ref            Reference
+	userConfig     UserConfig
+	Concurrency    int
 
 	diff *diff.DiffProgram
 	genericiooptions.IOStreams
@@ -290,8 +292,7 @@ func (o *Options) Complete(f kcmdutil.Factory, cmd *cobra.Command, args []string
 //  2. GroupCorrelator - Matches CRs based on groups of fields that are similar in cluster resources and templates.
 //
 // The base correlators are combined using a MultiCorrelator, which attempts to match a template for each base correlator
-// in the specified sequence. The MultiCorrelator is further wrapped with a MetricsCorrelatorDecorator.
-// This decorator not only correlates templates but also records metrics, allowing retrieval that then can be used to create a summary.
+// in the specified sequence.
 func (o *Options) setupCorrelators() error {
 	var correlators []Correlator
 	if len(o.userConfig.CorrelationSettings.ManualCorrelation.CorrelationPairs) > 0 {
@@ -325,12 +326,8 @@ func (o *Options) setupCorrelators() error {
 
 	correlators = append(correlators, groupCorrelator)
 
-	var errorsToIgnore []error
-
-	if !o.diffAll {
-		errorsToIgnore = []error{UnknownMatch{}}
-	}
-	o.correlator = NewMetricsCorrelatorDecorator(NewMultiCorrelator(correlators), o.ref.Parts, errorsToIgnore)
+	o.correlator = NewMultiCorrelator(correlators)
+	o.metricsTracker = NewMetricsTracker()
 	return nil
 }
 
@@ -401,7 +398,43 @@ func findAllRequestedSupportedTypes(supportedTypesWithGroups map[string][]string
 	return typesIncludingGroup, notSupportedTypes
 }
 
-func runDiff(obj diff.Object, streams genericiooptions.IOStreams, showManagedFields bool) (*bytes.Buffer, error) {
+func extractPath(str string, pathIndex int) string {
+	if split := strings.Split(str, " "); len(split) >= pathIndex {
+		return split[pathIndex]
+	}
+	return "Unknown Path"
+}
+
+func getBestMatchByLines(templates []*ReferenceTemplate, cr *unstructured.Unstructured, o *Options) (*ReferenceTemplate, *bytes.Buffer, error) {
+	var bestTemp *ReferenceTemplate
+	minDiffNum := math.MaxInt
+	var minDiffOutput *bytes.Buffer
+	for _, temp := range templates {
+		diffOutput, err := diffAgainstTemplate(temp, cr, o)
+		if err != nil {
+			return nil, minDiffOutput, err
+		}
+		minDiffNum = min(bytes.Count(diffOutput.Bytes(), []byte("\n")), minDiffNum)
+		if minDiffNum == bytes.Count(diffOutput.Bytes(), []byte("\n")) {
+			bestTemp = temp
+			minDiffOutput = diffOutput
+		}
+	}
+	return bestTemp, minDiffOutput, nil
+}
+
+func diffAgainstTemplate(temp *ReferenceTemplate, clusterCR *unstructured.Unstructured, o *Options) (*bytes.Buffer, error) {
+	localRef, err := temp.Exec(clusterCR.Object)
+	if err != nil {
+		return nil, err
+	}
+	obj := InfoObject{
+		injectedObjFromTemplate: localRef,
+		clusterObj:              clusterCR,
+		FieldsToOmit:            temp.FieldsToOmit(o.ref.FieldsToOmit),
+		allowMerge:              temp.Config.AllowMerge,
+	}
+
 	differ, err := diff.NewDiffer("MERGED", "LIVE")
 	diffOutput := new(bytes.Buffer)
 	if err != nil {
@@ -409,11 +442,11 @@ func runDiff(obj diff.Object, streams genericiooptions.IOStreams, showManagedFie
 	}
 	defer differ.TearDown()
 
-	err = differ.Diff(obj, diff.Printer{}, showManagedFields)
+	err = differ.Diff(obj, diff.Printer{}, o.ShowManagedFields)
 	if err != nil {
 		return diffOutput, fmt.Errorf("error occurered during diff: %w", err)
 	}
-	err = differ.Run(&diff.DiffProgram{Exec: exec.New(), IOStreams: genericiooptions.IOStreams{In: streams.In, Out: diffOutput, ErrOut: streams.ErrOut}})
+	err = differ.Run(&diff.DiffProgram{Exec: exec.New(), IOStreams: genericiooptions.IOStreams{In: o.IOStreams.In, Out: diffOutput, ErrOut: o.IOStreams.ErrOut}})
 
 	// If the diff tool runs without issues and detects differences at this level of the code, we would like to report that there are no issues
 	var exitErr exec.ExitError
@@ -424,13 +457,6 @@ func runDiff(obj diff.Object, streams genericiooptions.IOStreams, showManagedFie
 		return diffOutput, fmt.Errorf("diff exited with non-zero code: %w", err)
 	}
 	return diffOutput, nil
-}
-
-func extractPath(str string, pathIndex int) string {
-	if split := strings.Split(str, " "); len(split) >= pathIndex {
-		return split[pathIndex]
-	}
-	return "Unknown Path"
 }
 
 // Run uses the factory to parse file arguments (in case of local mode) or gather all cluster resources matching
@@ -463,33 +489,30 @@ func (o *Options) Run() error {
 			klog.Warningf(skipInvalidResources, extractPath(err.Error(), 2), err.Error()[strings.LastIndex(err.Error(), ":"):])
 			return true
 		}
-		return containOnly(err, []error{MultipleMatches{}, UnknownMatch{}, MergeError{}})
+		return containOnly(err, []error{UnknownMatch{}, MergeError{}})
 	})
 
 	err := r.Visit(func(info *resource.Info, _ error) error { // ignoring previous errors
 		clusterCRMapping, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(info.Object)
 		clusterCR := &unstructured.Unstructured{Object: clusterCRMapping}
 
-		temp, err := o.correlator.Match(clusterCR)
+		temps, err := o.correlator.Match(clusterCR)
+		if err != nil && (!containOnly(err, []error{UnknownMatch{}}) || o.diffAll) {
+			o.metricsTracker.addUNMatch(clusterCR)
+		}
 		if err != nil {
 			return err
 		}
 
-		localRef, err := temp.Exec(clusterCR.Object)
+		temp, diffOutput, err := getBestMatchByLines(temps, clusterCR, o)
+
 		if err != nil {
+			o.metricsTracker.addUNMatch(clusterCR)
 			return err
 		}
 
-		obj := InfoObject{
-			injectedObjFromTemplate: localRef,
-			clusterObj:              clusterCR,
-			FieldsToOmit:            temp.FieldsToOmit(o.ref.FieldsToOmit),
-			allowMerge:              temp.Config.AllowMerge,
-		}
-		diffOutput, err := runDiff(obj, o.IOStreams, o.ShowManagedFields)
-		if err != nil {
-			return err
-		}
+		o.metricsTracker.addMatch(temp)
+
 		if diffOutput.Len() > 0 {
 			numDiffCRs += 1
 		}
@@ -501,7 +524,7 @@ func (o *Options) Run() error {
 		return fmt.Errorf("error occurred while trying to process resources: %w", err)
 	}
 
-	sum := newSummary(&o.ref, o.correlator, numDiffCRs)
+	sum := newSummary(&o.ref, o.metricsTracker, numDiffCRs)
 
 	_, err = Output{Summary: sum, Diffs: &diffs}.Print(o.OutputFormat, o.Out, o.verboseOutput)
 	if err != nil {
@@ -657,7 +680,7 @@ type Summary struct {
 	TotalCRs     int                            `json:"TotalCRs"`
 }
 
-func newSummary(reference *Reference, c *MetricsCorrelatorDecorator, numDiffCRs int) *Summary {
+func newSummary(reference *Reference, c *MetricsTracker, numDiffCRs int) *Summary {
 	s := Summary{NumDiffCRs: numDiffCRs}
 	s.RequiredCRS, s.NumMissing = reference.getMissingCRs(c.MatchedTemplatesNames)
 	s.TotalCRs = len(c.MatchedTemplatesNames)

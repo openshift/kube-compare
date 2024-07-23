@@ -7,7 +7,7 @@ metadata:
   generation: 1
   labels:
     app: kindnet
-    k8s-app: kindnet
+    k8s-app: kindnet2
     tier: node
 
 

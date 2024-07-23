@@ -1,13 +1,55 @@
-More then one template with same apiVersion, metadata_namespace, kind. These templates wont be used for correlation. To use them use different correlator (manual matching) or remove one of them from the reference. Template names are: apps.v1.DaemonSet.kube-system.kindnet.yaml, apps.v1.DaemonSet.kube-system.kindnet2.yaml
+More then one template with same apiVersion, metadata_namespace, kind. By Default for each Cluster CR that is correlated to one of these templates the template with the least number of diffs will be used. To use a different template for a specific CR specify it in the diff-config (-c flag) Template names are: apps.v1.DaemonSet.kube-system.kindnet.yaml, apps.v1.DaemonSet.kube-system.kindnet2.yaml
+**********************************
+
+Cluster CR: apps/v1_DaemonSet_SomeNS_Name
+Reference File: apps.v1.DaemonSet.kube-system.kindnet2.yaml
+Diff Output: diff -u -N TEMP/apps-v1_daemonset_somens_name TEMP/apps-v1_daemonset_somens_name
+--- TEMP/apps-v1_daemonset_somens_name	DATE
++++ TEMP/apps-v1_daemonset_somens_name	DATE
+@@ -7,4 +7,5 @@
+     app: kindnet
+     k8s-app: kindnet
+     tier: node
++  name: Name
+   namespace: SomeNS
+
+**********************************
+
+Cluster CR: apps/v1_DaemonSet_SomeNS_Test1
+Reference File: apps.v1.DaemonSet.kube-system.kindnet2.yaml
+Diff Output: diff -u -N TEMP/apps-v1_daemonset_somens_test1 TEMP/apps-v1_daemonset_somens_test1
+--- TEMP/apps-v1_daemonset_somens_test1	DATE
++++ TEMP/apps-v1_daemonset_somens_test1	DATE
+@@ -7,4 +7,5 @@
+     app: kindnet
+     k8s-app: kindnet
+     tier: node
++  name: Test1
+   namespace: SomeNS
+
+**********************************
+
+Cluster CR: apps/v1_DaemonSet_SomeNS_Test2
+Reference File: apps.v1.DaemonSet.kube-system.kindnet2.yaml
+Diff Output: diff -u -N TEMP/apps-v1_daemonset_somens_test2 TEMP/apps-v1_daemonset_somens_test2
+--- TEMP/apps-v1_daemonset_somens_test2	DATE
++++ TEMP/apps-v1_daemonset_somens_test2	DATE
+@@ -7,4 +7,5 @@
+     app: kindnet
+     k8s-app: kindnet
+     tier: node
++  name: Test2
+   namespace: SomeNS
+
+**********************************
+
 Summary
-CRs with diffs: 0/0
+CRs with diffs: 3/1
 CRs in reference missing from the cluster: 1
 ExamplePart:
   DemonSets:
   - apps.v1.DaemonSet.kube-system.kindnet.yaml
-Cluster CRs unmatched to reference CRs: 30
-- apps/v1_DaemonSet_SomeNS_Test1
-- apps/v1_DaemonSet_SomeNS_Test2
+Cluster CRs unmatched to reference CRs: 27
 - v1_ConfigMap_kubernetes-dashboard_kubernetes-dashboard-settings
 - rbac.authorization.k8s.io/v1_ClusterRole_kubernetes-dashboard
 - rbac.authorization.k8s.io/v1_ClusterRoleBinding_kubernetes-dashboard
@@ -15,7 +57,6 @@ Cluster CRs unmatched to reference CRs: 30
 - apps/v1_Deployment_kubernetes-dashboard_dashboard-metrics-scraper
 - v1_Namespace_kubernetes-dashboard
 - rbac.authorization.k8s.io/v1_RoleBinding_kubernetes-dashboard_kubernetes-dashboard
-- apps/v1_DaemonSet_SomeNS_Name
 - rbac.authorization.k8s.io/v1_Role_kubernetes-dashboard_kubernetes-dashboard
 - v1_ServiceAccount_kubernetes-dashboard_kubernetes-dashboard
 - v1_Secret_kubernetes-dashboard_kubernetes-dashboard-certs
