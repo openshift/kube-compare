@@ -1,2 +1,2 @@
-error: Reference config file not found. error: open ./testdata/ReferenceConfigFileDoesntExist/reference/metadata.yaml: no such file or directory 
+error: "Reference config file doesn't exist"
 error code:2

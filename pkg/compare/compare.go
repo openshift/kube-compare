@@ -80,26 +80,25 @@ var (
 
 	compareExample = templates.Examples(`
 		# Compare a known valid reference configuration with a live cluster:
-		kubectl cluster-compare -r ./reference
+		kubectl cluster-compare -r ./reference/metadata.yaml
 		
 		# Compare a known valid reference configuration with a local set of CRs:
-		kubectl cluster-compare -r ./reference -f ./crsdir -R
+		kubectl cluster-compare -r ./reference/metadata.yaml -f ./crsdir -R
 
 		# Compare a known valid reference configuration with a live cluster and with a user config:
-		kubectl cluster-compare -r ./reference -c ./user_config
+		kubectl cluster-compare -r ./reference/metadata.yaml -c ./user_config
 
 		# Run a known valid reference configuration with a must-gather output:
-		kubectl cluster-compare -r ./reference -f "must-gather*/*/cluster-scoped-resources","must-gather*/*/namespaces" -R
+		kubectl cluster-compare -r ./reference/metadata.yaml -f "must-gather*/*/cluster-scoped-resources","must-gather*/*/namespaces" -R
 	`)
 )
 
 const (
-	ReferenceFileName       = "metadata.yaml"
-	noRefDirectoryWasPassed = "\"Reference directory is required\""
-	refDirNotExistsError    = "\"Reference directory doesn't exist\""
-	emptyTypes              = "templates don't contain any types (kind) of resources that are supported by the cluster"
-	DiffSeparator           = "**********************************\n"
-	skipInvalidResources    = "Skipping %s Input contains additional files from supported file extensions" +
+	noRefFileWasPassed    = "\"Reference config file is required\""
+	refFileNotExistsError = "\"Reference config file doesn't exist\""
+	emptyTypes            = "templates don't contain any types (kind) of resources that are supported by the cluster"
+	DiffSeparator         = "**********************************\n"
+	skipInvalidResources  = "Skipping %s Input contains additional files from supported file extensions" +
 		" (json/yaml) that do not contain a valid resource, error: %s.\n In case this file is " +
 		"expected to be a valid resource modify it accordingly. "
 )
@@ -113,7 +112,7 @@ var OutputFormats = []string{Json, Yaml}
 
 type Options struct {
 	CRs                resource.FilenameOptions
-	templatesDir       string
+	referenceConfig    string
 	diffConfigFileName string
 	diffAll            bool
 	verboseOutput      bool
@@ -143,7 +142,7 @@ func NewCmd(f kcmdutil.Factory, streams genericiooptions.IOStreams) *cobra.Comma
 	}
 
 	cmd := &cobra.Command{
-		Use:                   "compare -r <Reference Directory>",
+		Use:                   "compare -r <Reference File>",
 		DisableFlagsInUseLine: true,
 		Short:                 i18n.T("Compare a reference configuration and a set of cluster configuration CRs."),
 		Long:                  compareLong,
@@ -178,7 +177,7 @@ func NewCmd(f kcmdutil.Factory, streams genericiooptions.IOStreams) *cobra.Comma
 			" but more memory, I/O and CPU over that shorter period of time.")
 	kcmdutil.AddFilenameOptionFlags(cmd, &options.CRs, "contains the configuration to diff")
 	cmd.Flags().StringVarP(&options.diffConfigFileName, "diff-config", "c", "", "Path to the user config file")
-	cmd.Flags().StringVarP(&options.templatesDir, "reference", "r", "", "Path to directory including reference.")
+	cmd.Flags().StringVarP(&options.referenceConfig, "reference", "r", "", "Path to reference config file.")
 	cmd.Flags().BoolVar(&options.ShowManagedFields, "show-managed-fields", options.ShowManagedFields, "If true, include managed fields in the diff.")
 	cmd.Flags().BoolVarP(&options.diffAll, "all-resources", "A", options.diffAll,
 		"If present, In live mode will try to match all resources that are from the types mentioned in the reference. "+
@@ -227,24 +226,28 @@ func (o *Options) Complete(f kcmdutil.Factory, cmd *cobra.Command, args []string
 	var fs fs.FS
 	o.builder = f.NewBuilder()
 
-	if o.templatesDir == "" {
-		return kcmdutil.UsageErrorf(cmd, noRefDirectoryWasPassed)
+	if o.referenceConfig == "" {
+		return kcmdutil.UsageErrorf(cmd, noRefFileWasPassed)
 	}
-	if _, err := os.Stat(o.templatesDir); os.IsNotExist(err) && !isURL(o.templatesDir) {
-		return fmt.Errorf(refDirNotExistsError)
+	if _, err := os.Stat(o.referenceConfig); os.IsNotExist(err) && !isURL(o.referenceConfig) {
+		return fmt.Errorf(refFileNotExistsError)
 	}
 
-	if isURL(o.templatesDir) {
-		fs = HTTPFS{baseURL: o.templatesDir, httpGet: httpgetImpl}
+	referenceDir := filepath.Dir(o.referenceConfig)
+	referenceFileName := filepath.Base(o.referenceConfig)
+	if isURL(o.referenceConfig) {
+		// filepath.Dir removes one / from http://
+		referenceDir = strings.Replace(referenceDir, "/", "//", 1)
+		fs = HTTPFS{baseURL: referenceDir, httpGet: httpgetImpl}
 	} else {
-		rootPath, err := filepath.Abs(o.templatesDir)
+		rootPath, err := filepath.Abs(referenceDir)
 		if err != nil {
 			return fmt.Errorf("failed to get absolute path: %w", err)
 		}
 		fs = os.DirFS(rootPath)
 	}
 
-	o.ref, err = getReference(fs)
+	o.ref, err = getReference(fs, referenceFileName)
 	if err != nil {
 		return err
 	}
