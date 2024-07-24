@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/openshift/kube-compare/pkg/compare"
+	"github.com/openshift/kube-compare/pkg/testutils"
 	"github.com/stretchr/testify/require"
 	"k8s.io/cli-runtime/pkg/genericiooptions"
 	cmdtesting "k8s.io/kubectl/pkg/cmd/testing"
@@ -55,10 +56,7 @@ func TestCompareRun(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if *update {
-				// The JSON output is regenerated from the references used in the compare tests:
-				updateCompareOutput(t, test)
-			}
+			checkCompatibilityWithCompareOutput(t, test, *update)
 			// crete temp dir to save report created by test
 			cmd := NewCmd()
 			dirName, err := os.MkdirTemp("", test.name)
@@ -77,13 +75,13 @@ func TestCompareRun(t *testing.T) {
 			if err != nil {
 				t.Fatalf("test %s failed reading the created report: %s", test.name, err)
 			}
-			getGoldenValue(t, path.Join(TestDirs, fmt.Sprintf("%s.golden", strings.ReplaceAll(" ", "", test.name))), removeInconsistentInfo(actualOutput))
+			value := testutils.GetFile(t, path.Join(TestDirs, fmt.Sprintf("%s.golden", strings.ReplaceAll(test.name, " ", ""))), removeInconsistentInfoFromReport(actualOutput), *update)
+			require.Equal(t, removeInconsistentInfoFromReport(actualOutput), value)
 
 		})
 	}
 }
-func updateCompareOutput(t *testing.T, test Test) {
-	t.Log("update test input to match current version of compare command")
+func checkCompatibilityWithCompareOutput(t *testing.T, test Test, update bool) {
 	cmdutil.BehaviorOnFatal(func(str string, code int) {})
 
 	tf := cmdtesting.NewTestFactory()
@@ -94,27 +92,11 @@ func updateCompareOutput(t *testing.T, test Test) {
 	require.NoError(t, cmpCmd.Flags().Set("recursive", "true"))
 	require.NoError(t, cmpCmd.Flags().Set("output", compare.Json))
 	cmpCmd.Run(cmpCmd, []string{})
-	if err := os.WriteFile(test.getJSONPath(), out.Bytes(), 0644); err != nil { // nolint:gocritic,gosec
-		t.Fatalf("test %s failed to update test file: %s", test.getJSONPath(), err)
-	}
+	result := testutils.GetFile(t, test.getJSONPath(), testutils.RemoveInconsistentInfo(t, out.String()), update)
+	require.Equal(t, result, testutils.RemoveInconsistentInfo(t, out.String()))
 }
 
-func getGoldenValue(t *testing.T, fileName string, value []byte) {
-	if *update {
-		t.Log("update golden file")
-		if err := os.WriteFile(fileName, value, 0644); err != nil { // nolint:gocritic,gosec
-			t.Fatalf("test %s failed to update golden file: %s", fileName, err)
-		}
-	}
-	expected, err := os.ReadFile(fileName)
-	if err != nil {
-		t.Fatalf("test %s failed reading .golden file: %s", fileName, err)
-	}
-	require.Equal(t, string(expected), string(value))
-}
-
-func removeInconsistentInfo(text []byte) []byte {
-	// remove time and timestamp
+func removeInconsistentInfoFromReport(text []byte) string {
 	re := regexp.MustCompile("(?:time|timestamp)=\"(\\S*)\"")
-	return re.ReplaceAll(text, []byte("TIME"))
+	return string(re.ReplaceAll(text, []byte("TIME")))
 }

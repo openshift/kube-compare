@@ -1,1 +1,1 @@
-{"Summary":{"RequiredCRS":{"ExamplePart":{"DemonSets":["apps.v1.DaemonSet.kube-system.kindnet.yaml"]}},"NumMissing":1,"UnmatchedCRS":["apps/v1_DaemonSet_SomeNS_Test1","apps/v1_DaemonSet_SomeNS_Test2","apps/v1_DaemonSet_SomeNS_Name"],"NumDiffCRs":0},"Diffs":[]}
+{"Summary":{"RequiredCRS":{"ExamplePart":{"DemonSets":["apps.v1.DaemonSet.kube-system.kindnet.yaml"]}},"NumMissing":1,"UnmatchedCRS":["apps/v1_DaemonSet_SomeNS_Test1","apps/v1_DaemonSet_SomeNS_Test2","apps/v1_DaemonSet_SomeNS_Name"],"NumDiffCRs":0,"TotalCRs":0},"Diffs":[]}
