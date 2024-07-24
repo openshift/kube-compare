@@ -4,111 +4,84 @@
 		<properties></properties>
 		<testcase classname="Matching Reference CR: cm.yaml" name="CR: v1_ConfigMap_kubernetes-dashboard_kubernetes-dashboard-settings" TIME>
 			<properties></properties>
-			<failure message="Differences found in CR: v1_ConfigMap_kubernetes-dashboard_kubernetes-dashboard-settings, Compared To Reference CR: cm.yaml" type="Difference"></failure>
 		</testcase>
 		<testcase classname="Matching Reference CR: cr.yaml" name="CR: rbac.authorization.k8s.io/v1_ClusterRole_kubernetes-dashboard" TIME>
 			<properties></properties>
-			<failure message="Differences found in CR: rbac.authorization.k8s.io/v1_ClusterRole_kubernetes-dashboard, Compared To Reference CR: cr.yaml" type="Difference"></failure>
 		</testcase>
 		<testcase classname="Matching Reference CR: crb.yaml" name="CR: rbac.authorization.k8s.io/v1_ClusterRoleBinding_kubernetes-dashboard" TIME>
 			<properties></properties>
-			<failure message="Differences found in CR: rbac.authorization.k8s.io/v1_ClusterRoleBinding_kubernetes-dashboard, Compared To Reference CR: crb.yaml" type="Difference"></failure>
 		</testcase>
 		<testcase classname="Matching Reference CR: deploymentDashboard.yaml" name="CR: apps/v1_Deployment_kubernetes-dashboard_kubernetes-dashboard" TIME>
 			<properties></properties>
-			<failure message="Differences found in CR: apps/v1_Deployment_kubernetes-dashboard_kubernetes-dashboard, Compared To Reference CR: deploymentDashboard.yaml" type="Difference"></failure>
 		</testcase>
 		<testcase classname="Matching Reference CR: deploymentMetrics.yaml" name="CR: apps/v1_Deployment_kubernetes-dashboard_dashboard-metrics-scraper" TIME>
 			<properties></properties>
-			<failure message="Differences found in CR: apps/v1_Deployment_kubernetes-dashboard_dashboard-metrics-scraper, Compared To Reference CR: deploymentMetrics.yaml" type="Difference"></failure>
 		</testcase>
 		<testcase classname="Matching Reference CR: ns.yaml" name="CR: v1_Namespace_kubernetes-dashboard" TIME>
 			<properties></properties>
-			<failure message="Differences found in CR: v1_Namespace_kubernetes-dashboard, Compared To Reference CR: ns.yaml" type="Difference"></failure>
 		</testcase>
 		<testcase classname="Matching Reference CR: rb.yaml" name="CR: rbac.authorization.k8s.io/v1_RoleBinding_kubernetes-dashboard_kubernetes-dashboard" TIME>
 			<properties></properties>
-			<failure message="Differences found in CR: rbac.authorization.k8s.io/v1_RoleBinding_kubernetes-dashboard_kubernetes-dashboard, Compared To Reference CR: rb.yaml" type="Difference"></failure>
 		</testcase>
 		<testcase classname="Matching Reference CR: role.yaml" name="CR: rbac.authorization.k8s.io/v1_Role_kubernetes-dashboard_kubernetes-dashboard" TIME>
 			<properties></properties>
-			<failure message="Differences found in CR: rbac.authorization.k8s.io/v1_Role_kubernetes-dashboard_kubernetes-dashboard, Compared To Reference CR: role.yaml" type="Difference"></failure>
 		</testcase>
 		<testcase classname="Matching Reference CR: sa.yaml" name="CR: v1_ServiceAccount_kubernetes-dashboard_kubernetes-dashboard" TIME>
 			<properties></properties>
-			<failure message="Differences found in CR: v1_ServiceAccount_kubernetes-dashboard_kubernetes-dashboard, Compared To Reference CR: sa.yaml" type="Difference"></failure>
 		</testcase>
 		<testcase classname="Matching Reference CR: secret.yaml" name="CR: v1_Secret_kubernetes-dashboard_kubernetes-dashboard-certs" TIME>
 			<properties></properties>
-			<failure message="Differences found in CR: v1_Secret_kubernetes-dashboard_kubernetes-dashboard-certs, Compared To Reference CR: secret.yaml" type="Difference"></failure>
 		</testcase>
 		<testcase classname="Matching Reference CR: secret.yaml" name="CR: v1_Secret_kubernetes-dashboard_kubernetes-dashboard-csrf" TIME>
 			<properties></properties>
-			<failure message="Differences found in CR: v1_Secret_kubernetes-dashboard_kubernetes-dashboard-csrf, Compared To Reference CR: secret.yaml" type="Difference"></failure>
 		</testcase>
 		<testcase classname="Matching Reference CR: secret.yaml" name="CR: v1_Secret_kubernetes-dashboard_kubernetes-dashboard-key-holder" TIME>
 			<properties></properties>
-			<failure message="Differences found in CR: v1_Secret_kubernetes-dashboard_kubernetes-dashboard-key-holder, Compared To Reference CR: secret.yaml" type="Difference"></failure>
 		</testcase>
 		<testcase classname="Matching Reference CR: service.yaml" name="CR: v1_Service_kubernetes-dashboard_kubernetes-dashboard" TIME>
 			<properties></properties>
-			<failure message="Differences found in CR: v1_Service_kubernetes-dashboard_kubernetes-dashboard, Compared To Reference CR: service.yaml" type="Difference"></failure>
 		</testcase>
 		<testcase classname="Matching Reference CR: ns.yaml" name="CR: v1_Namespace_kubernetes-dashboard" TIME>
 			<properties></properties>
-			<failure message="Differences found in CR: v1_Namespace_kubernetes-dashboard, Compared To Reference CR: ns.yaml" type="Difference"></failure>
 		</testcase>
 		<testcase classname="Matching Reference CR: sa.yaml" name="CR: v1_ServiceAccount_kubernetes-dashboard_kubernetes-dashboard" TIME>
 			<properties></properties>
-			<failure message="Differences found in CR: v1_ServiceAccount_kubernetes-dashboard_kubernetes-dashboard, Compared To Reference CR: sa.yaml" type="Difference"></failure>
 		</testcase>
 		<testcase classname="Matching Reference CR: service.yaml" name="CR: v1_Service_kubernetes-dashboard_kubernetes-dashboard" TIME>
 			<properties></properties>
-			<failure message="Differences found in CR: v1_Service_kubernetes-dashboard_kubernetes-dashboard, Compared To Reference CR: service.yaml" type="Difference"></failure>
 		</testcase>
 		<testcase classname="Matching Reference CR: secret.yaml" name="CR: v1_Secret_kubernetes-dashboard_kubernetes-dashboard-certs" TIME>
 			<properties></properties>
-			<failure message="Differences found in CR: v1_Secret_kubernetes-dashboard_kubernetes-dashboard-certs, Compared To Reference CR: secret.yaml" type="Difference"></failure>
 		</testcase>
 		<testcase classname="Matching Reference CR: secret.yaml" name="CR: v1_Secret_kubernetes-dashboard_kubernetes-dashboard-csrf" TIME>
 			<properties></properties>
-			<failure message="Differences found in CR: v1_Secret_kubernetes-dashboard_kubernetes-dashboard-csrf, Compared To Reference CR: secret.yaml" type="Difference"></failure>
 		</testcase>
 		<testcase classname="Matching Reference CR: secret.yaml" name="CR: v1_Secret_kubernetes-dashboard_kubernetes-dashboard-key-holder" TIME>
 			<properties></properties>
-			<failure message="Differences found in CR: v1_Secret_kubernetes-dashboard_kubernetes-dashboard-key-holder, Compared To Reference CR: secret.yaml" type="Difference"></failure>
 		</testcase>
 		<testcase classname="Matching Reference CR: cm.yaml" name="CR: v1_ConfigMap_kubernetes-dashboard_kubernetes-dashboard-settings" TIME>
 			<properties></properties>
-			<failure message="Differences found in CR: v1_ConfigMap_kubernetes-dashboard_kubernetes-dashboard-settings, Compared To Reference CR: cm.yaml" type="Difference"></failure>
 		</testcase>
 		<testcase classname="Matching Reference CR: role.yaml" name="CR: rbac.authorization.k8s.io/v1_Role_kubernetes-dashboard_kubernetes-dashboard" TIME>
 			<properties></properties>
-			<failure message="Differences found in CR: rbac.authorization.k8s.io/v1_Role_kubernetes-dashboard_kubernetes-dashboard, Compared To Reference CR: role.yaml" type="Difference"></failure>
 		</testcase>
 		<testcase classname="Matching Reference CR: cr.yaml" name="CR: rbac.authorization.k8s.io/v1_ClusterRole_kubernetes-dashboard" TIME>
 			<properties></properties>
-			<failure message="Differences found in CR: rbac.authorization.k8s.io/v1_ClusterRole_kubernetes-dashboard, Compared To Reference CR: cr.yaml" type="Difference"></failure>
 		</testcase>
 		<testcase classname="Matching Reference CR: rb.yaml" name="CR: rbac.authorization.k8s.io/v1_RoleBinding_kubernetes-dashboard_kubernetes-dashboard" TIME>
 			<properties></properties>
-			<failure message="Differences found in CR: rbac.authorization.k8s.io/v1_RoleBinding_kubernetes-dashboard_kubernetes-dashboard, Compared To Reference CR: rb.yaml" type="Difference"></failure>
 		</testcase>
 		<testcase classname="Matching Reference CR: crb.yaml" name="CR: rbac.authorization.k8s.io/v1_ClusterRoleBinding_kubernetes-dashboard" TIME>
 			<properties></properties>
-			<failure message="Differences found in CR: rbac.authorization.k8s.io/v1_ClusterRoleBinding_kubernetes-dashboard, Compared To Reference CR: crb.yaml" type="Difference"></failure>
 		</testcase>
 		<testcase classname="Matching Reference CR: deploymentDashboard.yaml" name="CR: apps/v1_Deployment_kubernetes-dashboard_kubernetes-dashboard" TIME>
 			<properties></properties>
-			<failure message="Differences found in CR: apps/v1_Deployment_kubernetes-dashboard_kubernetes-dashboard, Compared To Reference CR: deploymentDashboard.yaml" type="Difference"></failure>
 		</testcase>
 		<testcase classname="Matching Reference CR: service.yaml" name="CR: v1_Service_kubernetes-dashboard_dashboard-metrics-scraper" TIME>
 			<properties></properties>
-			<failure message="Differences found in CR: v1_Service_kubernetes-dashboard_dashboard-metrics-scraper, Compared To Reference CR: service.yaml" type="Difference"></failure>
 		</testcase>
 		<testcase classname="Matching Reference CR: deploymentMetrics.yaml" name="CR: apps/v1_Deployment_kubernetes-dashboard_dashboard-metrics-scraper" TIME>
 			<properties></properties>
-			<failure message="Differences found in CR: apps/v1_Deployment_kubernetes-dashboard_dashboard-metrics-scraper, Compared To Reference CR: deploymentMetrics.yaml" type="Difference"></failure>
 		</testcase>
 	</testsuite>
 	<testsuite tests="1" failures="0" TIME name="Missing Cluster Resources" TIME>

@@ -4,7 +4,6 @@
 		<properties></properties>
 		<testcase classname="Matching Reference CR: ns.yaml" name="CR: v1_Namespace_kubernetes-dashboard" TIME>
 			<properties></properties>
-			<failure message="Differences found in CR: v1_Namespace_kubernetes-dashboard, Compared To Reference CR: ns.yaml" type="Difference"></failure>
 		</testcase>
 	</testsuite>
 	<testsuite tests="5" failures="5" TIME name="Missing Cluster Resources" TIME>
