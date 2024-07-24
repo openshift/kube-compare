@@ -13,6 +13,7 @@ spec:
     metadata:
       labels:
         k8s-app: kubernetes-dashboard
+        olm.operatorgroup.uid/6a093c10-3154-4e38-8ae0-71197c10a259: ""
     spec:
       securityContext:
         seccompProfile:

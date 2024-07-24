@@ -566,7 +566,7 @@ func findFieldPaths(object map[string]any, fields []*ManifestPath) [][]string {
 			if mapping, ok := val.(map[string]any); ok {
 				for key := range mapping {
 					if strings.HasPrefix(key, prefix) {
-						newPath := start
+						newPath := append([]string{}, start...)
 						newPath = append(newPath, key)
 						result = append(result, newPath)
 					}
