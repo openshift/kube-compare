@@ -13,11 +13,11 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"testing"
 
 	"github.com/openshift/kube-compare/pkg/groups"
+	"github.com/openshift/kube-compare/pkg/testutils"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
@@ -89,27 +89,13 @@ func (c Check) check(t *testing.T, test Test, mode Mode, value string) {
 	case matchRegex:
 		require.Regexp(t, c.value, value)
 	case matchYaml:
-		expected := getFile(t, c.getPath(test, mode), value)
+		expected := testutils.GetFile(t, c.getPath(test, mode), value, *update)
 		require.YAMLEq(t, expected, value)
 	}
 }
 
-func getFile(t *testing.T, fileName, value string) string {
-	if *update {
-		t.Log("update golden file")
-		if err := os.WriteFile(fileName, []byte(value), 0644); err != nil { // nolint:gocritic,gosec
-			t.Fatalf("test %s failed to update golden file: %s", fileName, err)
-		}
-	}
-	result, err := os.ReadFile(fileName)
-	if err != nil {
-		t.Fatalf("test %s failed reading .golden file: %s", fileName, err)
-	}
-	return string(result)
-}
-
 func checkFile(t *testing.T, fileName, value string) {
-	expected := getFile(t, fileName, value)
+	expected := testutils.GetFile(t, fileName, value, *update)
 	require.Equal(t, expected, value)
 }
 
@@ -362,42 +348,18 @@ func TestCompareRun(t *testing.T) {
 				klog.SetOutputBySeverity("INFO", out)
 				cmd := getCommand(t, &test, i, tf, &IOStream) // nolint:gosec
 				cmdutil.BehaviorOnFatal(func(str string, code int) {
-					errorStr := fmt.Sprintf("%s\nerror code:%d\n", removeInconsistentInfo(t, str), code)
+					errorStr := fmt.Sprintf("%s\nerror code:%d\n", testutils.RemoveInconsistentInfo(t, str), code)
 					test.checks.Err.check(t, test, mode, errorStr)
 					panic("Expected Error Test Case")
 				})
 				defer func() {
 					_ = recover()
-					test.checks.Out.check(t, test, mode, removeInconsistentInfo(t, out.String()))
+					test.checks.Out.check(t, test, mode, testutils.RemoveInconsistentInfo(t, out.String()))
 				}()
 				cmd.Run(cmd, []string{})
 			})
 		}
 	}
-}
-
-var tempRegex *regexp.Regexp
-
-func getTempRegex(t *testing.T) *regexp.Regexp {
-	if tempRegex == nil {
-		tDir, err := os.MkdirTemp("", "tempDirProbe")
-		defer os.RemoveAll(tDir)
-		require.NoError(t, err)
-		tempRegex = regexp.MustCompile(path.Dir(tDir) + `/(?:LIVE|MERGED)-[0-9]*`)
-	}
-	return tempRegex
-}
-
-func removeInconsistentInfo(t *testing.T, text string) string {
-	// remove diff tool generated temp directory path
-	re := getTempRegex(t)
-	text = re.ReplaceAllString(text, "TEMP")
-	// remove diff datetime
-	re = regexp.MustCompile(`(\d{4}-\d{2}-\d{2}\s*\d{2}:\d{2}:\d{2}(:?\.\d{9} [+-]\d{4})?)`)
-	text = re.ReplaceAllString(text, "DATE")
-	pwd, err := os.Getwd()
-	require.NoError(t, err)
-	return strings.ReplaceAll(text, pwd, ".")
 }
 
 func getCommand(t *testing.T, test *Test, modeIndex int, tf *cmdtesting.TestFactory, streams *genericiooptions.IOStreams) *cobra.Command {
