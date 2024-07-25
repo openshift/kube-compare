@@ -20,25 +20,25 @@ A reference configuration is required in order to run. A reference configuration
 Compare a known valid reference configuration with a live cluster:
 
 ```bash
-kubectl cluster-compare -r ./reference
+kubectl cluster-compare -r ./reference/metadata.yaml
 ```
   
 Compare a known valid reference configuration with a local set of CRs:
 
 ```bash
-kubectl cluster-compare -r ./reference -f ./crsdir -R
+kubectl cluster-compare -r ./reference/metadata.yaml -f ./crsdir -R
 ```
   
 Compare a known valid reference configuration with a live cluster and with a user config:
 
 ```bash
-kubectl cluster-compare -r ./reference -c ./user_config
+kubectl cluster-compare -r ./reference/metadata.yaml -c ./user_config
 ```
   
 Run a known valid reference configuration with an `oc must-gather` output:
 
 ```bash
-kubectl cluster-compare -r ./reference -f "must-gather*/*/cluster-scoped-resources","must-gather*/*/namespaces" -R
+kubectl cluster-compare -r ./reference/metadata.yaml -f "must-gather*/*/cluster-scoped-resources","must-gather*/*/namespaces" -R
 ```
 
 Run `kubectl cluster-compare --help` for a more extensive usage description.

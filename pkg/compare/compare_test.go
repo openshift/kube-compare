@@ -35,6 +35,8 @@ import (
 var update = flag.Bool("update", false, "update .golden files")
 
 const TestRefDirName = "reference"
+const TestRefConfigFileName = "metadata.yaml"
+const TestRefConfigFile = TestRefDirName + "/" + TestRefConfigFileName
 
 var TestDirs = "testdata"
 
@@ -254,13 +256,7 @@ func TestCompareRun(t *testing.T) {
 	tests := []Test{
 		defaultTest("No Input").
 			skipReferenceFlag(),
-		defaultTest("Reference Directory Doesnt Exist"),
-		defaultTest("Reference Config File Doesnt Exist").
-			withChecks(Checks{Out: defaultCheckOut,
-				Err: matchErrorRegexCheck(
-					`Reference config file not found. error: open .*metadata.yaml: no such file or directory`,
-				),
-			}),
+		defaultTest("Reference Config File Doesnt Exist"),
 		defaultTest("Reference Config File Isnt Valid YAML"),
 		defaultTest("Reference Contains Templates That Dont Exist"),
 		defaultTest("Reference Contains Templates That Dont Parse"),
@@ -396,14 +392,14 @@ func getCommand(t *testing.T, test *Test, modeIndex int, tf *cmdtesting.TestFact
 			_, err = fmt.Fprint(w, string(body))
 			require.NoError(t, err)
 		}))
-		require.NoError(t, cmd.Flags().Set("reference", svr.URL))
+		require.NoError(t, cmd.Flags().Set("reference", svr.URL+"/"+TestRefConfigFileName))
 		t.Cleanup(func() {
 			svr.Close()
 		})
 
 	case LocalRef:
 		if !test.leaveTemplateDirEmpty {
-			require.NoError(t, cmd.Flags().Set("reference", path.Join(test.getTestDir(), TestRefDirName)))
+			require.NoError(t, cmd.Flags().Set("reference", path.Join(test.getTestDir(), TestRefConfigFile)))
 		}
 	}
 	return cmd

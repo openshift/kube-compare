@@ -229,9 +229,9 @@ const (
 	templatesFunctionsCantBeParsed = "an error occurred while parsing the template function files specified in the config. error: %w"
 )
 
-func getReference(fsys fs.FS) (Reference, error) {
+func getReference(fsys fs.FS, referenceFileName string) (Reference, error) {
 	result := Reference{}
-	err := parseYaml(fsys, ReferenceFileName, &result, refConfNotExistsError, refConfigNotInFormat)
+	err := parseYaml(fsys, referenceFileName, &result, refConfNotExistsError, refConfigNotInFormat)
 	if err != nil {
 		return result, err
 	}
