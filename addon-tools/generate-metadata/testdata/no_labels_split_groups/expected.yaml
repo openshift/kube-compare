@@ -1,0 +1,13 @@
+Parts:
+  - name: reference
+    Components:
+      - name: group1
+        type: Required
+        requiredTemplates:
+          - group1/cm.yaml
+          - group1/cr.yaml
+      - name: group2
+        type: Required
+        requiredTemplates:
+          - group2/rb.yaml
+          - group2/role.yaml
