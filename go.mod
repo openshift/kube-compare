@@ -5,7 +5,7 @@ go 1.21
 require (
 	github.com/BurntSushi/toml v0.3.1
 	github.com/Masterminds/sprig/v3 v3.2.3
-	github.com/evanphx/json-patch v4.12.0+incompatible
+	github.com/evanphx/json-patch v5.9.0+incompatible
 	github.com/gosimple/slug v1.14.0
 	github.com/samber/lo v1.39.0
 	github.com/spf13/cobra v1.7.0
