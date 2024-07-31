@@ -11,6 +11,8 @@ updates:
       - "addon-tools/*"
     schedule:
       interval: "daily"
+    labels:
+      - "ok-to-test"
     open-pull-requests-limit: 5
     ignore:
       - dependency-name: "*"
