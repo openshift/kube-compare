@@ -22,19 +22,19 @@ Compare a known valid reference configuration with a live cluster:
 ```bash
 kubectl cluster-compare -r ./reference/metadata.yaml
 ```
-  
+
 Compare a known valid reference configuration with a local set of CRs:
 
 ```bash
 kubectl cluster-compare -r ./reference/metadata.yaml -f ./crsdir -R
 ```
-  
+
 Compare a known valid reference configuration with a live cluster and with a user config:
 
 ```bash
 kubectl cluster-compare -r ./reference/metadata.yaml -c ./user_config
 ```
-  
+
 Run a known valid reference configuration with an `oc must-gather` output:
 
 ```bash
@@ -89,9 +89,9 @@ At the basic level, `metadata.yaml` lays out a reference configuration in `Part`
 The following example describes an one-part guestbook app, with redis and frontend components. The templates it references are stored in the same directory as `metadata.yaml`.
 
 ```yaml
-Parts:
+parts:
   - name: guestbook
-    Components:
+    components:
       - name: redis
         type: Required # mark the Component as "Required" or "Optional"
         requiredTemplates: # absence from cluster manifests is considered a diff

@@ -1,6 +1,6 @@
-Parts:
+parts:
   - name: ExamplePart1
-    Components:
+    components:
       - name: Dashboard1
         type: Required
         requiredTemplates:
@@ -15,7 +15,7 @@ Parts:
           - path: deploymentDashboard.yaml
           - path: deploymentMetrics.yaml
   - name: ExamplePart2
-    Components:
+    components:
       - name: Dashboard1
         type: Required
         requiredTemplates:

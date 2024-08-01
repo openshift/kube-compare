@@ -266,8 +266,8 @@ The metadata.yaml is a mandatory file for each reference config. The commands en
 metadata.yaml file in the reference directory. The name of the file is fixed and cant be changed.
 
 The main thing included in the metadata are the list of reference CRs that are grouped by components and parts (as
-described in previous sections). The Parts are specified under the Parts key in the YAML and include a list of
-components under the Components key. The full schema can be found in the appendix.
+described in previous sections). The parts are specified under the parts key in the YAML and include a list of
+components under the components key. The full schema can be found in the appendix.
 
 Another parameter that can be set in the metadata.yaml file is the templateFunctionFiles. This Implementation of the
 command supports the declaration of nested templates in external files that then can be used in all resource templates
@@ -284,9 +284,9 @@ Example for metadata.yaml:
 
 ```yaml
 
-Parts:
+parts:
   - name: guestbook
-    Components:
+    components:
       - name: redis
         type: Required
         requiredTemplates:
