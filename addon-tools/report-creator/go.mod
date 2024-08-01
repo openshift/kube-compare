@@ -1,9 +1,9 @@
 module github.com/openshift/kube-compare/addon-tools/report-creator
 
-go 1.21
+go 1.22
 
 require (
-	github.com/openshift/kube-compare v0.0.0-20240521171947-967f4154c71c
+	github.com/openshift/kube-compare v0.0.0-20240731093548-ca27579af1f9
 	github.com/spf13/cobra v1.8.0
 	github.com/stretchr/testify v1.8.4
 	k8s.io/cli-runtime v0.29.3
@@ -20,7 +20,7 @@ require (
 	github.com/chai2010/gettext-go v1.0.2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/emicklei/go-restful/v3 v3.11.0 // indirect
-	github.com/evanphx/json-patch v4.12.0+incompatible // indirect
+	github.com/evanphx/json-patch v5.9.0+incompatible // indirect
 	github.com/exponent-io/jsonpath v0.0.0-20151013193312-d6023ce2651d // indirect
 	github.com/fatih/camelcase v1.0.0 // indirect
 	github.com/fvbommel/sortorder v1.1.0 // indirect
