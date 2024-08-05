@@ -1,6 +1,6 @@
 module github.com/openshift/kube-compare/addon-tools/report-creator
 
-go 1.22
+go 1.22.0
 
 require (
 	github.com/openshift/kube-compare v0.0.0-20240731093548-ca27579af1f9
