@@ -19,7 +19,7 @@ these criteria:
 
 The most important thing included in the metadata.yaml is the list of all the CR templates that are included in the
 reference. The file includes an hierarchy of all the CR templates by parts and components. Parts are Groups of
-Components and components are groups of CR templates.
+components and components are groups of CR templates.
 
 Each component includes required templates and optional templates. Required templates are CRs that must be present in
 the input configuration. They are reported in the summary as "missing content" in case there are no cluster CRs that
@@ -33,23 +33,23 @@ the required CRs in the group are included then no report of "missing content" f
 In this version Parts only help with organization of the components into groups and don't have any affection on the diff
 process.
 
-Thus, the file `metadata.yaml` includes an array denoted by `Parts` of one or more objects. Each object includes:
+Thus, the file `metadata.yaml` includes an array denoted by `parts` of one or more objects. Each object includes:
 
 - a key "name" with a value of a string typically identifying a workload or a set of workloads
-- a key "Components" defined as an array of objects
+- a key "components" defined as an array of objects
 
 ```yaml
 # Every part denotes typically denotes a workload or set of workloads
- Parts:
+ parts:
   - name: ExamplePart1
-    Components:
+    components:
       - name: ExampleComponent1
         ---- here goes ExampleComponent1 configuration ----
   - name: ExamplePart2
     ---- here goes Part2 configuration ----
 ```
 
-"Components" array includes:
+"components" array includes:
 
 - a pair at key "name" with a value of a string identifying a component required for the part
 - a pair at key "type" with a value of:
@@ -60,7 +60,7 @@ Thus, the file `metadata.yaml` includes an array denoted by `Parts` of one or mo
 
 ```yaml
 # requiredTemplates contains all needed reference CRs to comply with ExampleComponent1
-Components:
+components:
   - name: ExampleComponent1
     type: Optional
     requiredTemplates:
@@ -117,9 +117,9 @@ Note that this could cover up differences in things you do care about so use it 
 This can be configured for a manifest by adding config to the metadata.yaml
 
 ```yaml
-Parts:
+parts:
   - name: ExamplePart
-    Components:
+    components:
       - name: Namespace
         type: Required
         requiredTemplates:

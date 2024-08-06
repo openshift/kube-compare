@@ -1,6 +1,6 @@
-Parts:
+parts:
   - name: ExamplePart1
-    Components:
+    components:
       - name: Dashboard1
         type: Required
         requiredTemplates:
