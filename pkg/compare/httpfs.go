@@ -16,7 +16,7 @@ const defaultHttpGetAttempts = 5
 
 // isURL checks if the given path is a URL by verifying if it starts with "http://" or "https://".
 func isURL(path string) bool {
-	return strings.Index(path, "http://") == 0 || strings.Index(path, "https://") == 0
+	return strings.HasPrefix(path, "http://") || strings.HasPrefix(path, "https://")
 }
 
 // HTTPFS represents a file system that retrieves files from a http server by returning the http response body,
