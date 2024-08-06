@@ -265,6 +265,7 @@ func TestCompareRun(t *testing.T) {
 		defaultTest("Template Has No Kind").
 			withModes([]Mode{{Live, LocalRef}}),
 		defaultTest("Two Templates With Same apiVersion Kind Name Namespace"),
+		defaultTest("Two Templates With Same apiVersion Kind Name Namespace").withUserConfig(userConfigFileName),
 		defaultTest("Two Templates With Same Kind Namespace"),
 		defaultTest("User Config Doesnt Exist").
 			withUserConfig(userConfigFileName).
@@ -293,8 +294,9 @@ func TestCompareRun(t *testing.T) {
 		defaultTest("Custom Fields To Omit Default Key Not Found"),
 		defaultTest("Custom Fields To Omit Ref Entry Not Found"),
 		defaultTest("When Using Diff All Flag - All Unmatched Resources Appear In Summary").
-			diffAll(),
-		defaultTest("Only Resources That Were Not Matched Because Multiple Matches Appear In Summary"),
+			diffAll().withUserConfig(userConfigFileName),
+		defaultTest("Only Resources That Were Not Matched Because Multiple Matches Appear In Summary").
+			withUserConfig(userConfigFileName),
 		defaultTest("Manual Correlation Matches Are Prioritized Over Group Correlation").
 			withModes([]Mode{{Live, LocalRef}, {Local, LocalRef}}).
 			withUserConfig(userConfigFileName),

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"math"
 	"os"
 	"path/filepath"
 	"sort"
@@ -318,7 +319,25 @@ func (o *Options) setupCorrelators() error {
 		{{"apiVersion"}, {"kind"}},
 		{{"kind"}},
 	}
-	groupCorrelator, err := NewGroupCorrelator(fieldGroups, o.templates)
+	getBestMatch := func(templates []*ReferenceTemplate, CR *unstructured.Unstructured) (*ReferenceTemplate, error) {
+		var bestTemp *ReferenceTemplate
+		minDiffNum := math.MaxInt
+		for _, temp := range templates {
+			diffOutput, err := diffAgainstTemplate(temp, CR, o)
+			if err != nil {
+				return nil, err
+			}
+			minDiffNum = min(bytes.Count(diffOutput.Bytes(), []byte("\n")), minDiffNum)
+			if minDiffNum == bytes.Count(diffOutput.Bytes(), []byte("\n")) {
+				bestTemp = temp
+			}
+		}
+		return bestTemp, nil
+	}
+	if o.userConfig.BestMatchType == None {
+		getBestMatch = nil
+	}
+	groupCorrelator, err := NewGroupCorrelator(fieldGroups, o.templates, &getBestMatch)
 	if err != nil {
 		return err
 	}
@@ -437,6 +456,20 @@ func extractPath(str string, pathIndex int) string {
 	return "Unknown Path"
 }
 
+func diffAgainstTemplate(temp *ReferenceTemplate, clusterCR *unstructured.Unstructured, o *Options) (*bytes.Buffer, error) {
+	localRef, err := temp.Exec(clusterCR.Object)
+	if err != nil {
+		return nil, err
+	}
+	obj := InfoObject{
+		injectedObjFromTemplate: localRef,
+		clusterObj:              clusterCR,
+		FieldsToOmit:            temp.FieldsToOmit(o.ref.FieldsToOmit),
+		allowMerge:              temp.Config.AllowMerge,
+	}
+	return runDiff(obj, o.IOStreams, o.ShowManagedFields)
+}
+
 // Run uses the factory to parse file arguments (in case of local mode) or gather all cluster resources matching
 // templates types. For each Resource it finds the matching Resource template and
 // injects, compares, and runs against differ.
@@ -479,21 +512,11 @@ func (o *Options) Run() error {
 			return err
 		}
 
-		localRef, err := temp.Exec(clusterCR.Object)
+		diffOutput, err := diffAgainstTemplate(temp, clusterCR, o)
 		if err != nil {
 			return err
 		}
 
-		obj := InfoObject{
-			injectedObjFromTemplate: localRef,
-			clusterObj:              clusterCR,
-			FieldsToOmit:            temp.FieldsToOmit(o.ref.FieldsToOmit),
-			allowMerge:              temp.Config.AllowMerge,
-		}
-		diffOutput, err := runDiff(obj, o.IOStreams, o.ShowManagedFields)
-		if err != nil {
-			return err
-		}
 		if diffOutput.Len() > 0 {
 			numDiffCRs += 1
 		}
