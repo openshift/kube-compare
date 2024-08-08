@@ -47,6 +47,10 @@ test-report-creator:
 build-report-creator:
 	go build ./addon-tools/report-creator/create-report.go
 
+.PHONY: build-helm-converter
+build-helm-converter:
+	go build ./addon-tools/compare-to-helm/helm-convert.go
+
 .PHONY: golangci-lint
 golangci-lint: ## Run golangci-lint against code.
 	@echo "Running golangci-lint"
