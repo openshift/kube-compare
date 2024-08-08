@@ -278,6 +278,9 @@ func parseTemplates(templateReference []*ReferenceTemplate, functionTemplates []
 		if err != nil {
 			errs = append(errs, err)
 		}
+		if temp.metadata.GetKind() == "" {
+			errs = append(errs, fmt.Errorf("template missing kind: %s", temp.Path))
+		}
 	}
 	return templateReference, errors.Join(errs...) // nolint:wrapcheck
 }

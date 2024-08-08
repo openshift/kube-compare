@@ -17,7 +17,6 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/gosimple/slug"
-	"github.com/openshift/kube-compare/pkg/groups"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -339,15 +338,11 @@ func (o *Options) setupCorrelators() error {
 // types supported by the live cluster in order to not raise errors by the visitor. In a case the reference includes types that
 // are not supported by the user a warning will be created.
 func (o *Options) setLiveSearchTypes(f kcmdutil.Factory) error {
-	requestedTypes, err := groups.Divide(
-		o.templates,
-		func(element *unstructured.Unstructured) ([]int, error) { return []int{0}, nil },
-		func(t *ReferenceTemplate) (*unstructured.Unstructured, error) { return t.metadata, nil },
-		createGroupHashFunc([][]string{{"kind"}}),
-	)
-	if err != nil {
-		return fmt.Errorf("failed to group templates: %w", err)
+	kindSet := make(map[string][]*ReferenceTemplate)
+	for _, t := range o.templates {
+		kindSet[t.metadata.GetKind()] = append(kindSet[t.metadata.GetKind()], t)
 	}
+
 	c, err := f.ToDiscoveryClient()
 	if err != nil {
 		return fmt.Errorf("failed to create discovery client: %w", err)
@@ -357,7 +352,7 @@ func (o *Options) setLiveSearchTypes(f kcmdutil.Factory) error {
 		return err
 	}
 	var notSupportedTypes []string
-	o.types, notSupportedTypes = findAllRequestedSupportedTypes(SupportedTypes, requestedTypes[0])
+	o.types, notSupportedTypes = findAllRequestedSupportedTypes(SupportedTypes, kindSet)
 	if len(o.types) == 0 {
 		return errors.New(emptyTypes)
 	}

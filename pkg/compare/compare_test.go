@@ -16,7 +16,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/openshift/kube-compare/pkg/groups"
 	"github.com/openshift/kube-compare/pkg/testutils"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
@@ -406,16 +405,11 @@ func getCommand(t *testing.T, test *Test, modeIndex int, tf *cmdtesting.TestFact
 }
 
 func setClient(t *testing.T, resources []*unstructured.Unstructured, tf *cmdtesting.TestFactory) {
-	resourcesByType, _ := groups.Divide(
-		resources,
-		func(element *unstructured.Unstructured) ([]int, error) { return []int{0}, nil },
-		func(e *unstructured.Unstructured) (*unstructured.Unstructured, error) { return e, nil },
-		createGroupHashFunc([][]string{{"kind"}}),
-	)
-	resourcesByKind := lo.MapKeys(resourcesByType[0], func(value []*unstructured.Unstructured, key string) string {
-		// Converted to URL Path Format:
-		return fmt.Sprintf("/%ss", strings.ToLower(key))
-	})
+	resourcesByKind := make(map[string][]*unstructured.Unstructured)
+	for _, t := range resources {
+		key := fmt.Sprintf("/%ss", strings.ToLower(t.GetKind()))
+		resourcesByKind[key] = append(resourcesByKind[key], t)
+	}
 	tf.UnstructuredClient = &fake.RESTClient{
 		NegotiatedSerializer: resource.UnstructuredPlusDefaultContentConfig().NegotiatedSerializer,
 		Client: fake.CreateHTTPClient(func(req *http.Request) (*http.Response, error) {
