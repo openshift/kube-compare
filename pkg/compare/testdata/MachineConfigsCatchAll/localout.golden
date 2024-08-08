@@ -1,0 +1,39 @@
+**********************************
+
+Cluster CR: machineconfiguration.openshift.io/v1_MachineConfig_00-rouge
+Reference File: other_mcs.yaml
+Diff Output: diff -u -N TEMP/machineconfiguration-openshift-io-v1_machineconfig_00-rouge TEMP/machineconfiguration-openshift-io-v1_machineconfig_00-rouge
+--- TEMP/machineconfiguration-openshift-io-v1_machineconfig_00-rouge	DATE
++++ TEMP/machineconfiguration-openshift-io-v1_machineconfig_00-rouge	DATE
+@@ -2,4 +2,23 @@
+ kind: MachineConfig
+ metadata:
+   name: 00-rouge
+-spec: THIS MC IS NOT EXPECTED
++spec:
++  config:
++    ignition: null
++    systemd: null
++    units:
++    - contents: |
++        [Unit]
++        Description=Something Unexpected
++        After=network-online.target
++        Wants=network-online.target
++        [Service]
++        Type=oneshot
++        TimeoutStartSec=300
++        ExecCondition=/bin/bash -c 'echo Hello World'
++        RemainAfterExit=yes
++        [Install]
++        WantedBy=multi-user.target
++      enabled: true
++      name: im-unexpected.service
++    version: 3.2.0
+
+**********************************
+
+Summary
+CRs with diffs: 1/3
+No CRs are missing from the cluster
+No CRs are unmatched to reference CRs
