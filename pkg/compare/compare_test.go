@@ -79,6 +79,13 @@ func (c Check) getPath(test Test, mode Mode) string {
 	return path.Join(test.getTestDir(), string(mode.crSource)+c.suffix)
 }
 
+func (c Check) hasErrorFile(test Test, mode Mode) bool {
+	if _, err := os.Stat(c.getPath(test, mode)); errors.Is(err, os.ErrNotExist) {
+		return false
+	}
+	return true
+}
+
 func (c Check) check(t *testing.T, test Test, mode Mode, value string) {
 	switch c.checkType {
 	case matchFile:
@@ -344,15 +351,22 @@ func TestCompareRun(t *testing.T) {
 				IOStream, _, out, _ := genericiooptions.NewTestIOStreams()
 				klog.SetOutputBySeverity("INFO", out)
 				cmd := getCommand(t, &test, i, tf, &IOStream) // nolint:gosec
+
+				hasCheckedError := false
 				cmdutil.BehaviorOnFatal(func(str string, code int) {
 					errorStr := fmt.Sprintf("%s\nerror code:%d\n", testutils.RemoveInconsistentInfo(t, str), code)
 					test.checks.Err.check(t, test, mode, errorStr)
+					hasCheckedError = true
 					panic(ExpectedPanic)
 				})
+
 				defer func() {
 					r := recover()
 					if s, ok := r.(string); r != nil && (!ok || s != ExpectedPanic) {
 						t.Fatalf("test paniced: %v", r)
+					}
+					if !hasCheckedError && test.checks.Err.hasErrorFile(test, mode) {
+						t.Fatalf("Unchecked error file %s", test.checks.Err.getPath(test, mode))
 					}
 					test.checks.Out.check(t, test, mode, testutils.RemoveInconsistentInfo(t, out.String()))
 				}()
