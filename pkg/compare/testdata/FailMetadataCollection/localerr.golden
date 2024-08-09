@@ -1,0 +1,2 @@
+error: failed to parse template badMeta.yaml with empty data: failed to constuct template: template: badMeta.yaml:7:3: executing "badMeta.yaml" at <index .spec 1>: error calling index: index of untyped nil
+error code:2
