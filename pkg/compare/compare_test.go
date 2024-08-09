@@ -249,6 +249,8 @@ func matchErrorRegexCheck(msg string) Check {
 	}
 }
 
+const ExpectedPanic = "Expected Error Test Case"
+
 // TestCompareRun ensures that Run command calls the right actions
 // and returns the expected error.
 func TestCompareRun(t *testing.T) {
@@ -345,10 +347,13 @@ func TestCompareRun(t *testing.T) {
 				cmdutil.BehaviorOnFatal(func(str string, code int) {
 					errorStr := fmt.Sprintf("%s\nerror code:%d\n", testutils.RemoveInconsistentInfo(t, str), code)
 					test.checks.Err.check(t, test, mode, errorStr)
-					panic("Expected Error Test Case")
+					panic(ExpectedPanic)
 				})
 				defer func() {
-					_ = recover()
+					r := recover()
+					if s, ok := r.(string); r != nil && (!ok || s != ExpectedPanic) {
+						t.Fatalf("test paniced: %v", r)
+					}
 					test.checks.Out.check(t, test, mode, testutils.RemoveInconsistentInfo(t, out.String()))
 				}()
 				cmd.Run(cmd, []string{})
