@@ -272,13 +272,13 @@ func parseTemplates(templateReference []*ReferenceTemplate, functionTemplates []
 		temp.Template = parsedTemp
 		temp.metadata, err = temp.Exec(map[string]any{}) // Extract Metadata
 		if err != nil {
-			errs = append(errs, err)
+			errs = append(errs, fmt.Errorf("failed to parse template %s with empty data: %w", temp.Path, err))
 		}
 		err = temp.ValidateFieldsToOmit(ref.FieldsToOmit)
 		if err != nil {
 			errs = append(errs, err)
 		}
-		if temp.metadata.GetKind() == "" {
+		if temp.metadata != nil && temp.metadata.GetKind() == "" {
 			errs = append(errs, fmt.Errorf("template missing kind: %s", temp.Path))
 		}
 	}

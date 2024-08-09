@@ -1,0 +1,7 @@
+parts:
+  - name: ExamplePart
+    components:
+      - name: Dashboard
+        type: Required
+        requiredTemplates:
+            - path: badMeta.yaml
