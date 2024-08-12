@@ -1,0 +1,3 @@
+error: Requested user override generation but no entires for which template to generate overrides for
+See 'compare -h' for help and examples
+error code:2

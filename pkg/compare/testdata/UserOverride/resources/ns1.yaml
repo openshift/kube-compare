@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  annotations:
+    openshift.io/sa.scc.mcs: s0:c29,c14
+    openshift.io/sa.scc.supplemental-groups: 1000840000/10000
+    openshift.io/sa.scc.uid-range: 1000840000/10000
+    reclaimspace.csiaddons.openshift.io/schedule: '@weekly'
+  creationTimestamp: "2024-06-07T17:40:07Z"
+  labels:
+    kubernetes.io/metadata.name: openshift-storage
+    olm.operatorgroup.uid/ffcf3f2d-3e37-4772-97bc-983cdfce128b: ""
+    pod-security.kubernetes.io/audit: privileged
+    pod-security.kubernetes.io/audit-version: v1.24
+    pod-security.kubernetes.io/warn: privileged
+    pod-security.kubernetes.io/warn-version: v1.24
+    security.openshift.io/scc.podSecurityLabelSync: "true"
+    openshift.io/cluster-monitoring: "false"
+  name: openshift-storage
+  resourceVersion: "13323419"
+  uid: 507a5a4e-4fca-4dc3-b246-36359cbe07bf
+spec:
+  finalizers:
+  - kubernetes
+status:
+  phase: Active
