@@ -1,5 +1,3 @@
-# You can use podman or docker as a container engine. Notice that there are some options that might be only valid for one of them.
-ENGINE ?= docker
 IMAGE_NAME=kube-compare
 
 PACKAGE_NAME          := github.com/openshift/kube-compare
@@ -22,6 +20,23 @@ CROSS_BUILD_BINDIR ?=$(OUTPUT_DIR)/bin
 # Default locations for `make install`
 PREFIX ?=  /usr/local
 DESTDIR ?= $(PREFIX)/bin
+
+# Autodetect $ENGINE if not set (podman first, then docker)
+ifeq ($(origin ENGINE), undefined)
+  ENGINE = podman
+  ifeq ($(shell which $(ENGINE) 2>/dev/null), )
+    ENGINE = docker
+  endif
+endif
+
+# Container-engine-specific options:
+ifeq ($(ENGINE), docker)
+  CONTAINER_MOUNTOPT=
+  CONTAINER_SOCKETOPT="-v /var/run/docker.sock:/var/run/docker.sock"
+else ifeq ($(ENGINE), podman)
+  CONTAINER_MOUNTOPT=:Z
+  CONTAINER_SOCKETOPT=
+endif
 
 # Build based on OS and Arch. Full list available in https://pkg.go.dev/internal/platform#pkg-variables
 .PHONY: build
@@ -68,7 +83,7 @@ markdownlint: markdownlint-image  ## run the markdown linter
 		--env RUN_LOCAL=true \
 		--env VALIDATE_MARKDOWN=true \
 		--env PULL_BASE_SHA=$(PULL_BASE_SHA) \
-		-v $$(pwd):/workdir:Z \
+		-v $$(pwd):/workdir$(CONTAINER_MOUNTOPT) \
 		$(IMAGE_NAME)-markdownlint:latest
 
 .PHONY: image-build
@@ -80,8 +95,8 @@ release-dry-run:
 	@$(ENGINE) run \
 		--rm \
 		-e CGO_ENABLED=1 \
-		-v /var/run/docker.sock:/var/run/docker.sock \
-		-v `pwd`:/go/src/$(PACKAGE_NAME) \
+		$(CONTAINER_SOCKETOPT) \
+		-v `pwd`:/go/src/$(PACKAGE_NAME)$(CONTAINER_MOUNTOPT) \
 		-w /go/src/$(PACKAGE_NAME) \
 		ghcr.io/goreleaser/goreleaser-cross:${GOLANG_CROSS_VERSION} \
 		release --clean --skip=validate --skip=publish
@@ -92,8 +107,7 @@ release:
 		--rm \
 		-e GITHUB_TOKEN=$(GITHUB_TOKEN) \
 		-e CGO_ENABLED=1 \
-		-v /var/run/docker.sock:/var/run/docker.sock \
-		-v `pwd`:/go/src/$(PACKAGE_NAME) \
+		-v `pwd`:/go/src/$(PACKAGE_NAME)$(CONTAINER_MOUNTOPT) \
 		-w /go/src/$(PACKAGE_NAME) \
 		ghcr.io/goreleaser/goreleaser-cross:${GOLANG_CROSS_VERSION} \
 		release --clean
