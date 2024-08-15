@@ -100,6 +100,7 @@ const (
 	skipInvalidResources  = "Skipping %s Input contains additional files from supported file extensions" +
 		" (json/yaml) that do not contain a valid resource, error: %s.\n In case this file is " +
 		"expected to be a valid resource modify it accordingly. "
+	DiffsFoundMsg = "there are differences between the cluster CRs and the reference CRs"
 )
 
 const (
@@ -510,7 +511,7 @@ func (o *Options) Run() error {
 	// We will return exit code 1 in case there are differences between the reference CRs and cluster CRs.
 	// The differences can be differences found in specific CRs or the absence of CRs from the cluster.
 	if numDiffCRs != 0 || sum.NumMissing != 0 {
-		return exec.CodeExitError{Err: fmt.Errorf("there are differences between the cluster CRs and the reference CRs"), Code: 1}
+		return exec.CodeExitError{Err: errors.New(DiffsFoundMsg), Code: 1}
 	}
 	return nil
 }

@@ -82,12 +82,16 @@ func TestCompareRun(t *testing.T) {
 	}
 }
 func checkCompatibilityWithCompareOutput(t *testing.T, test Test, update bool) {
-	cmdutil.BehaviorOnFatal(func(str string, code int) {})
+	cmdutil.BehaviorOnFatal(func(str string, code int) {
+		if str != "" && str != compare.DiffsFoundMsg {
+			t.Fatalf("kube-compare run failed; msg: '%s', code: %d", str, code)
+		}
+	})
 
 	tf := cmdtesting.NewTestFactory()
 	IOStream, _, out, _ := genericiooptions.NewTestIOStreams()
 	cmpCmd := compare.NewCmd(tf, IOStream)
-	require.NoError(t, cmpCmd.Flags().Set("reference", path.Join(compareTestRefsDir, test.referenceDir, "reference")))
+	require.NoError(t, cmpCmd.Flags().Set("reference", path.Join(compareTestRefsDir, test.referenceDir, "reference/metadata.yaml")))
 	require.NoError(t, cmpCmd.Flags().Set("filename", path.Join(compareTestRefsDir, test.referenceDir, "resources")))
 	require.NoError(t, cmpCmd.Flags().Set("recursive", "true"))
 	require.NoError(t, cmpCmd.Flags().Set("output", compare.Json))
