@@ -1,2 +1,2 @@
-error: failed to constuct template: template: apps.v1.DaemonSet.kube-system.kindnet.yaml:5:61: executing "apps.v1.DaemonSet.kube-system.kindnet.yaml" at <len .spec.annotations>: error calling len: reflect: call of reflect.Value.Type on zero Value
+error: failed to parse template apps.v1.DaemonSet.kube-system.kindnet.yaml with empty data: failed to constuct template: template: apps.v1.DaemonSet.kube-system.kindnet.yaml:5:61: executing "apps.v1.DaemonSet.kube-system.kindnet.yaml" at <len .spec.annotations>: error calling len: reflect: call of reflect.Value.Type on zero Value
 error code:2

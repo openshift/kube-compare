@@ -132,7 +132,10 @@ func (rf ReferenceTemplate) Exec(params map[string]any) (*unstructured.Unstructu
 	content := buf.Bytes()
 	err = yaml.Unmarshal(bytes.ReplaceAll(content, []byte(noValue), []byte("")), &data)
 	if err != nil {
-		return nil, fmt.Errorf("template: %s isn't a yaml file after injection. yaml unmarshal error: %w. The Template After Execution: %s", rf.Name(), err, string(content))
+		return nil, fmt.Errorf(
+			"template: %s isn't a yaml file after injection. yaml unmarshal error: %w. The Template After Execution: %s",
+			rf.Name(), err, string(content),
+		)
 	}
 	return &unstructured.Unstructured{Object: data}, nil
 }
@@ -272,13 +275,13 @@ func parseTemplates(templateReference []*ReferenceTemplate, functionTemplates []
 		temp.Template = parsedTemp
 		temp.metadata, err = temp.Exec(map[string]any{}) // Extract Metadata
 		if err != nil {
-			errs = append(errs, err)
+			errs = append(errs, fmt.Errorf("failed to parse template %s with empty data: %w", temp.Path, err))
 		}
 		err = temp.ValidateFieldsToOmit(ref.FieldsToOmit)
 		if err != nil {
 			errs = append(errs, err)
 		}
-		if temp.metadata.GetKind() == "" {
+		if temp.metadata != nil && temp.metadata.GetKind() == "" {
 			errs = append(errs, fmt.Errorf("template missing kind: %s", temp.Path))
 		}
 	}
