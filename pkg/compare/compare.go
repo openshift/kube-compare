@@ -4,6 +4,7 @@ package compare
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -528,7 +529,7 @@ func (o *Options) Run() error {
 		return fmt.Errorf("error occurred while trying to process resources: %w", err)
 	}
 
-	sum := newSummary(&o.ref, o.metricsTracker, numDiffCRs)
+	sum := newSummary(&o.ref, o.metricsTracker, numDiffCRs, o.templates)
 
 	_, err = Output{Summary: sum, Diffs: &diffs}.Print(o.OutputFormat, o.Out, o.verboseOutput)
 	if err != nil {
@@ -682,15 +683,33 @@ type Summary struct {
 	UnmatchedCRS []string                       `json:"UnmatchedCRS"`
 	NumDiffCRs   int                            `json:"NumDiffCRs"`
 	TotalCRs     int                            `json:"TotalCRs"`
+	MetadataHash string                         `json:"MetadataHash"`
 }
 
-func newSummary(reference *Reference, c *MetricsTracker, numDiffCRs int) *Summary {
+func newSummary(reference *Reference, c *MetricsTracker, numDiffCRs int, templates []*ReferenceTemplate) *Summary {
 	s := Summary{NumDiffCRs: numDiffCRs}
 	s.RequiredCRS, s.NumMissing = reference.getMissingCRs(c.MatchedTemplatesNames)
 	s.TotalCRs = len(c.MatchedTemplatesNames)
 	s.UnmatchedCRS = lo.Map(c.UnMatchedCRs, func(r *unstructured.Unstructured, i int) string {
 		return apiKindNamespaceName(r)
 	})
+
+	hash := sha256.New()
+
+	refBytes, err := yaml.Marshal(reference)
+	if err != nil {
+		klog.Warning("There was an error in hashing the reference, don't trust the hash")
+	}
+	hash.Write(refBytes)
+
+	for _, template := range templates {
+		for _, node := range template.Tree.Root.Nodes {
+			hash.Write([]byte(node.String()))
+		}
+	}
+
+	s.MetadataHash = fmt.Sprintf("%x", hash.Sum(nil))
+
 	return &s
 }
 
@@ -710,6 +729,7 @@ Cluster CRs unmatched to reference CRs: {{len  .UnmatchedCRS}}
 {{- else}}
 No CRs are unmatched to reference CRs
 {{- end }}
+Metadata Hash: {{.MetadataHash}}
 `
 	var buf bytes.Buffer
 	tmpl, _ := template.New("Summary").Funcs(template.FuncMap{"toYaml": toYAML}).Parse(t)
