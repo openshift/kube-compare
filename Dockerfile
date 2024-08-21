@@ -3,13 +3,11 @@
 FROM registry.ci.openshift.org/ocp/builder:rhel-8-golang-1.22-builder-multi-openshift-4.17 AS builder-rhel-8
 WORKDIR /go/src/github.com/openshift/kube-compare
 COPY . .
-RUN go work vendor
 RUN make cross-build --warn-undefined-variables
 
 FROM registry.ci.openshift.org/ocp/builder:rhel-9-golang-1.22-builder-multi-openshift-4.17 AS builder-rhel-9
 WORKDIR /go/src/github.com/openshift/kube-compare
 COPY . .
-RUN go work vendor
 RUN make cross-build --warn-undefined-variables
 
 FROM --platform=linux/amd64 registry.ci.openshift.org/ocp/4.17:cli as final-builder
@@ -34,6 +32,4 @@ COPY --from=builder-rhel-9 /go/src/github.com/openshift/kube-compare/_output/bin
 
 COPY --from=builder-rhel-8 /go/src/github.com/openshift/kube-compare/LICENSE /usr/share/openshift/LICENSE
 
-FROM scratch
 WORKDIR /usr/share/openshift/
-COPY --from=final-builder /usr/share/openshift/ /usr/share/openshift/
