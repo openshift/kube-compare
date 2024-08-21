@@ -42,7 +42,7 @@ endif
 .PHONY: build
 build:
 	mkdir -p $(GO_BUILD_BINDIR)
-	GOOS=$(GOOS) GOARCH=$(GOARCH) go build $(GO_BUILD_FLAGS) -o $(GO_BUILD_BINDIR)/kubectl-cluster_compare ./cmd/kubectl-cluster_compare.go
+	GOOS=$(GOOS) GOARCH=$(GOARCH) go build -mod=vendor $(GO_BUILD_FLAGS) -o $(GO_BUILD_BINDIR)/kubectl-cluster_compare ./cmd/kubectl-cluster_compare.go
 
 # Install the plugin and completion script in /usr/local/bin
 .PHONY: install
