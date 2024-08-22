@@ -1,0 +1,61 @@
+deploymentMetrics:
+- spec:
+    template:
+      spec:
+        containers:
+        - image: kubernetesui/metrics-scraper:v1.0.8
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 30
+            timeoutSeconds: 30
+          name: dashboard-metrics-scraper
+          ports:
+          - containerPort: 8000
+            protocol: TCP
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsGroup: 2001
+            runAsUser: 1001
+          volumeMounts:
+          - mountPath: /tmp
+            name: tmp-volume
+        nodeSelector:
+          kubernetes.io/os: linux
+        securityContext:
+          seccompProfile:
+            type: RuntimeDefault
+        serviceAccountName: kubernetes-dashboard
+        tolerations:
+        - effect: NoSchedule
+          key: node-role.kubernetes.io/master
+        volumes:
+        - emptyDir: {}
+          name: tmp-volume
+role:
+- apiVersion: rbac.authorization.k8s.io/v1
+  metadata:
+    name: kubernetes-dashboard
+    namespace: kubernetes-dashboard
+sa:
+- apiVersion: v1
+  metadata:
+    name: kubernetes-dashboard
+secret:
+- data: {}
+  metadata:
+    name: kubernetes-dashboard-certs
+service:
+- metadata:
+    labels:
+      k8s-app: kubernetes-dashboard
+    name: kubernetes-dashboard
+  spec:
+    ports:
+    - port: {}
+      targetPort: {}
+    selector:
+      k8s-app: kubernetes-dashboard

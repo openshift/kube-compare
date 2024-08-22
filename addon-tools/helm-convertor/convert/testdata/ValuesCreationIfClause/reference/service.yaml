@@ -1,0 +1,10 @@
+kind: Service
+apiVersion: v1
+metadata:
+  labels:
+    app: {{if .metadata.labels.app }}No need to gather values only accessed in if clause by design, the test is created to make sure this addressed in case of change of behaviour change test{{ end }}
+  name: name
+  namespace: kubernetes-dashboard
+spec:
+  selector:
+    k8s-app: "example"

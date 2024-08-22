@@ -221,9 +221,21 @@ func diffError(err error) exec.ExitError {
 	return nil
 }
 
+func GetRefFS(refConfig string) (fs.FS, error) {
+	referenceDir := filepath.Dir(refConfig)
+	if isURL(refConfig) {
+		// filepath.Dir removes one / from http://
+		referenceDir = strings.Replace(referenceDir, "/", "//", 1)
+		return HTTPFS{baseURL: referenceDir, httpGet: httpgetImpl}, nil
+	}
+	rootPath, err := filepath.Abs(referenceDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get absolute path: %w", err)
+	}
+	return os.DirFS(rootPath), nil
+}
 func (o *Options) Complete(f kcmdutil.Factory, cmd *cobra.Command, args []string) error {
 	var err error
-	var fs fs.FS
 	o.builder = f.NewBuilder()
 
 	if o.referenceConfig == "" {
@@ -233,21 +245,13 @@ func (o *Options) Complete(f kcmdutil.Factory, cmd *cobra.Command, args []string
 		return fmt.Errorf(refFileNotExistsError)
 	}
 
-	referenceDir := filepath.Dir(o.referenceConfig)
-	referenceFileName := filepath.Base(o.referenceConfig)
-	if isURL(o.referenceConfig) {
-		// filepath.Dir removes one / from http://
-		referenceDir = strings.Replace(referenceDir, "/", "//", 1)
-		fs = HTTPFS{baseURL: referenceDir, httpGet: httpgetImpl}
-	} else {
-		rootPath, err := filepath.Abs(referenceDir)
-		if err != nil {
-			return fmt.Errorf("failed to get absolute path: %w", err)
-		}
-		fs = os.DirFS(rootPath)
+	cfs, err := GetRefFS(o.referenceConfig)
+	if err != nil {
+		return err
 	}
 
-	o.ref, err = getReference(fs, referenceFileName)
+	referenceFileName := filepath.Base(o.referenceConfig)
+	o.ref, err = GetReference(cfs, referenceFileName)
 	if err != nil {
 		return err
 	}
@@ -258,7 +262,7 @@ func (o *Options) Complete(f kcmdutil.Factory, cmd *cobra.Command, args []string
 			return err
 		}
 	}
-	o.templates, err = parseTemplates(o.ref.getTemplates(), o.ref.TemplateFunctionFiles, fs, &o.ref)
+	o.templates, err = ParseTemplates(o.ref.GetTemplates(), o.ref.TemplateFunctionFiles, cfs, &o.ref)
 	if err != nil {
 		return err
 	}
@@ -543,7 +547,7 @@ func (e MergeError) Error() string {
 func (obj InfoObject) Merged() (runtime.Object, error) {
 	var err error
 	if obj.allowMerge {
-		obj.injectedObjFromTemplate, err = mergeManifests(obj.injectedObjFromTemplate, obj.clusterObj)
+		obj.injectedObjFromTemplate, err = MergeManifests(obj.injectedObjFromTemplate, obj.clusterObj)
 		if err != nil {
 			return obj.injectedObjFromTemplate, &MergeError{obj: &obj, err: err}
 		}
@@ -591,8 +595,8 @@ func omitFields(object map[string]any, fields []*ManifestPath) {
 	}
 }
 
-// mergeManifests will return an attempt to update the localRef with the clusterCR. In the case of an error it will return an unmodified localRef.
-func mergeManifests(localRef, clusterCR *unstructured.Unstructured) (updateLocalRef *unstructured.Unstructured, err error) {
+// MergeManifests will return an attempt to update the localRef with the clusterCR. In the case of an error it will return an unmodified localRef.
+func MergeManifests(localRef, clusterCR *unstructured.Unstructured) (updateLocalRef *unstructured.Unstructured, err error) {
 	localRefData, err := json.Marshal(localRef)
 	if err != nil {
 		return localRef, fmt.Errorf("failed to marshal reference CR: %w", err)

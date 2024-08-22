@@ -1,0 +1,8 @@
+sa:
+- apiVersion: v1
+  metadata:
+    name: kubernetes-dashboard
+secret:
+- data: {}
+  metadata:
+    name: {}

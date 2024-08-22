@@ -144,7 +144,7 @@ func (rf ReferenceTemplate) Name() string {
 	return rf.Path
 }
 
-func (r *Reference) getTemplates() []*ReferenceTemplate {
+func (r *Reference) GetTemplates() []*ReferenceTemplate {
 	var templates []*ReferenceTemplate
 	for _, part := range r.Parts {
 		for _, comp := range part.Components {
@@ -232,7 +232,7 @@ const (
 	templatesFunctionsCantBeParsed = "an error occurred while parsing the template function files specified in the config. error: %w"
 )
 
-func getReference(fsys fs.FS, referenceFileName string) (Reference, error) {
+func GetReference(fsys fs.FS, referenceFileName string) (Reference, error) {
 	result := Reference{}
 	err := parseYaml(fsys, referenceFileName, &result, refConfNotExistsError, refConfigNotInFormat)
 	if err != nil {
@@ -257,7 +257,7 @@ func parseYaml[T any](fsys fs.FS, filePath string, structType *T, fileNotFoundEr
 	return nil
 }
 
-func parseTemplates(templateReference []*ReferenceTemplate, functionTemplates []string, fsys fs.FS, ref *Reference) ([]*ReferenceTemplate, error) {
+func ParseTemplates(templateReference []*ReferenceTemplate, functionTemplates []string, fsys fs.FS, ref *Reference) ([]*ReferenceTemplate, error) {
 	var errs []error
 	for _, temp := range templateReference {
 		parsedTemp, err := template.New(path.Base(temp.Path)).Funcs(FuncMap()).ParseFS(fsys, temp.Path)

@@ -14,7 +14,7 @@ import (
 	"k8s.io/klog/v2"
 )
 
-var fieldSeparator = "_"
+var FieldSeparator = "_"
 
 // Correlator provides an abstraction that allow the usage of different Resource correlation logics
 // in the kubectl cluster-compare. The correlation process Matches for each Resource a template.
@@ -33,9 +33,9 @@ func (e UnknownMatch) Error() string {
 
 func apiKindNamespaceName(r *unstructured.Unstructured) string {
 	if r.GetNamespace() == "" {
-		return strings.Join([]string{r.GetAPIVersion(), r.GetKind(), r.GetName()}, fieldSeparator)
+		return strings.Join([]string{r.GetAPIVersion(), r.GetKind(), r.GetName()}, FieldSeparator)
 	}
-	return strings.Join([]string{r.GetAPIVersion(), r.GetKind(), r.GetNamespace(), r.GetName()}, fieldSeparator)
+	return strings.Join([]string{r.GetAPIVersion(), r.GetKind(), r.GetNamespace(), r.GetName()}, FieldSeparator)
 }
 
 // MultipleMatches an error that can be returned by a Correlator in a case multiple template Matches were found for a Resource.
@@ -146,7 +146,7 @@ func NewGroupCorrelator(fieldGroups [][][]string, templates []*ReferenceTemplate
 func getFields(fields [][]string) string {
 	var stringifiedFields []string
 	for _, field := range fields {
-		stringifiedFields = append(stringifiedFields, strings.Join(field, fieldSeparator))
+		stringifiedFields = append(stringifiedFields, strings.Join(field, FieldSeparator))
 	}
 	return strings.Join(stringifiedFields, ", ")
 }
@@ -160,14 +160,14 @@ func createGroupHashFunc(fieldGroup [][]string) templateHashFunc {
 		for _, fields := range fieldGroup {
 			value, isFound, NotStringErr := unstructured.NestedString(cr.Object, fields...)
 			if !isFound {
-				return "", fmt.Errorf("the field %s doesn't exist in resource", strings.Join(fields, fieldSeparator))
+				return "", fmt.Errorf("the field %s doesn't exist in resource", strings.Join(fields, FieldSeparator))
 			}
 			if NotStringErr != nil {
-				return "", fmt.Errorf("the field %s isn't string - grouping by non string values isn't supported", strings.Join(fields, fieldSeparator))
+				return "", fmt.Errorf("the field %s isn't string - grouping by non string values isn't supported", strings.Join(fields, FieldSeparator))
 			}
 			values = append(values, value)
 		}
-		return strings.Join(values, fieldSeparator), nil
+		return strings.Join(values, FieldSeparator), nil
 	}
 	return groupHashFunc
 }

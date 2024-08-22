@@ -1,0 +1,3 @@
+description: This Helm Chart was generated from a kube-compare reference
+name: Use Values File
+version: "1"

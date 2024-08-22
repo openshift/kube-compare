@@ -1,0 +1,28 @@
+deploymentMetrics:
+- spec:
+    template:
+      spec: {}
+role:
+- apiVersion: {}
+  metadata:
+    name: {}
+    namespace: {}
+sa:
+- apiVersion: {}
+  metadata:
+    name: {}
+secret:
+- data: {}
+  metadata:
+    name: {}
+service:
+- metadata:
+    labels:
+      k8s-app: {}
+    name: {}
+  spec:
+    ports:
+    - port: {}
+      targetPort: {}
+    selector:
+      k8s-app: {}

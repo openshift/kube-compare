@@ -1,0 +1,8 @@
+kind: Service
+apiVersion: v1
+spec:
+  ports:
+    {{- range .spec.ports }}
+    - port: {{ .port }}
+      targetPort: {{ .targetPort }}
+    {{ end }}
