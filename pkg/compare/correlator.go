@@ -19,7 +19,7 @@ var FieldSeparator = "_"
 // Correlator provides an abstraction that allow the usage of different Resource correlation logics
 // in the kubectl cluster-compare. The correlation process Matches for each Resource a template.
 type Correlator interface {
-	Match(*unstructured.Unstructured) (*ReferenceTemplate, error)
+	Match(*unstructured.Unstructured) ([]*ReferenceTemplate, error)
 }
 
 // UnknownMatch an error that can be returned by a Correlator in a case no template was matched for a Resource.
@@ -38,16 +38,6 @@ func apiKindNamespaceName(r *unstructured.Unstructured) string {
 	return strings.Join([]string{r.GetAPIVersion(), r.GetKind(), r.GetNamespace(), r.GetName()}, FieldSeparator)
 }
 
-// MultipleMatches an error that can be returned by a Correlator in a case multiple template Matches were found for a Resource.
-type MultipleMatches struct {
-	Resource *unstructured.Unstructured
-	Matches  []*ReferenceTemplate
-}
-
-func (e MultipleMatches) Error() string {
-	return fmt.Sprintf("Multiple matches were found for: %s. The matches found are: %s", apiKindNamespaceName(e.Resource), getTemplatesNames(e.Matches))
-}
-
 // MultiCorrelator Matches templates by attempting to find a match with one of its predefined Correlators.
 type MultiCorrelator struct {
 	correlators []Correlator
@@ -57,11 +47,11 @@ func NewMultiCorrelator(correlators []Correlator) *MultiCorrelator {
 	return &MultiCorrelator{correlators: correlators}
 }
 
-func (c MultiCorrelator) Match(object *unstructured.Unstructured) (*ReferenceTemplate, error) {
+func (c MultiCorrelator) Match(object *unstructured.Unstructured) ([]*ReferenceTemplate, error) {
 	var errs []error
 	for _, core := range c.correlators {
 		temp, err := core.Match(object)
-		if err == nil || (!errors.As(err, &UnknownMatch{}) && !errors.As(err, &MultipleMatches{})) {
+		if err == nil || !errors.As(err, &UnknownMatch{}) {
 			return temp, err // nolint:wrapcheck
 		}
 		errs = append(errs, err)
@@ -94,12 +84,12 @@ func NewExactMatchCorrelator(crToTemplate map[string]string, templates []*Refere
 	return &core, nil
 }
 
-func (c ExactMatchCorrelator) Match(object *unstructured.Unstructured) (*ReferenceTemplate, error) {
+func (c ExactMatchCorrelator) Match(object *unstructured.Unstructured) ([]*ReferenceTemplate, error) {
 	temp, ok := c.apiKindNamespaceName[apiKindNamespaceName(object)]
 	if !ok {
 		return nil, UnknownMatch{Resource: object}
 	}
-	return temp, nil
+	return []*ReferenceTemplate{temp}, nil
 }
 
 // GroupCorrelator Matches templates by hashing predefined fields.
@@ -181,57 +171,31 @@ func getTemplatesNames(templates []*ReferenceTemplate) string {
 	return strings.Join(names, ", ")
 }
 
-func (c *GroupCorrelator) Match(object *unstructured.Unstructured) (*ReferenceTemplate, error) {
-	var multipleMatchError error
+func (c *GroupCorrelator) Match(object *unstructured.Unstructured) ([]*ReferenceTemplate, error) {
 	for _, fc := range c.fieldCorrelators {
 		temp, err := fc.Match(object)
 		if err != nil {
-			if errors.As(err, &MultipleMatches{}) && multipleMatchError == nil {
-				multipleMatchError = err
-			}
 			continue
 		}
 		return temp, nil
 	}
-
-	if multipleMatchError != nil {
-		return nil, multipleMatchError
-	}
 	return nil, UnknownMatch{Resource: object}
 }
 
-// MetricsCorrelatorDecorator Matches templates by using an existing correlator and gathers summary info related the correlation.
-type MetricsCorrelatorDecorator struct {
-	correlator            *Correlator
+// MetricsTracker Matches templates by using an existing correlator and gathers summary info related the correlation.
+type MetricsTracker struct {
 	UnMatchedCRs          []*unstructured.Unstructured
 	unMatchedLock         sync.Mutex
 	MatchedTemplatesNames map[string]bool
 	matchedLock           sync.Mutex
-	parts                 []Part
-	errsToIgnore          []error
 }
 
-func NewMetricsCorrelatorDecorator(correlator Correlator, parts []Part, errsToIgnore []error) *MetricsCorrelatorDecorator {
-	cr := MetricsCorrelatorDecorator{
-		correlator:            &correlator,
+func NewMetricsTracker() *MetricsTracker {
+	cr := MetricsTracker{
 		UnMatchedCRs:          []*unstructured.Unstructured{},
 		MatchedTemplatesNames: map[string]bool{},
-		parts:                 parts,
-		errsToIgnore:          errsToIgnore,
 	}
 	return &cr
-}
-
-func (c *MetricsCorrelatorDecorator) Match(object *unstructured.Unstructured) (*ReferenceTemplate, error) {
-	temp, err := (*c.correlator).Match(object)
-	if err != nil && !containOnly(err, c.errsToIgnore) {
-		c.addUNMatch(object)
-	}
-	if err != nil {
-		return temp, err // nolint:wrapcheck
-	}
-	c.addMatch(temp)
-	return temp, nil
 }
 
 // containOnly checks if at least one of the joined errors isn't from the err-types passed in errTypes
@@ -257,13 +221,13 @@ func containOnly(err error, errTypes []error) bool {
 	return true
 }
 
-func (c *MetricsCorrelatorDecorator) addMatch(temp *ReferenceTemplate) {
+func (c *MetricsTracker) addMatch(temp *ReferenceTemplate) {
 	c.matchedLock.Lock()
 	c.MatchedTemplatesNames[temp.Name()] = true
 	c.matchedLock.Unlock()
 }
 
-func (c *MetricsCorrelatorDecorator) addUNMatch(cr *unstructured.Unstructured) {
+func (c *MetricsTracker) addUNMatch(cr *unstructured.Unstructured) {
 	c.unMatchedLock.Lock()
 	c.UnMatchedCRs = append(c.UnMatchedCRs, cr)
 	c.unMatchedLock.Unlock()
@@ -298,8 +262,9 @@ func (f *FieldCorrelator) ValidateTemplates() error {
 	for _, values := range f.templates {
 		if len(values) > 1 {
 			errs = append(errs, fmt.Errorf(
-				"More then one template with same %s. These templates wont be used for correlation. "+
-					"To use them use different correlator (manual matching) or remove one of them from the reference. "+
+				"More then one template with same %s. By Default for each Cluster CR that is correlated "+
+					"to one of these templates the template with the least number of diffs will be used. "+
+					"To use a different template for a specific CR specify it in the diff-config (-c flag) "+
 					"Template names are: %s",
 				getFields(f.Fields), getTemplatesNames(values)),
 			)
@@ -309,7 +274,7 @@ func (f *FieldCorrelator) ValidateTemplates() error {
 	return errors.Join(errs...)
 }
 
-func (f FieldCorrelator) Match(object *unstructured.Unstructured) (*ReferenceTemplate, error) {
+func (f FieldCorrelator) Match(object *unstructured.Unstructured) ([]*ReferenceTemplate, error) {
 	group_hash, err := f.hashFunc(object, "")
 	if err != nil {
 		return nil, err
@@ -318,8 +283,5 @@ func (f FieldCorrelator) Match(object *unstructured.Unstructured) (*ReferenceTem
 	if !ok {
 		return nil, UnknownMatch{Resource: object}
 	}
-	if len(templates) > 1 {
-		return nil, MultipleMatches{Resource: object, Matches: templates}
-	}
-	return templates[0], nil
+	return templates, nil
 }

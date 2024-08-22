@@ -302,7 +302,6 @@ func TestCompareRun(t *testing.T) {
 		defaultTest("Custom Fields To Omit Ref Entry Not Found"),
 		defaultTest("When Using Diff All Flag - All Unmatched Resources Appear In Summary").
 			diffAll(),
-		defaultTest("Only Resources That Were Not Matched Because Multiple Matches Appear In Summary"),
 		defaultTest("Manual Correlation Matches Are Prioritized Over Group Correlation").
 			withModes([]Mode{{Live, LocalRef}, {Local, LocalRef}}).
 			withUserConfig(userConfigFileName),

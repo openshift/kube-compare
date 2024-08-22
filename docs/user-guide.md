@@ -63,15 +63,15 @@ potential match by the kind-namespace-name criterion.
 For each resource the group correlation will be done by the next logic:
 
 1. Exact match of apiVersion-kind-namespace-name
-    1. If single result in reference, comparison will be done
+    1. If there is a result in the reference, comparison will be done
 1. Exact Match in 3/4 fields from apiVersion, kind, namespace, name. ( meaning exact match in: kind-namespace-name or
    apiVersion-kind-name or apiVersion-kind-namespace)
-    1. If single result in reference, comparison will be done
+    1. If there is a result in the reference, comparison will be done
 1. Exact Match in 2/4 fields from apiVersion, kind, namespace, name. ( meaning exact match in: kind-namespace or
    kind-name or apiVersion-kind)
-    1. If single result in reference, comparison will be done
+    1. If there is a result in the reference, comparison will be done
 1. Match kind
-    1. If single result in reference, comparison will be done
+    1. If there is a result in the reference, comparison will be done
 1. No match – comparison cannot be made and the file is flagged as unmatched.
 
 We can phrase this logic in a more general form. Each CR will be correlated to a template with an exact match in the
@@ -128,6 +128,27 @@ After running `kubectl cluster-compare` tool, the reference configuration CRs wi
     3. Present and unmatched: The reference configuration CR is present, which means that there is a match for api-kind-name-namespace, in the target cluster but does not follow some configuration value specific to the live cluster. This should be identified as a deviation.
 
 ## Options and advanced usage
+
+### Diff config
+
+The command includes an option to pass a config that includes user specified settings regarding on how to do the diff.
+The config is formatted as a YAML file.
+
+#### Manual Correlation
+
+There is an option to select for specific CRs the template that it will be diffed with, this will overwrite the default
+correlating.
+The matches between the cluster CRs and the templates can be added to the diff config as pairs of `apiVersion_kind_namespace_name:
+<Template File Name>`. For cluster scoped CRs that don't have a namespace the matches can be added as pairs of
+`apiVersion_kind_name: <Template File Name>`.
+For example:
+
+```yaml
+correlationSettings:
+   manualCorrelation:
+      correlationPairs:
+         apps.v1.DaemonSet.kube-system.kindnet.yaml: "template_example.yaml"
+```
 
 ### Kubectl Environment Variables
 
@@ -196,6 +217,11 @@ In such scenarios take these steps:
 #### There can be more than one Reference Design CR of the same Kind
 
 In this case you will have a warning presented before the diff output, formatted similar to this:
-`More then one template with same apiVersion, metadata_name, metadata_namespace, kind. These templates wont be used for correlation. To use them use different correlator (manual matching) or remove one of them from the reference. Template names are: XConfig.yaml, YConfig.yaml`
+`More then one template with same apiVersion, metadata_namespace, kind. By Default for each Cluster CR that is correlated
+to one of these templates the template with the least number of diffs will be used. To use a different template for a
+specific CR specify it in the diff-config (-c flag) Template names are:`
 
-This means the template contains two CRs with the same apiversion-kind-name-namespace but different spec. In such cases comment out the template CRs from the metadata.yaml that are more accurate with CRs under comparison.
+This means the template contains two CRs with the same apiversion-kind-name-namespace but different spec. In such cases
+For each cluster CR the template that contains the least diffs will be used, to choose a different template for the CR
+pass a user config (-c) and specify in the user config file the template that should be matched to the CR. For info about
+the exact syntax view the user config section.
