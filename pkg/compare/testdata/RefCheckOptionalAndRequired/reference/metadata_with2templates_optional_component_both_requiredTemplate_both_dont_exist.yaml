@@ -1,0 +1,9 @@
+parts:
+  - name: ExamplePart
+    components:
+      - name: DemonSets
+        type: Optional
+        requiredTemplates:
+          - path: daemon_set_doesnt_exist.yaml
+          - path: cm_doesnt_exist.yaml
+

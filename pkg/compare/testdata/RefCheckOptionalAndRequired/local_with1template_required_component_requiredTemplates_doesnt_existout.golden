@@ -1,0 +1,7 @@
+Summary
+CRs with diffs: 0/0
+CRs in reference missing from the cluster: 1
+ExamplePart:
+  DemonSets:
+  - daemon_set_doesnt_exist.yaml
+No CRs are unmatched to reference CRs

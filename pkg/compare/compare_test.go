@@ -35,7 +35,6 @@ var update = flag.Bool("update", false, "update .golden files")
 
 const TestRefDirName = "reference"
 const TestRefConfigFileName = "metadata.yaml"
-const TestRefConfigFile = TestRefDirName + "/" + TestRefConfigFileName
 
 var TestDirs = "testdata"
 
@@ -178,6 +177,7 @@ type Test struct {
 	outputFormat          string
 	checks                Checks
 	verboseOutput         bool
+	refConfigName         string
 }
 
 func (test *Test) getTestDir() string {
@@ -196,6 +196,7 @@ func (test Test) Clone() Test {
 		outputFormat:          test.outputFormat,
 		checks:                test.checks,
 		verboseOutput:         test.verboseOutput,
+		refConfigName:         test.refConfigName,
 	}
 }
 
@@ -241,11 +242,18 @@ func (test Test) withOutputFormat(outputFormat string) Test {
 	return newTest
 }
 
+func (test Test) withRefConfig(refConfigName string) Test {
+	newTest := test.Clone()
+	newTest.refConfigName = refConfigName
+	return newTest
+}
+
 func defaultTest(name string) Test {
 	return Test{
-		name:   name,
-		mode:   []Mode{DefaultMode},
-		checks: defaultChecks,
+		name:          name,
+		mode:          []Mode{DefaultMode},
+		checks:        defaultChecks,
+		refConfigName: TestRefConfigFileName,
 	}
 }
 
@@ -338,6 +346,57 @@ func TestCompareRun(t *testing.T) {
 			withChecks(defaultChecks.withPrefixedSuffix("withVebosityFlag")),
 		defaultTest("Invalid Resources Are Skipped"),
 		defaultTest("Ref Contains Templates With Function Templates In Same File"),
+		defaultTest("Ref Check Optional And Required").
+			withRefConfig("metadata_with1template_required_component_optionalTemplate_exists.yaml").
+			withChecks(defaultChecks.withPrefixedSuffix("_with1template_required_component_optionalTemplates_exists")),
+		defaultTest("Ref Check Optional And Required").
+			withRefConfig("metadata_with1template_required_component_optionalTemplate_doesnt_exist.yaml").
+			withChecks(defaultChecks.withPrefixedSuffix("_with1template_required_component_optionalTemplates_doesnt_exist")),
+		defaultTest("Ref Check Optional And Required").
+			withRefConfig("metadata_with1template_optional_component_optionalTemplate_exists.yaml").
+			withChecks(defaultChecks.withPrefixedSuffix("_with1template_optional_component_optionalTemplates_exists")),
+		defaultTest("Ref Check Optional And Required").
+			withRefConfig("metadata_with1template_optional_component_optionalTemplate_doesnt_exist.yaml").
+			withChecks(defaultChecks.withPrefixedSuffix("_with1template_optional_component_optionalTemplates_doesnt_exist")),
+		defaultTest("Ref Check Optional And Required").
+			withRefConfig("metadata_with1template_required_component_requiredTemplate_exists.yaml").
+			withChecks(defaultChecks.withPrefixedSuffix("_with1template_required_component_requiredTemplates_exists")),
+		defaultTest("Ref Check Optional And Required").
+			withRefConfig("metadata_with1template_required_component_requiredTemplate_doesnt_exist.yaml").
+			withChecks(defaultChecks.withPrefixedSuffix("_with1template_required_component_requiredTemplates_doesnt_exist")),
+		defaultTest("Ref Check Optional And Required").
+			withRefConfig("metadata_with1template_optional_component_requiredTemplate_exists.yaml").
+			withChecks(defaultChecks.withPrefixedSuffix("_with1template_optional_component_requiredTemplates_exists")),
+		defaultTest("Ref Check Optional And Required").
+			withRefConfig("metadata_with1template_optional_component_requiredTemplate_doesnt_exist.yaml").
+			withChecks(defaultChecks.withPrefixedSuffix("_with1template_optional_component_requiredTemplates_doesnt_exist")),
+		defaultTest("Ref Check Optional And Required").
+			withRefConfig("metadata_with1template_required_component_optionalTemplate_exists.yaml").
+			withChecks(defaultChecks.withPrefixedSuffix("_with1template_required_component_optionalTemplates_exists")),
+		defaultTest("Ref Check Optional And Required").
+			withRefConfig("metadata_with2templates_required_component_both_optionalTemplate_1exists_1doesnt_exist.yaml").
+			withChecks(defaultChecks.withPrefixedSuffix("_with2template_required_component_optionalTemplates_1exists_1doesnt_exist")),
+		defaultTest("Ref Check Optional And Required").
+			withRefConfig("metadata_with2templates_optional_component_both_optionalTemplate_1exists_1doesnt_exist.yaml").
+			withChecks(defaultChecks.withPrefixedSuffix("_with2template_optional_component_optionalTemplates_1exists_1doesnt_exist")),
+		defaultTest("Ref Check Optional And Required").
+			withRefConfig("metadata_with2templates_required_component_both_requiredTemplate_1exists_1doesnt_exist.yaml").
+			withChecks(defaultChecks.withPrefixedSuffix("_with2template_required_component_requiredTemplates_1exists_1doesnt_exist")),
+		defaultTest("Ref Check Optional And Required").
+			withRefConfig("metadata_with2templates_optional_component_both_requiredTemplate_1exists_1doesnt_exist.yaml").
+			withChecks(defaultChecks.withPrefixedSuffix("_with2template_optional_component_requiredTemplates_1exists_1doesnt_exist")),
+		defaultTest("Ref Check Optional And Required").
+			withRefConfig("metadata_with2templates_optional_component_both_requiredTemplate_both_exist.yaml").
+			withChecks(defaultChecks.withPrefixedSuffix("_with2template_optional_component_requiredTemplates_both_exist")),
+		defaultTest("Ref Check Optional And Required").
+			withRefConfig("metadata_with2templates_optional_component_both_requiredTemplate_both_dont_exist.yaml").
+			withChecks(defaultChecks.withPrefixedSuffix("_with2template_optional_component_requiredTemplates_both_dont_exist")),
+		defaultTest("Ref Check Optional And Required").
+			withRefConfig("metadata_with2templates_required_component_both_requiredTemplate_both_exist.yaml").
+			withChecks(defaultChecks.withPrefixedSuffix("_with2template_required_component_requiredTemplates_both_exist")),
+		defaultTest("Ref Check Optional And Required").
+			withRefConfig("metadata_with2templates_required_component_both_requiredTemplate_both_dont_exist.yaml").
+			withChecks(defaultChecks.withPrefixedSuffix("_with2template_required_component_requiredTemplates_both_dont_exist")),
 	}
 
 	tf := cmdtesting.NewTestFactory()
@@ -410,14 +469,14 @@ func getCommand(t *testing.T, test *Test, modeIndex int, tf *cmdtesting.TestFact
 			_, err = fmt.Fprint(w, string(body))
 			require.NoError(t, err)
 		}))
-		require.NoError(t, cmd.Flags().Set("reference", svr.URL+"/"+TestRefConfigFileName))
+		require.NoError(t, cmd.Flags().Set("reference", svr.URL+"/"+test.refConfigName))
 		t.Cleanup(func() {
 			svr.Close()
 		})
 
 	case LocalRef:
 		if !test.leaveTemplateDirEmpty {
-			require.NoError(t, cmd.Flags().Set("reference", path.Join(test.getTestDir(), TestRefConfigFile)))
+			require.NoError(t, cmd.Flags().Set("reference", path.Join(test.getTestDir(), TestRefDirName, test.refConfigName)))
 		}
 	}
 	return cmd
