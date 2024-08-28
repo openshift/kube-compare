@@ -15,3 +15,11 @@ is located in .goreleaser.yml.
 4. Run `make release`, the command should upload the release to GitHub.
 
 The release notes can be edited manually at any time if needed [here](https://github.com/openshift/kube-compare/releases).
+
+## Krew publication
+
+We publish this plugin or krew; After the github release is complete, we need
+to issue a PR to the [krew
+repository](https://github.com/kubernetes-sigs/krew-index) and update
+[plugins/cluster-compare.yaml](https://github.com/kubernetes-sigs/krew-index/blob/master/plugins/cluster-compare.yaml)
+to point at the new version.
