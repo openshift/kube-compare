@@ -44,7 +44,7 @@ Diff Output: diff -u -N TEMP/apps-v1_daemonset_somens_test2 TEMP/apps-v1_daemons
 **********************************
 
 Summary
-CRs with diffs: 3/1
+CRs with diffs: 3/3
 CRs in reference missing from the cluster: 1
 ExamplePart:
   DemonSets:

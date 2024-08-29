@@ -186,14 +186,14 @@ func (c *GroupCorrelator) Match(object *unstructured.Unstructured) ([]*Reference
 type MetricsTracker struct {
 	UnMatchedCRs          []*unstructured.Unstructured
 	unMatchedLock         sync.Mutex
-	MatchedTemplatesNames map[string]bool
+	MatchedTemplatesNames map[string]int
 	matchedLock           sync.Mutex
 }
 
 func NewMetricsTracker() *MetricsTracker {
 	cr := MetricsTracker{
 		UnMatchedCRs:          []*unstructured.Unstructured{},
-		MatchedTemplatesNames: map[string]bool{},
+		MatchedTemplatesNames: map[string]int{},
 	}
 	return &cr
 }
@@ -223,7 +223,7 @@ func containOnly(err error, errTypes []error) bool {
 
 func (c *MetricsTracker) addMatch(temp *ReferenceTemplate) {
 	c.matchedLock.Lock()
-	c.MatchedTemplatesNames[temp.Name()] = true
+	c.MatchedTemplatesNames[temp.Name()] += 1
 	c.matchedLock.Unlock()
 }
 
@@ -231,6 +231,14 @@ func (c *MetricsTracker) addUNMatch(cr *unstructured.Unstructured) {
 	c.unMatchedLock.Lock()
 	c.UnMatchedCRs = append(c.UnMatchedCRs, cr)
 	c.unMatchedLock.Unlock()
+}
+
+func (c *MetricsTracker) getTotalCRs() int {
+	count := 0
+	for _, v := range c.MatchedTemplatesNames {
+		count += v
+	}
+	return count
 }
 
 type FieldCorrelator struct {

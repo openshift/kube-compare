@@ -155,17 +155,17 @@ func (r *Reference) GetTemplates() []*ReferenceTemplate {
 	return templates
 }
 
-func (c *Component) getMissingCRs(matchedTemplates map[string]bool) []string {
+func (c *Component) getMissingCRs(matchedTemplates map[string]int) []string {
 	var crs []string
 	for _, temp := range c.RequiredTemplates {
-		if wasMatched := matchedTemplates[temp.Path]; !wasMatched {
+		if wasMatched, ok := matchedTemplates[temp.Path]; !ok || wasMatched == 0 {
 			crs = append(crs, temp.Path)
 		}
 	}
 	return crs
 }
 
-func (p *Part) getMissingCRs(matchedTemplates map[string]bool) (map[string][]string, int) {
+func (p *Part) getMissingCRs(matchedTemplates map[string]int) (map[string][]string, int) {
 	crs := make(map[string][]string)
 	count := 0
 	for _, comp := range p.Components {
@@ -178,7 +178,7 @@ func (p *Part) getMissingCRs(matchedTemplates map[string]bool) (map[string][]str
 	return crs, count
 }
 
-func (r *Reference) getMissingCRs(matchedTemplates map[string]bool) (map[string]map[string][]string, int) {
+func (r *Reference) getMissingCRs(matchedTemplates map[string]int) (map[string]map[string][]string, int) {
 	crs := make(map[string]map[string][]string)
 	count := 0
 	for _, part := range r.Parts {
