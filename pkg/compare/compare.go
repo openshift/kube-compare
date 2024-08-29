@@ -687,7 +687,7 @@ type Summary struct {
 func newSummary(reference *Reference, c *MetricsTracker, numDiffCRs int) *Summary {
 	s := Summary{NumDiffCRs: numDiffCRs}
 	s.RequiredCRS, s.NumMissing = reference.getMissingCRs(c.MatchedTemplatesNames)
-	s.TotalCRs = len(c.MatchedTemplatesNames)
+	s.TotalCRs = c.getTotalCRs()
 	s.UnmatchedCRS = lo.Map(c.UnMatchedCRs, func(r *unstructured.Unstructured, i int) string {
 		return apiKindNamespaceName(r)
 	})
