@@ -81,7 +81,6 @@ func applyPatch(rendered, live *unstructured.Unstructured, patch []byte, patchTy
 		if err != nil {
 			return data, fmt.Errorf("failed to execute patch template: %w", err)
 		}
-		fmt.Println(buf.String())
 		uo := UserOverride{}
 		err = yaml.Unmarshal(buf.Bytes(), &uo)
 		if err != nil {

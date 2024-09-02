@@ -3,13 +3,7 @@
   name: openshift-storage
   patch: |
     {
-        "name": "openshift-storage",
-        "apiVersion": "v1",
-        "kind": "Namespace",
-        "namespace": "",
-        "exactMatch": "",
         "type": "rfc6902",
-        "reason": "known deviation",
         "patch": '[
             {"op": "add", "path": "/metadata/annotations/openshift.io~1sa.scc.mcs", "value": "s0:c29,c14"},
             {"op": "add", "path": "/metadata/annotations/openshift.io~1sa.scc.supplemental-groups", "value": "1000840000/10000"},

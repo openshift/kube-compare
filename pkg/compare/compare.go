@@ -549,6 +549,7 @@ func diffAgainstTemplate(temp *ReferenceTemplate, clusterCR *unstructured.Unstru
 func (o *Options) Run() error {
 	diffs := make([]DiffSum, 0)
 	numDiffCRs := 0
+	numPatched := 0
 
 	r := o.builder.
 		Unstructured().
@@ -611,6 +612,7 @@ func (o *Options) Run() error {
 		}
 
 		patched := ""
+
 		reasons := make([]string, 0)
 		if len(userOverrides) > 0 {
 			patched = o.userOverridesPath
@@ -619,6 +621,7 @@ func (o *Options) Run() error {
 					reasons = append(reasons, uo.Reason)
 				}
 			}
+			numPatched += 1
 		}
 
 		diffs = append(diffs, DiffSum{
@@ -634,7 +637,7 @@ func (o *Options) Run() error {
 		return fmt.Errorf("error occurred while trying to process resources: %w", err)
 	}
 
-	sum := newSummary(&o.ref, o.metricsTracker, numDiffCRs, o.templates)
+	sum := newSummary(&o.ref, o.metricsTracker, numDiffCRs, o.templates, numPatched)
 
 	_, err = Output{Summary: sum, Diffs: &diffs, patches: o.newUserOverrides}.Print(o.OutputFormat, o.Out, o.verboseOutput)
 	if err != nil {
@@ -813,10 +816,11 @@ type Summary struct {
 	NumDiffCRs   int                            `json:"NumDiffCRs"`
 	TotalCRs     int                            `json:"TotalCRs"`
 	MetadataHash string                         `json:"MetadataHash"`
+	PatchedCRs   int                            `json:"patchedCRs"`
 }
 
-func newSummary(reference *Reference, c *MetricsTracker, numDiffCRs int, templates []*ReferenceTemplate) *Summary {
-	s := Summary{NumDiffCRs: numDiffCRs}
+func newSummary(reference *Reference, c *MetricsTracker, numDiffCRs int, templates []*ReferenceTemplate, numPatchedCRs int) *Summary {
+	s := Summary{NumDiffCRs: numDiffCRs, PatchedCRs: numPatchedCRs}
 	s.RequiredCRS, s.NumMissing = reference.getMissingCRs(c.MatchedTemplatesNames)
 	s.TotalCRs = c.getTotalCRs()
 	s.UnmatchedCRS = lo.Map(c.UnMatchedCRs, func(r *unstructured.Unstructured, i int) string {
@@ -859,6 +863,11 @@ Cluster CRs unmatched to reference CRs: {{len  .UnmatchedCRS}}
 No CRs are unmatched to reference CRs
 {{- end }}
 Metadata Hash: {{.MetadataHash}}
+{{- if ne .PatchedCRs 0}}
+Cluster CRs with patches applied: {{ .PatchedCRs }}
+{{- else}}
+No patched CRs
+{{- end }}
 `
 	var buf bytes.Buffer
 	tmpl, _ := template.New("Summary").Funcs(template.FuncMap{"toYaml": toYAML}).Parse(t)

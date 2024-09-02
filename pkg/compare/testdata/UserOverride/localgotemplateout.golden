@@ -45,3 +45,5 @@ Summary
 CRs with diffs: 1/2
 No CRs are missing from the cluster
 No CRs are unmatched to reference CRs
+Metadata Hash: 52a09a3286d1413894db4a734a14b05bb77ea4d739744bd699fc447194ece3e1
+Cluster CRs with patches applied: 1
