@@ -405,6 +405,10 @@ func TestCompareRun(t *testing.T) {
 			withSubTestSuffix("Input GoTemplate").
 			withChecks(defaultChecks.withPrefixedSuffix("gotemplate")).
 			withUserOverridePath("gotemplate.patch"),
+		defaultTest("User Override").
+			withSubTestSuffix("Input Exact Match").
+			withChecks(defaultChecks.withPrefixedSuffix("exactMatch")).
+			withUserOverridePath("exactMatch.patch"),
 	}
 
 	tf := cmdtesting.NewTestFactory()

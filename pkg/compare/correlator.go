@@ -61,7 +61,7 @@ func (c MultiCorrelator[T]) Match(object *unstructured.Unstructured) ([]T, error
 }
 
 type CorrelationEntry interface {
-	GetName() string
+	GetIdentifier() string
 	GetMetadata() *unstructured.Unstructured
 }
 
@@ -77,7 +77,7 @@ func NewExactMatchCorrelator[T CorrelationEntry](matchPairs map[string]string, t
 	core.apiKindNamespaceName = make(map[string]T)
 	nameToObject := make(map[string]T)
 	for _, temp := range templates {
-		nameToObject[temp.GetName()] = temp
+		nameToObject[temp.GetIdentifier()] = temp
 	}
 	for cr, temp := range matchPairs {
 		obj, ok := nameToObject[temp]
@@ -177,7 +177,7 @@ func createGroupHashFunc(fieldGroup [][]string) templateHashFunc {
 func getTemplatesNames[T CorrelationEntry](templates []T) string {
 	var names []string
 	for _, temp := range templates {
-		names = append(names, temp.GetName())
+		names = append(names, temp.GetIdentifier())
 	}
 	sort.Strings(names)
 	return strings.Join(names, ", ")
@@ -237,7 +237,7 @@ func containOnly(err error, errTypes []error) bool {
 
 func (c *MetricsTracker) addMatch(temp *ReferenceTemplate) {
 	c.matchedLock.Lock()
-	c.MatchedTemplatesNames[temp.GetName()] += 1
+	c.MatchedTemplatesNames[temp.GetIdentifier()] += 1
 	c.matchedLock.Unlock()
 }
 

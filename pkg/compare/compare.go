@@ -372,7 +372,7 @@ func (o *Options) setupOverrideCorrelators() error {
 	extactOverrideMatches := make(map[string]string)
 	for _, uo := range o.userOverrides {
 		if uo.ExactMatch != "" {
-			extactOverrideMatches[uo.ExactMatch] = uo.GetName()
+			extactOverrideMatches[uo.ExactMatch] = uo.GetIdentifier()
 		}
 	}
 
@@ -626,7 +626,7 @@ func (o *Options) Run() error {
 
 		diffs = append(diffs, DiffSum{
 			DiffOutput:         diffOutput.String(),
-			CorrelatedTemplate: temp.GetName(),
+			CorrelatedTemplate: temp.GetIdentifier(),
 			CRName:             apiKindNamespaceName(clusterCR),
 			Patched:            patched,
 			OverrideReasons:    reasons,

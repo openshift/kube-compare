@@ -32,6 +32,12 @@ type UserOverride struct {
 	TemplatePath string    `json:"templatePath"`
 }
 
+func (o UserOverride) GetIdentifier() string {
+	// This just has to be something unique to the override
+	// Eqiv. to the template path.
+	return fmt.Sprintf("%v", o)
+}
+
 func (o UserOverride) GetName() string {
 	return o.Name
 }
