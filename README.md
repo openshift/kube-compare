@@ -126,7 +126,7 @@ fieldsToOmit:
          - pathToKey: spec.selector.matchLabels.k8s-app # remove spec.selector.matchLabels.k8s-app before diff
          - pathToKey: metadata.labels.k8s-app
          - pathToKey: spec.template.metadata.labels.k8s-app
-      defualt:
+      default:
          - pathToKey: a.custom.default."k8s.io" # Keys containing dots should be quoted
 ```
 
