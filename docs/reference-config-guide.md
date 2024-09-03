@@ -274,7 +274,7 @@ requiredTemplates:
 fieldsToOmit:
    defaultOmitRef: default
    items:
-      defualt:
+      default:
          - pathToKey: a.custom.default."k8s.io" # Keys containing dots should be quoted
 ```
 
