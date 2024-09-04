@@ -92,10 +92,10 @@ type ReferenceTemplateConfig struct {
 }
 
 type ReferenceTemplate struct {
-	*template.Template
-	Path     string                  `json:"path"`
-	Config   ReferenceTemplateConfig `json:"config,omitempty"`
-	metadata *unstructured.Unstructured
+	*template.Template `json:"-"`
+	Path               string                  `json:"path"`
+	Config             ReferenceTemplateConfig `json:"config,omitempty"`
+	metadata           *unstructured.Unstructured
 }
 
 func (rf ReferenceTemplate) FieldsToOmit(fieldsToOmit FieldsToOmit) []*ManifestPath {
