@@ -13,6 +13,12 @@ make build
 sudo make install
 ```
 
+This plugin can be installed with plugin manager Krew as well:
+
+```shell
+kubectl krew install cluster-compare
+```
+
 ## Run
 
 A reference configuration is required in order to run. A reference configuration is a directory containing a [`metadata.yaml`](#metadatayaml) and one or more templates.
