@@ -78,3 +78,4 @@ Cluster CRs unmatched to reference CRs: 27
 - v1_Service_kubernetes-dashboard_dashboard-metrics-scraper
 - apps/v1_Deployment_kubernetes-dashboard_dashboard-metrics-scraper
 Metadata Hash: dc922415a44dfdc492ace032becea2d2347eb38a8dbebf76017e70872fc95daf
+No patched CRs

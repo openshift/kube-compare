@@ -13,6 +13,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -171,6 +172,7 @@ var defaultChecks = Checks{
 
 type Test struct {
 	name                  string
+	subTestSuffix         string
 	leaveTemplateDirEmpty bool
 	mode                  []Mode
 	userConfigFileName    string
@@ -178,6 +180,10 @@ type Test struct {
 	outputFormat          string
 	checks                Checks
 	verboseOutput         bool
+
+	userOverridePath   string
+	templToGenPatchFor []string
+	overrideGenReason  string
 }
 
 func (test *Test) getTestDir() string {
@@ -189,6 +195,7 @@ func (test Test) Clone() Test {
 	copy(newMode, test.mode)
 	return Test{
 		name:                  test.name,
+		subTestSuffix:         test.subTestSuffix,
 		leaveTemplateDirEmpty: test.leaveTemplateDirEmpty,
 		mode:                  test.mode,
 		userConfigFileName:    test.userConfigFileName,
@@ -196,7 +203,16 @@ func (test Test) Clone() Test {
 		outputFormat:          test.outputFormat,
 		checks:                test.checks,
 		verboseOutput:         test.verboseOutput,
+		userOverridePath:      test.userOverridePath,
+		templToGenPatchFor:    slices.Clone(test.templToGenPatchFor),
+		overrideGenReason:     test.overrideGenReason,
 	}
+}
+
+func (test Test) withSubTestSuffix(suffix string) Test {
+	newTest := test.Clone()
+	newTest.subTestSuffix = suffix
+	return newTest
 }
 
 func (test Test) withModes(modes []Mode) Test {
@@ -239,6 +255,32 @@ func (test Test) withOutputFormat(outputFormat string) Test {
 	newTest := test.Clone()
 	newTest.outputFormat = outputFormat
 	return newTest
+}
+
+func (test Test) withGenerateForTemplate(path ...string) Test {
+	newTest := test.Clone()
+	newTest.templToGenPatchFor = append(newTest.templToGenPatchFor, path...)
+	return newTest
+}
+
+func (test Test) withUserOverridePath(path string) Test {
+	newTest := test.Clone()
+	newTest.userOverridePath = path
+	return newTest
+}
+
+func (test Test) withOverrideReason(reason string) Test {
+	newTest := test.Clone()
+	newTest.overrideGenReason = reason
+	return newTest
+}
+
+func (test *Test) subTestName(mode Mode) string {
+	name := test.name
+	if test.subTestSuffix != "" {
+		name += " " + test.subTestSuffix
+	}
+	return name + " " + mode.String()
 }
 
 func defaultTest(name string) Test {
@@ -337,6 +379,42 @@ func TestCompareRun(t *testing.T) {
 			withChecks(defaultChecks.withPrefixedSuffix("withVebosityFlag")),
 		defaultTest("Invalid Resources Are Skipped"),
 		defaultTest("Ref Contains Templates With Function Templates In Same File"),
+		defaultTest("User Override").
+			withSubTestSuffix("Output with reason").
+			withChecks(defaultChecks.withPrefixedSuffix("newOverridesWithReason")).
+			withOutputFormat(PatchYaml).
+			withGenerateForTemplate("namespace.yaml").
+			withOverrideReason("For the test"),
+		defaultTest("User Override").
+			withSubTestSuffix("OutputFailNoTemplates").
+			withChecks(defaultChecks.withPrefixedSuffix("failOutput")).
+			withOverrideReason("For the test").
+			withOutputFormat(PatchYaml),
+		defaultTest("User Override").
+			withSubTestSuffix("Input").
+			withChecks(defaultChecks.withPrefixedSuffix("successful")).
+			withUserOverridePath("localnewOverridesWithReasonout.golden"),
+		defaultTest("User Override").
+			withSubTestSuffix("Input rfc6902").
+			withChecks(defaultChecks.withPrefixedSuffix("rfc6902")).
+			withUserOverridePath("rfc6902.patch"),
+		defaultTest("User Override").
+			withSubTestSuffix("Input GoTemplate").
+			withChecks(defaultChecks.withPrefixedSuffix("gotemplate")).
+			withUserOverridePath("gotemplate.patch"),
+		defaultTest("User Override").
+			withSubTestSuffix("Input Exact Match").
+			withChecks(defaultChecks.withPrefixedSuffix("exactMatch")).
+			withUserOverridePath("exactMatch.patch"),
+		defaultTest("User Override").
+			withSubTestSuffix("Fail Load No Reason").
+			withChecks(defaultChecks.withPrefixedSuffix("noReasonLoad")).
+			withUserOverridePath("noReason.patch"),
+		defaultTest("User Override").
+			withSubTestSuffix("Fail Generation No Reason").
+			withOutputFormat(PatchYaml).
+			withGenerateForTemplate("namespace.yaml").
+			withChecks(defaultChecks.withPrefixedSuffix("noReasonGenerate")),
 	}
 
 	tf := cmdtesting.NewTestFactory()
@@ -346,7 +424,7 @@ func TestCompareRun(t *testing.T) {
 	_ = testFlags.Parse([]string{"--skip_headers"})
 	for _, test := range tests {
 		for i, mode := range test.mode {
-			t.Run(test.name+"-"+mode.String(), func(t *testing.T) {
+			t.Run(test.subTestName(mode), func(t *testing.T) {
 				IOStream, _, out, _ := genericiooptions.NewTestIOStreams()
 				klog.SetOutputBySeverity("INFO", out)
 				cmd := getCommand(t, &test, i, tf, &IOStream) // nolint:gosec
@@ -419,6 +497,21 @@ func getCommand(t *testing.T, test *Test, modeIndex int, tf *cmdtesting.TestFact
 			require.NoError(t, cmd.Flags().Set("reference", path.Join(test.getTestDir(), TestRefConfigFile)))
 		}
 	}
+
+	if test.userOverridePath != "" {
+		require.NoError(t, cmd.Flags().Set("overrides", filepath.Join(test.getTestDir(), test.userOverridePath)))
+	}
+
+	if len(test.templToGenPatchFor) > 0 {
+		for _, templPath := range test.templToGenPatchFor {
+			require.NoError(t, cmd.Flags().Set("generate-override-for", templPath))
+		}
+	}
+
+	if test.overrideGenReason != "" {
+		require.NoError(t, cmd.Flags().Set("override-reason", test.overrideGenReason))
+	}
+
 	return cmd
 }
 

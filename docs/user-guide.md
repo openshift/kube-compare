@@ -19,7 +19,7 @@ But first, what do we understand by Reference Configuration? The Reference Confi
 
 - A Reference Configuration is typically versioned to account for necessary differences in the configuration based on the specific cluster version.
 - The top level (entry point) of the reference configuration is the metadata descriptor YAML file (`metadata.yaml`). This file defines the Reference Configuration.
-- A published `metadata.yaml` identifies the set of compliant Reference Configuration CR objects for the covered use case. Any differences in cluster configuration found when running the `kubectl cluster compare` tool shall be identified as a deviation from the expected Reference Configuration.  
+- A published `metadata.yaml` identifies the set of compliant Reference Configuration CR objects for the covered use case. Any differences in cluster configuration found when running the `kubectl cluster compare` tool shall be identified as a deviation from the expected Reference Configuration.
 
 For guidance on the Reference Configuration defined by `metadata.yaml` see
 [this guide](./reference-config-guide.md).
@@ -174,7 +174,7 @@ The tool sometimes reports CR to be missing completely while in the live cluster
 ##### Example #1
 
 ```diff
-Missing required CRs: 
+Missing required CRs:
 Template-Reference:
   ExamplePart:
   - Example-Component-CR.yaml
@@ -197,7 +197,7 @@ kind: ExampleKind
 metadata:
   name: $x-name
   namespace: ExampleNamespace
-  
+
 Template CR
 apiVersion: ExampleVersion
 kind: ExampleKind
@@ -225,3 +225,101 @@ This means the template contains two CRs with the same apiversion-kind-name-name
 For each cluster CR the template that contains the least diffs will be used, to choose a different template for the CR
 pass a user config (-c) and specify in the user config file the template that should be matched to the CR. For info about
 the exact syntax view the user config section.
+
+## Patching the reference
+
+Reference templates have to cope with a lot of real world complexity, sometimes it isn't possible to encode all valid configurations.
+There are sometimes also know exceptions to a reference.
+These are encoded as patches applied to the refendered template output.
+
+### Generating patches
+
+We can generate the patches for you, via the following command:
+
+```shell
+kubectl cluster-compare -r <referenceConfigurationDirectory> -o 'generate-patches' --override-reason "A valid reason for the override" --generate-override-for "<Template path 1>" --generate-override-for "<Template path 2>"
+```
+
+This will write a file of patches for the templates `"<Template path 1>"` and `"<Template path 2>"`.
+The reason will be displaced in the summary and should discribe the reason for patching that diff.
+
+### Loading patches
+
+Once you have a patch file you can then pass them into the normal command via the `-p/--overrides` flag as follows
+
+```shell
+kubectl cluster-compare -r <referenceConfigurationDirectory> -p <path to my patches file>
+```
+
+Any patches that are corrilated with resources will then be applied and diffs will be marked as patched and the patch reason supplied with be displated.
+
+### Writting your own
+
+Patches have three possible types `mergepatch`, `rfc6902` and `go-template` this is the same patch shown in all three types:
+
+```yaml
+---
+- apiVersion: v1
+  kind: Namespace
+  name: openshift-storage
+  reason: For the test
+  templatePath: namespace.yaml
+  type: mergepatch
+  patch: '{"metadata":{"annotations":{"openshift.io/sa.scc.mcs":"s0:c29,c14","openshift.io/sa.scc.supplemental-groups":"1000840000/10000","openshift.io/sa.scc.uid-range":"1000840000/10000","reclaimspace.csiaddons.openshift.io/schedule":"@weekly","workload.openshift.io/allowed":null},"labels":{"kubernetes.io/metadata.name":"openshift-storage","olm.operatorgroup.uid/ffcf3f2d-3e37-4772-97bc-983cdfce128b":"","openshift.io/cluster-monitoring":"false","pod-security.kubernetes.io/audit":"privileged","pod-security.kubernetes.io/audit-version":"v1.24","pod-security.kubernetes.io/warn":"privileged","pod-security.kubernetes.io/warn-version":"v1.24","security.openshift.io/scc.podSecurityLabelSync":"true"}},"spec":{"finalizers":["kubernetes"]}}'
+- name: openshift-storage
+  apiVersion: v1
+  kind: Namespace
+  templatePath: namespace.yaml
+  type: rfc6902
+  reason: known deviation
+  patch: '[
+    {"op": "add", "path": "/metadata/annotations/openshift.io~1sa.scc.mcs", "value": "s0:c29,c14"}, 
+    {"op": "add", "path": "/metadata/annotations/openshift.io~1sa.scc.supplemental-groups", "value": "1000840000/10000"}, 
+    {"op": "add", "path": "/metadata/annotations/openshift.io~1sa.scc.uid-range", "value": "1000840000/10000"}, 
+    {"op": "add", "path": "/metadata/annotations/reclaimspace.csiaddons.openshift.io~1schedule", "value": "@weekly"}, 
+    {"op": "remove", "path": "/metadata/annotations/workload.openshift.io~1allowed"},
+    {"op": "add", "path": "/metadata/labels/kubernetes.io~1metadata.name", "value": "openshift-storage"}, 
+    {"op": "add", "path": "/metadata/labels/olm.operatorgroup.uid~1ffcf3f2d-3e37-4772-97bc-983cdfce128b", "value": ""}, 
+    {"op": "add", "path": "/metadata/labels/openshift.io~1cluster-monitoring", "value": "false"}, 
+    {"op": "add", "path": "/metadata/labels/pod-security.kubernetes.io~1audit", "value": "privileged"}, 
+    {"op": "add", "path": "/metadata/labels/pod-security.kubernetes.io~1audit-version", "value": "v1.24"}, 
+    {"op": "add", "path": "/metadata/labels/pod-security.kubernetes.io~1warn", "value": "privileged"}, 
+    {"op": "add", "path": "/metadata/labels/pod-security.kubernetes.io~1warn-version", "value": "v1.24"}, 
+    {"op": "add", "path": "/metadata/labels/security.openshift.io~1scc.podSecurityLabelSync", "value": "true"}, 
+    {"op": "add", "path": "/spec", "value": {"finalizers": ["kubernetes"]}}
+    ]'
+- apiVersion: v1
+  kind: Namespace
+  name: openshift-storage
+  reason: "known deviation"
+  templatePath: namespace.yaml
+  type: go-template
+  patch: |
+    {
+        "type": "rfc6902",
+        "patch": '[
+            {"op": "add", "path": "/metadata/annotations/openshift.io~1sa.scc.mcs", "value": "s0:c29,c14"},
+            {"op": "add", "path": "/metadata/annotations/openshift.io~1sa.scc.supplemental-groups", "value": "1000840000/10000"},
+            {"op": "add", "path": "/metadata/annotations/openshift.io~1sa.scc.uid-range", "value": "1000840000/10000"},
+            {"op": "add", "path": "/metadata/annotations/reclaimspace.csiaddons.openshift.io~1schedule", "value": "@weekly"},
+            {"op": "remove", "path": "/metadata/annotations/workload.openshift.io~1allowed"},
+            {"op": "add", "path": "/metadata/labels/kubernetes.io~1metadata.name", "value": "openshift-storage"},
+            {"op": "add", "path": "/metadata/labels/olm.operatorgroup.uid~1ffcf3f2d-3e37-4772-97bc-983cdfce128b", "value": ""},
+            {"op": "add", "path": "/metadata/labels/openshift.io~1cluster-monitoring", "value": "false"},
+            {"op": "add", "path": "/metadata/labels/pod-security.kubernetes.io~1audit", "value": "privileged"},
+            {"op": "add", "path": "/metadata/labels/pod-security.kubernetes.io~1audit-version", "value": "v1.24"},
+            {"op": "add", "path": "/metadata/labels/pod-security.kubernetes.io~1warn", "value": "privileged"},
+            {"op": "add", "path": "/metadata/labels/pod-security.kubernetes.io~1warn-version", "value": "v1.24"},
+            {"op": "add", "path": "/metadata/labels/security.openshift.io~1scc.podSecurityLabelSync", "value": "true"},
+            {"op": "add", "path": "/spec", "value": {"finalizers": {{ .spec.finalizers | toJson }} }}
+        ]'
+    }
+```
+
+It must be possible to decode the content of the `patch` field as json.
+`kind`, `apiVersion`, `name` and `namespace` are corrilation fields and are used to match the patch with the correct cluster CR.
+If for some reason this is not working you can use the `exactMatch` field which works the same way as the `manual correlation` for templates.
+In this example you would add `exactMatch: v1_Namespace_openshift-storage`.
+
+Note in the `go-template` the patch is required to generate a patch defintion when the cluster CR is passed in as the agumment to the template.
+However, only the `type` and `patch` are required - the reason and any corrilation fields will be taken from the inital patch.
