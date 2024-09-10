@@ -35,8 +35,9 @@ Diff Output: diff -u -N TEMP/v1_namespace_openshift-something-else TEMP/v1_names
 Cluster CR: v1_Namespace_openshift-storage
 Reference File: namespace.yaml
 Diff Output: None
-Patched with testdata/UserOverride/localnewOverridesout.golden
-Patch Reasons: <None given>
+Patched with testdata/UserOverride/localnewOverridesWithReasonout.golden
+Patch Reasons:
+- For the test
 
 **********************************
 

@@ -105,6 +105,7 @@ const (
 		"expected to be a valid resource modify it accordingly. "
 	DiffsFoundMsg           = "there are differences between the cluster CRs and the reference CRs"
 	noTemplateForGeneration = "Requested user override generation but no entires for which template to generate overrides for"
+	noReason                = "Reason required when generating overrides"
 )
 
 const (
@@ -255,8 +256,14 @@ func (o *Options) Complete(f kcmdutil.Factory, cmd *cobra.Command, args []string
 	var err error
 	o.builder = f.NewBuilder()
 
-	if len(o.templatesToGenerateOverridesFor) == 0 && o.OutputFormat == PatchYaml {
-		return kcmdutil.UsageErrorf(cmd, noTemplateForGeneration)
+	if o.OutputFormat == PatchYaml {
+		if len(o.templatesToGenerateOverridesFor) == 0 {
+			return kcmdutil.UsageErrorf(cmd, noTemplateForGeneration)
+		}
+
+		if o.overrideReason == "" {
+			return kcmdutil.UsageErrorf(cmd, noReason)
+		}
 	}
 
 	if o.referenceConfig == "" {

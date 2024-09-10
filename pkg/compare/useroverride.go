@@ -3,6 +3,7 @@ package compare
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"text/template"
@@ -163,6 +164,12 @@ func LoadUserOverrides(path string) ([]*UserOverride, error) {
 	err = yaml.Unmarshal(contents, &result)
 	if err != nil {
 		return result, fmt.Errorf("failed to load user overrides: %w", err)
+	}
+
+	for _, uo := range result {
+		if uo.Reason == "" {
+			return result, errors.New("failed to load user overrides: missing reason")
+		}
 	}
 
 	return result, nil

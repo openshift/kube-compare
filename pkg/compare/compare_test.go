@@ -380,11 +380,6 @@ func TestCompareRun(t *testing.T) {
 		defaultTest("Invalid Resources Are Skipped"),
 		defaultTest("Ref Contains Templates With Function Templates In Same File"),
 		defaultTest("User Override").
-			withSubTestSuffix("Output").
-			withChecks(defaultChecks.withPrefixedSuffix("newOverrides")).
-			withOutputFormat(PatchYaml).
-			withGenerateForTemplate("namespace.yaml"),
-		defaultTest("User Override").
 			withSubTestSuffix("Output with reason").
 			withChecks(defaultChecks.withPrefixedSuffix("newOverridesWithReason")).
 			withOutputFormat(PatchYaml).
@@ -393,10 +388,12 @@ func TestCompareRun(t *testing.T) {
 		defaultTest("User Override").
 			withSubTestSuffix("OutputFailNoTemplates").
 			withChecks(defaultChecks.withPrefixedSuffix("failOutput")).
+			withOverrideReason("For the test").
 			withOutputFormat(PatchYaml),
 		defaultTest("User Override").
 			withSubTestSuffix("Input").
-			withUserOverridePath("localnewOverridesout.golden"),
+			withChecks(defaultChecks.withPrefixedSuffix("successful")).
+			withUserOverridePath("localnewOverridesWithReasonout.golden"),
 		defaultTest("User Override").
 			withSubTestSuffix("Input rfc6902").
 			withChecks(defaultChecks.withPrefixedSuffix("rfc6902")).
@@ -409,6 +406,15 @@ func TestCompareRun(t *testing.T) {
 			withSubTestSuffix("Input Exact Match").
 			withChecks(defaultChecks.withPrefixedSuffix("exactMatch")).
 			withUserOverridePath("exactMatch.patch"),
+		defaultTest("User Override").
+			withSubTestSuffix("Fail Load No Reason").
+			withChecks(defaultChecks.withPrefixedSuffix("noReasonLoad")).
+			withUserOverridePath("noReason.patch"),
+		defaultTest("User Override").
+			withSubTestSuffix("Fail Generation No Reason").
+			withOutputFormat(PatchYaml).
+			withGenerateForTemplate("namespace.yaml").
+			withChecks(defaultChecks.withPrefixedSuffix("noReasonGenerate")),
 	}
 
 	tf := cmdtesting.NewTestFactory()
