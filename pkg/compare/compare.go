@@ -290,7 +290,7 @@ func (o *Options) Complete(f kcmdutil.Factory, cmd *cobra.Command, args []string
 			return err
 		}
 	}
-	o.templates, err = ParseTemplates(o.ref.GetTemplates(), o.ref.TemplateFunctionFiles, cfs, &o.ref)
+	o.templates, err = ParseTemplates(o.ref.GetTemplates(), o.ref.GetTemplateFunctionFiles(), cfs, o.ref)
 	if err != nil {
 		return err
 	}
@@ -520,7 +520,7 @@ func diffAgainstTemplate(temp *ReferenceTemplate, clusterCR *unstructured.Unstru
 	obj := InfoObject{
 		injectedObjFromTemplate: localRef,
 		clusterObj:              clusterCR,
-		FieldsToOmit:            temp.FieldsToOmit(o.ref.FieldsToOmit),
+		FieldsToOmit:            temp.FieldsToOmit(o.ref.GetFieldsToOmit()),
 		allowMerge:              temp.Config.AllowMerge,
 		userOverrides:           userOverrides,
 	}
@@ -644,7 +644,7 @@ func (o *Options) Run() error {
 		return fmt.Errorf("error occurred while trying to process resources: %w", err)
 	}
 
-	sum := newSummary(&o.ref, o.metricsTracker, numDiffCRs, o.templates, numPatched)
+	sum := newSummary(o.ref, o.metricsTracker, numDiffCRs, o.templates, numPatched)
 
 	_, err = Output{Summary: sum, Diffs: &diffs, patches: o.newUserOverrides}.Print(o.OutputFormat, o.Out, o.verboseOutput)
 	if err != nil {
@@ -826,9 +826,9 @@ type Summary struct {
 	PatchedCRs   int                            `json:"patchedCRs"`
 }
 
-func newSummary(reference *Reference, c *MetricsTracker, numDiffCRs int, templates []*ReferenceTemplate, numPatchedCRs int) *Summary {
+func newSummary(reference Reference, c *MetricsTracker, numDiffCRs int, templates []*ReferenceTemplate, numPatchedCRs int) *Summary {
 	s := Summary{NumDiffCRs: numDiffCRs, PatchedCRs: numPatchedCRs}
-	s.RequiredCRS, s.NumMissing = reference.getMissingCRs(c.MatchedTemplatesNames)
+	s.RequiredCRS, s.NumMissing = reference.GetMissingCRs(c.MatchedTemplatesNames)
 	s.TotalCRs = c.getTotalCRs()
 	s.UnmatchedCRS = lo.Map(c.UnMatchedCRs, func(r *unstructured.Unstructured, i int) string {
 		return apiKindNamespaceName(r)

@@ -19,15 +19,23 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-type Reference struct {
-	Parts                 []Part       `json:"parts"`
+type Reference interface {
+	GetTemplates() []*ReferenceTemplate
+	GetMissingCRs(matchedTemplates map[string]int) (map[string]map[string][]string, int)
+	GetFieldsToOmit() FieldsToOmit
+	GetTemplateFunctionFiles() []string
+}
+
+type ReferenceV1 struct {
+	Version               string       `json:"apiVersion,omitempty"`
+	Parts                 []PartV1     `json:"parts"`
 	TemplateFunctionFiles []string     `json:"templateFunctionFiles,omitempty"`
 	FieldsToOmit          FieldsToOmit `json:"fieldsToOmit,omitempty"`
 }
 
-type Part struct {
-	Name       string      `json:"name"`
-	Components []Component `json:"components"`
+type PartV1 struct {
+	Name       string        `json:"name"`
+	Components []ComponentV1 `json:"components"`
 }
 
 type ComponentType string
@@ -80,7 +88,7 @@ func (toOmit *FieldsToOmit) process() error {
 	return errors.Join(errs...)
 }
 
-type Component struct {
+type ComponentV1 struct {
 	Name              string               `json:"name"`
 	Type              ComponentType        `json:"type,omitempty"`
 	RequiredTemplates []*ReferenceTemplate `json:"requiredTemplates,omitempty"`
@@ -148,7 +156,7 @@ func (rf ReferenceTemplate) GetMetadata() *unstructured.Unstructured {
 	return rf.metadata
 }
 
-func (r *Reference) GetTemplates() []*ReferenceTemplate {
+func (r *ReferenceV1) GetTemplates() []*ReferenceTemplate {
 	var templates []*ReferenceTemplate
 	for _, part := range r.Parts {
 		for _, comp := range part.Components {
@@ -159,7 +167,15 @@ func (r *Reference) GetTemplates() []*ReferenceTemplate {
 	return templates
 }
 
-func (c *Component) getMissingCRs(matchedTemplates map[string]int) []string {
+func (r *ReferenceV1) GetFieldsToOmit() FieldsToOmit {
+	return r.FieldsToOmit
+}
+
+func (r *ReferenceV1) GetTemplateFunctionFiles() []string {
+	return r.TemplateFunctionFiles
+}
+
+func (c *ComponentV1) getMissingCRs(matchedTemplates map[string]int) []string {
 	var crs []string
 	for _, temp := range c.RequiredTemplates {
 		if wasMatched, ok := matchedTemplates[temp.Path]; !ok || wasMatched == 0 {
@@ -169,7 +185,7 @@ func (c *Component) getMissingCRs(matchedTemplates map[string]int) []string {
 	return crs
 }
 
-func (p *Part) getMissingCRs(matchedTemplates map[string]int) (map[string][]string, int) {
+func (p *PartV1) getMissingCRs(matchedTemplates map[string]int) (map[string][]string, int) {
 	crs := make(map[string][]string)
 	count := 0
 	for _, comp := range p.Components {
@@ -182,7 +198,7 @@ func (p *Part) getMissingCRs(matchedTemplates map[string]int) (map[string][]stri
 	return crs, count
 }
 
-func (r *Reference) getMissingCRs(matchedTemplates map[string]int) (map[string]map[string][]string, int) {
+func (r *ReferenceV1) GetMissingCRs(matchedTemplates map[string]int) (map[string]map[string][]string, int) {
 	crs := make(map[string]map[string][]string)
 	count := 0
 	for _, part := range r.Parts {
@@ -237,7 +253,29 @@ const (
 )
 
 func GetReference(fsys fs.FS, referenceFileName string) (Reference, error) {
-	result := Reference{}
+	var verCheck map[string]any
+	err := parseYaml(fsys, referenceFileName, &verCheck, refConfNotExistsError, refConfigNotInFormat)
+	if err != nil {
+		return nil, err
+	}
+	versionAny, ok := verCheck["apiVersion"]
+	var version string
+	if !ok {
+		version = "v1"
+	} else {
+		version = strings.TrimSpace(fmt.Sprint(versionAny))
+	}
+
+	if strings.EqualFold(version, "v1") {
+		return getReferenceV1(fsys, referenceFileName)
+	}
+
+	return nil, fmt.Errorf("unknown reference file apiVersion: '%s'", version)
+
+}
+
+func getReferenceV1(fsys fs.FS, referenceFileName string) (Reference, error) {
+	result := &ReferenceV1{}
 	err := parseYaml(fsys, referenceFileName, &result, refConfNotExistsError, refConfigNotInFormat)
 	if err != nil {
 		return result, err
@@ -261,7 +299,7 @@ func parseYaml[T any](fsys fs.FS, filePath string, structType *T, fileNotFoundEr
 	return nil
 }
 
-func ParseTemplates(templateReference []*ReferenceTemplate, functionTemplates []string, fsys fs.FS, ref *Reference) ([]*ReferenceTemplate, error) {
+func ParseTemplates(templateReference []*ReferenceTemplate, functionTemplates []string, fsys fs.FS, ref Reference) ([]*ReferenceTemplate, error) {
 	var errs []error
 	for _, temp := range templateReference {
 		parsedTemp, err := template.New(path.Base(temp.Path)).Funcs(FuncMap()).ParseFS(fsys, temp.Path)
@@ -281,7 +319,7 @@ func ParseTemplates(templateReference []*ReferenceTemplate, functionTemplates []
 		if err != nil {
 			errs = append(errs, fmt.Errorf("failed to parse template %s with empty data: %w", temp.Path, err))
 		}
-		err = temp.ValidateFieldsToOmit(ref.FieldsToOmit)
+		err = temp.ValidateFieldsToOmit(ref.GetFieldsToOmit())
 		if err != nil {
 			errs = append(errs, err)
 		}

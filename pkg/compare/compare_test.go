@@ -415,6 +415,8 @@ func TestCompareRun(t *testing.T) {
 			withOutputFormat(PatchYaml).
 			withGenerateForTemplate("namespace.yaml").
 			withChecks(defaultChecks.withPrefixedSuffix("noReasonGenerate")),
+		defaultTest("Reference Has Valid Version"),
+		defaultTest("Reference Has Invalid Version"),
 	}
 
 	tf := cmdtesting.NewTestFactory()
