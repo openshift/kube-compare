@@ -127,11 +127,11 @@ func getTemplates(cfs fs.FS) ([]*compare.ReferenceTemplate, string, error) {
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to get cluster-compare reference  %w", err)
 	}
-	templates, err := compare.ParseTemplates(ref.GetTemplates(), ref.TemplateFunctionFiles, cfs, &ref)
+	templates, err := compare.ParseTemplates(ref.GetTemplates(), ref.GetTemplateFunctionFiles(), cfs, ref)
 	if err != nil {
 		return templates, "", fmt.Errorf("failed to parse cluster-compare reference templates %w", err)
 	}
-	helperFuncs, err := createHelmHelperFuncs(cfs, ref.TemplateFunctionFiles)
+	helperFuncs, err := createHelmHelperFuncs(cfs, ref.GetTemplateFunctionFiles())
 	if err != nil {
 		return templates, "", err
 	}

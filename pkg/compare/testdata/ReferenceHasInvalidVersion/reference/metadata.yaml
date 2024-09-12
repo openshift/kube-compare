@@ -1,0 +1,8 @@
+apiVersion: t9000
+parts:
+  - name: ExamplePart
+    components:
+      - name: ExampleComponent
+        type: Required
+        requiredTemplates:
+          - path: cm.yaml
