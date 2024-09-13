@@ -126,9 +126,9 @@ type Options struct {
 	OutputFormat       string
 
 	builder        *resource.Builder
-	correlator     *MultiCorrelator[*ReferenceTemplate]
+	correlator     *MultiCorrelator[ReferenceTemplate]
 	metricsTracker *MetricsTracker
-	templates      []*ReferenceTemplate
+	templates      []ReferenceTemplate
 	local          bool
 	types          []string
 	ref            Reference
@@ -290,7 +290,7 @@ func (o *Options) Complete(f kcmdutil.Factory, cmd *cobra.Command, args []string
 			return err
 		}
 	}
-	o.templates, err = ParseTemplates(o.ref.GetTemplates(), o.ref.GetTemplateFunctionFiles(), cfs, o.ref)
+	o.templates, err = ParseTemplates(o.ref, cfs)
 	if err != nil {
 		return err
 	}
@@ -354,7 +354,7 @@ var defaultFieldGroups = [][][]string{
 // The base correlators are combined using a MultiCorrelator, which attempts to match a template for each base correlator
 // in the specified sequence.
 func (o *Options) setupCorrelators() error {
-	var correlators []Correlator[*ReferenceTemplate]
+	var correlators []Correlator[ReferenceTemplate]
 	if len(o.userConfig.CorrelationSettings.ManualCorrelation.CorrelationPairs) > 0 {
 		manualCorrelator, err := NewExactMatchCorrelator(o.userConfig.CorrelationSettings.ManualCorrelation.CorrelationPairs, o.templates)
 		if err != nil {
@@ -407,9 +407,9 @@ func (o *Options) setupOverrideCorrelators() error {
 // types supported by the live cluster in order to not raise errors by the visitor. In a case the reference includes types that
 // are not supported by the user a warning will be created.
 func (o *Options) setLiveSearchTypes(f kcmdutil.Factory) error {
-	kindSet := make(map[string][]*ReferenceTemplate)
+	kindSet := make(map[string][]ReferenceTemplate)
 	for _, t := range o.templates {
-		kindSet[t.metadata.GetKind()] = append(kindSet[t.metadata.GetKind()], t)
+		kindSet[t.GetMetadata().GetKind()] = append(kindSet[t.GetMetadata().GetKind()], t)
 	}
 
 	c, err := f.ToDiscoveryClient()
@@ -454,7 +454,7 @@ func getSupportedResourceTypes(client discovery.CachedDiscoveryInterface) (map[s
 
 // findAllRequestedSupportedTypes divides the requested types in to two groups: supported types and unsupported types based on if they are specified as supported.
 // The list of supported types will include the types in the form of {kind}.{group}.
-func findAllRequestedSupportedTypes(supportedTypesWithGroups map[string][]string, requestedTypes map[string][]*ReferenceTemplate) ([]string, []string) {
+func findAllRequestedSupportedTypes(supportedTypesWithGroups map[string][]string, requestedTypes map[string][]ReferenceTemplate) ([]string, []string) {
 	var typesIncludingGroup []string
 	var notSupportedTypes []string
 	for kind := range requestedTypes {
@@ -476,15 +476,15 @@ func extractPath(str string, pathIndex int) string {
 	return "Unknown Path"
 }
 
-func getBestMatchByLines(templates []*ReferenceTemplate, cr *unstructured.Unstructured, userOverrides []*UserOverride, o *Options) (*ReferenceTemplate, *bytes.Buffer, *UserOverride, error) {
-	var bestTemp *ReferenceTemplate
+func getBestMatchByLines(templates []ReferenceTemplate, cr *unstructured.Unstructured, userOverrides []*UserOverride, o *Options) (ReferenceTemplate, *bytes.Buffer, *UserOverride, error) {
+	var bestTemp ReferenceTemplate
 	minDiffNum := math.MaxInt
 	var minDiffOutput *bytes.Buffer
 	var minInfoObject *InfoObject
 	for _, temp := range templates {
 		templateOverrides := make([]*UserOverride, 0)
 		for _, uo := range userOverrides {
-			if uo.TemplatePath == "" || uo.TemplatePath == temp.Path {
+			if uo.TemplatePath == "" || uo.TemplatePath == temp.GetPath() {
 				templateOverrides = append(templateOverrides, uo)
 			}
 		}
@@ -512,16 +512,16 @@ func getBestMatchByLines(templates []*ReferenceTemplate, cr *unstructured.Unstru
 	return bestTemp, minDiffOutput, newUserOverride, nil
 }
 
-func diffAgainstTemplate(temp *ReferenceTemplate, clusterCR *unstructured.Unstructured, userOverrides []*UserOverride, o *Options) (*bytes.Buffer, *InfoObject, error) {
+func diffAgainstTemplate(temp ReferenceTemplate, clusterCR *unstructured.Unstructured, userOverrides []*UserOverride, o *Options) (*bytes.Buffer, *InfoObject, error) {
 	localRef, err := temp.Exec(clusterCR.Object)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, err //nolint: wrapcheck
 	}
 	obj := InfoObject{
 		injectedObjFromTemplate: localRef,
 		clusterObj:              clusterCR,
-		FieldsToOmit:            temp.FieldsToOmit(o.ref.GetFieldsToOmit()),
-		allowMerge:              temp.Config.AllowMerge,
+		FieldsToOmit:            temp.GetFieldsToOmit(o.ref.GetFieldsToOmit()),
+		allowMerge:              temp.GetConfig().GetAllowMerge(),
 		userOverrides:           userOverrides,
 	}
 
@@ -614,7 +614,7 @@ func (o *Options) Run() error {
 			numDiffCRs += 1
 		}
 
-		if uo != nil && slices.Contains(o.templatesToGenerateOverridesFor, temp.Path) {
+		if uo != nil && slices.Contains(o.templatesToGenerateOverridesFor, temp.GetPath()) {
 			o.newUserOverrides = append(o.newUserOverrides, uo)
 		}
 
@@ -664,7 +664,7 @@ func (o *Options) Run() error {
 type InfoObject struct {
 	injectedObjFromTemplate *unstructured.Unstructured
 	clusterObj              *unstructured.Unstructured
-	FieldsToOmit            []*ManifestPath
+	FieldsToOmit            []*ManifestPathV1
 	allowMerge              bool
 	userOverrides           []*UserOverride
 }
@@ -706,7 +706,7 @@ func (obj InfoObject) Merged() (runtime.Object, error) {
 	return obj.injectedObjFromTemplate, err
 }
 
-func findFieldPaths(object map[string]any, fields []*ManifestPath) [][]string {
+func findFieldPaths(object map[string]any, fields []*ManifestPathV1) [][]string {
 	result := make([][]string, 0)
 	for _, f := range fields {
 		if !f.IsPrefix {
@@ -731,7 +731,7 @@ func findFieldPaths(object map[string]any, fields []*ManifestPath) [][]string {
 	return result
 }
 
-func omitFields(object map[string]any, fields []*ManifestPath) {
+func omitFields(object map[string]any, fields []*ManifestPathV1) {
 	fieldPaths := findFieldPaths(object, fields)
 
 	for _, field := range fieldPaths {
@@ -826,7 +826,7 @@ type Summary struct {
 	PatchedCRs   int                            `json:"patchedCRs"`
 }
 
-func newSummary(reference Reference, c *MetricsTracker, numDiffCRs int, templates []*ReferenceTemplate, numPatchedCRs int) *Summary {
+func newSummary(reference Reference, c *MetricsTracker, numDiffCRs int, templates []ReferenceTemplate, numPatchedCRs int) *Summary {
 	s := Summary{NumDiffCRs: numDiffCRs, PatchedCRs: numPatchedCRs}
 	s.RequiredCRS, s.NumMissing = reference.GetMissingCRs(c.MatchedTemplatesNames)
 	s.TotalCRs = c.getTotalCRs()
@@ -837,13 +837,14 @@ func newSummary(reference Reference, c *MetricsTracker, numDiffCRs int, template
 	hash := sha256.New()
 
 	refBytes, err := yaml.Marshal(reference)
+	fmt.Println(string(refBytes))
 	if err != nil {
 		klog.Warning("There was an error in hashing the reference, don't trust the hash")
 	}
 	hash.Write(refBytes)
 
 	for _, template := range templates {
-		for _, node := range template.Tree.Root.Nodes {
+		for _, node := range template.GetTemplateTree().Root.Nodes {
 			hash.Write([]byte(node.String()))
 		}
 	}
