@@ -4,7 +4,8 @@ CRs with diffs: 0/1
 CRs in reference missing from the cluster: 1
 ExamplePart:
   DemonSets:
-  - apps.v1.KindNotSupportedByCluster.kube-system.kindnet.yaml
+    Missing CRs:
+    - apps.v1.KindNotSupportedByCluster.kube-system.kindnet.yaml
 No CRs are unmatched to reference CRs
 Metadata Hash: 346f1088e461ee2dcf93e6427a4f8bafee885e0998b2c5891b2023074decd482
 No patched CRs

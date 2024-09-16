@@ -17,7 +17,7 @@ import (
 type Reference interface {
 	GetAPIVersion() string
 	GetTemplates() []ReferenceTemplate
-	GetMissingCRs(matchedTemplates map[string]int) (map[string]map[string][]string, int)
+	GetValidationIssues(matchedTemplates map[string]int) (map[string]map[string]ValidationIssue, int)
 	GetFieldsToOmit() FieldsToOmit
 	GetTemplateFunctionFiles() []string
 }
@@ -68,8 +68,10 @@ func GetReference(fsys fs.FS, referenceFileName string) (Reference, error) {
 	if strings.EqualFold(version, ReferenceVersionV1) {
 		ref, err := getReferenceV1(fsys, referenceFileName)
 		return ref, err
+	} else if strings.EqualFold(version, ReferenceVersionV2) {
+		ref, err := getReferenceV2(fsys, referenceFileName)
+		return ref, err
 	}
-
 	return nil, fmt.Errorf("unknown reference file apiVersion: '%s'", version)
 
 }
@@ -112,6 +114,15 @@ func ParseTemplates(ref Reference, fsys fs.FS) ([]ReferenceTemplate, error) {
 	if strings.EqualFold(ref.GetAPIVersion(), ReferenceVersionV1) {
 		refV1 := ref.(*ReferenceV1)
 		return ParseV1Templates(refV1, fsys)
+	} else if strings.EqualFold(ref.GetAPIVersion(), ReferenceVersionV2) {
+		refV2 := ref.(*ReferenceV2)
+		return ParseV2Templates(refV2, fsys)
 	}
+
 	return nil, fmt.Errorf("unknown reference file apiVersion: '%s'", ref.GetAPIVersion())
+}
+
+type ValidationIssue struct {
+	Msg string   `json:"Msg,omitempty"`
+	CRs []string `json:"CRs,omitempty"`
 }

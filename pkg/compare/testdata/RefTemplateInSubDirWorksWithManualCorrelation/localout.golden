@@ -34,7 +34,7 @@ Diff Output: diff -u -N TEMP/apps-v1_deployment_kubernetes-dashboard_kubernetes-
 
 Summary
 CRs with diffs: 1/1
-No CRs are missing from the cluster
+No validation issues with the cluster
 No CRs are unmatched to reference CRs
 Metadata Hash: 8a6eae9d27c09d5d41340286ded1021896fc13b178f34b32905c68e920f2d81d
 No patched CRs

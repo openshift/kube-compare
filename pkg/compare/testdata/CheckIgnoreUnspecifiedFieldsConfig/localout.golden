@@ -22,7 +22,7 @@ Diff Output: diff -u -N TEMP/v1_namespace_openshift-storage TEMP/v1_namespace_op
 
 Summary
 CRs with diffs: 1/1
-No CRs are missing from the cluster
+No validation issues with the cluster
 No CRs are unmatched to reference CRs
 Metadata Hash: 5ff6634ba74ea6557c4ae9ed031f4f5de0fa931be69b0ed3aaa05e49961a20a2
 No patched CRs

@@ -80,31 +80,32 @@ func (r *ReferenceV1) GetTemplateFunctionFiles() []string {
 	return r.TemplateFunctionFiles
 }
 
-func (c *ComponentV1) getMissingCRs(matchedTemplates map[string]int) []string {
+func (c *ComponentV1) getMissingCRs(matchedTemplates map[string]int) ValidationIssue {
 	var crs []string
 	for _, temp := range c.RequiredTemplates {
 		if wasMatched, ok := matchedTemplates[temp.Path]; !ok || wasMatched == 0 {
 			crs = append(crs, temp.Path)
 		}
 	}
-	return crs
+	return ValidationIssue{Msg: MissingCRsMsg, CRs: crs}
 }
 
-func (p *PartV1) getMissingCRs(matchedTemplates map[string]int) (map[string][]string, int) {
-	crs := make(map[string][]string)
+func (p *PartV1) getMissingCRs(matchedTemplates map[string]int) (map[string]ValidationIssue, int) {
+	crs := make(map[string]ValidationIssue)
 	count := 0
 	for _, comp := range p.Components {
 		compCRs := comp.getMissingCRs(matchedTemplates)
-		if (len(compCRs) > 0) && (comp.Type == Required || ((comp.Type == Optional) && len(compCRs) != len(comp.RequiredTemplates))) {
+		missing := compCRs.CRs
+		if (len(missing) > 0) && (comp.Type == Required || ((comp.Type == Optional) && len(missing) != len(comp.RequiredTemplates))) {
 			crs[comp.Name] = compCRs
-			count += len(compCRs)
+			count += len(missing)
 		}
 	}
 	return crs, count
 }
 
-func (r *ReferenceV1) GetMissingCRs(matchedTemplates map[string]int) (map[string]map[string][]string, int) {
-	crs := make(map[string]map[string][]string)
+func (r *ReferenceV1) GetValidationIssues(matchedTemplates map[string]int) (map[string]map[string]ValidationIssue, int) {
+	crs := make(map[string]map[string]ValidationIssue)
 	count := 0
 	for _, part := range r.Parts {
 		crsInPart, countInPart := part.getMissingCRs(matchedTemplates)
@@ -115,6 +116,7 @@ func (r *ReferenceV1) GetMissingCRs(matchedTemplates map[string]int) (map[string
 	}
 	return crs, count
 }
+
 func getReferenceV1(fsys fs.FS, referenceFileName string) (*ReferenceV1, error) {
 	result := &ReferenceV1{}
 	err := parseYaml(fsys, referenceFileName, &result, refConfNotExistsError, refConfigNotInFormat)
@@ -224,7 +226,7 @@ const (
 func (rf ReferenceTemplateV1) ValidateFieldsToOmit(fieldsToOmit FieldsToOmit) error {
 	fieldsToOmitv1, ok := fieldsToOmit.(*FieldsToOmitV1)
 	if !ok {
-		return fmt.Errorf("Unable to cast %T into %T to parse for V1", fieldsToOmit, fieldsToOmitv1)
+		return fmt.Errorf("unable to cast %T into %T to parse for V1", fieldsToOmit, fieldsToOmitv1)
 	}
 
 	errs := make([]error, 0)

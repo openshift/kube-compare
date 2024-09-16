@@ -18,7 +18,7 @@ Diff Output: diff -u -N TEMP/v1_configmap_kubernetes-dashboard_kubernetes-dashbo
 
 Summary
 CRs with diffs: 1/1
-No CRs are missing from the cluster
+No validation issues with the cluster
 No CRs are unmatched to reference CRs
 Metadata Hash: daa42611acd8bc86828efa8d13a2c806211f5028d3494c04a8e4b7e9f6d473b9
 No patched CRs

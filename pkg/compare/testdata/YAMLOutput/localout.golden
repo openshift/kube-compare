@@ -10,10 +10,12 @@ Summary:
   MetadataHash: aa4c94f1307788e1da81f57718a9f1364d35d4ff6099fc633724bcf9d051a094
   NumDiffCRs: 1
   NumMissing: 1
-  RequiredCRS:
-    ExamplePart:
-      Dashboard:
-      - deploymentMetrics.yaml
   TotalCRs: 1
   UnmatchedCRS: []
+  ValidationIssuses:
+    ExamplePart:
+      Dashboard:
+        CRs:
+        - deploymentMetrics.yaml
+        Msg: Missing CRs
   patchedCRs: 0

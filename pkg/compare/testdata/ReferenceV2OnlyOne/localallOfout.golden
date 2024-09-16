@@ -1,0 +1,19 @@
+Summary
+CRs with diffs: 0/1
+CRs in reference missing from the cluster: 10
+ExamplePart:
+  DemonSets:
+    Missing CRs:
+    - cr.yaml
+    - crb.yaml
+    - deploymentDashboard.yaml
+    - deploymentMetrics.yaml
+    - ns.yaml
+    - rb.yaml
+    - role.yaml
+    - sa.yaml
+    - secret.yaml
+    - service.yaml
+No CRs are unmatched to reference CRs
+Metadata Hash: a79de4c2e84902b9f04017776932b7ef60cde50465b67f8ad29771f6e2910a3f
+No patched CRs
