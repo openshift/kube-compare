@@ -142,13 +142,13 @@ fieldsToOmit:
 * Globally ignoring specific fields by yaml path with `fieldsToOmit`.
 * Ignoring, per template, fields that are not defined in the reference template with `ignore-unspecified-fields`.
 
-See the included [test cases](pkg/compare/testdata/) for more examples of reference configs. For a complete explanation of `metadata.yaml` please see [Building a Reference Config](docs/reference-config-guide.md).
+See the included [test cases](pkg/compare/testdata/) for more examples of reference configs. For a complete explanation of `metadata.yaml` please see [Building a Reference Config](docs/reference-config-guide-v2.md).
 
 ## Further Resources
 
 [User Guide](docs/user-guide.md)
 
-[Building a Reference Config](docs/reference-config-guide.md)
+[Building a Reference Config](docs/reference-config-guide-v2.md)
 
 [Developer Intro](docs/dev.md)
 

@@ -222,7 +222,7 @@ No CRs are unmatched
 
 ### Reference Configuration Specification
 
-See [Reference Configuration](docs/reference-config-guide.md)
+See [Reference Configuration](docs/reference-config-guide-v2.md)
 
 #### Diff
 
