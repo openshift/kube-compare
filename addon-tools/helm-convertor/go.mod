@@ -5,7 +5,7 @@ go 1.22.0
 require (
 	github.com/openshift/kube-compare v0.0.0-20240731093548-ca27579af1f9
 	github.com/spf13/cobra v1.8.0
-	github.com/wolfeidau/unflatten v1.1.0
+	github.com/stretchr/testify v1.8.4
 	helm.sh/helm/v3 v3.15.3
 	k8s.io/apimachinery v0.30.3
 	k8s.io/client-go v0.30.0
@@ -65,6 +65,7 @@ require (
 	github.com/mxk/go-flowrate v0.0.0-20140419014527-cca7078d478f // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
 	github.com/pkg/errors v0.9.1 // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/samber/lo v1.39.0 // indirect
 	github.com/shopspring/decimal v1.3.1 // indirect
