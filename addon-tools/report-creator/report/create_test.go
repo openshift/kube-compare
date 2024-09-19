@@ -46,10 +46,6 @@ func TestCompareRun(t *testing.T) {
 			referenceDir: "AllRequiredTemplatesExistAndThereAreNoDiffs",
 		},
 		{
-			name:         "Unmatched CRs Test Suite When CRs Are Unmatched",
-			referenceDir: "OnlyResourcesThatWereNotMatchedBecauseMultipleMatchesAppearInSummary",
-		},
-		{
 			name:         "Missing CRs test suite creation when CRS are Missing",
 			referenceDir: "OnlyRequiredResourcesOfRequiredComponentAreReportedMissing(OptionalResourcesNotReported)",
 		},

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/openshift/kube-compare/addon-tools/report-creator/junit"
@@ -82,18 +83,17 @@ func createMissingCRsSuite(summary compare.Summary) junit.TestSuite {
 	}
 
 	// Iterate over parts and components to add missing CRs as test cases
-	for partName, partCRs := range summary.RequiredCRS {
-		for componentName, componentCRs := range partCRs {
-			for _, cr := range componentCRs {
-				suite.TestCases = append(suite.TestCases, junit.TestCase{
-					Name:      fmt.Sprintf("Missing CR: %s", cr),
-					Classname: fmt.Sprintf("Part:%s Component: %s", partName, componentName),
-					Failure: &junit.Failure{
-						Type:    "Missing Cluster CR",
-						Message: fmt.Sprintf("Required CR by the reference %q is missing from cluster", cr),
-					},
-				})
-			}
+	for partName, partCRs := range summary.ValidationIssues {
+		for componentName, validationIssue := range partCRs {
+			suite.TestCases = append(suite.TestCases, junit.TestCase{
+				Name:      "Reference validation failure",
+				Classname: fmt.Sprintf("Part:%s Component: %s", partName, componentName),
+				Failure: &junit.Failure{
+					Type:    "Validation Issue",
+					Message: fmt.Sprintf("%s: %s", validationIssue.Msg, strings.Join(validationIssue.CRs, ",")),
+				},
+			})
+
 		}
 	}
 	sort.Slice(suite.TestCases, func(i, j int) bool {
