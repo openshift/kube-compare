@@ -82,15 +82,15 @@ func convertToHelm(o *Options) error {
 	for _, t := range templates {
 
 		visitor := ExpectedValuesFinder{}
-		Inspect(t.Tree.Root, visitor.Visit())
+		Inspect(t.GetTemplateTree().Root, visitor.Visit())
 
 		helmTemplate, err := convertToHelmTemplate(cfs, t)
 		if err != nil {
 			return err
 		}
-		helmTemplates[t.Name()] = helmTemplate
+		helmTemplates[t.GetIdentifier()] = helmTemplate
 
-		val, err := getValuesFromJson(crsWithDefaults[path.Base(t.Name())], visitor.expected)
+		val, err := getValuesFromJson(crsWithDefaults[path.Base(t.GetIdentifier())], visitor.expected)
 		if err != nil {
 			return err
 		}
@@ -103,7 +103,7 @@ func convertToHelm(o *Options) error {
 		}
 
 		if len(tempValues) != 0 {
-			helmValues[getCompName(t.Name())] = append(compValues, tempValues)
+			helmValues[getCompName(t.GetIdentifier())] = append(compValues, tempValues)
 		}
 	}
 
@@ -122,12 +122,12 @@ func convertToHelm(o *Options) error {
 	return createChart(helmTemplates, helmValues, o.outputDir, o.chartDescription, o.chartVersion)
 }
 
-func getTemplates(cfs fs.FS) ([]*compare.ReferenceTemplate, string, error) {
+func getTemplates(cfs fs.FS) ([]compare.ReferenceTemplate, string, error) {
 	ref, err := compare.GetReference(cfs, "metadata.yaml")
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to get cluster-compare reference  %w", err)
 	}
-	templates, err := compare.ParseTemplates(ref.GetTemplates(), ref.GetTemplateFunctionFiles(), cfs, ref)
+	templates, err := compare.ParseTemplates(ref, cfs)
 	if err != nil {
 		return templates, "", fmt.Errorf("failed to parse cluster-compare reference templates %w", err)
 	}
@@ -177,7 +177,7 @@ func loadYAMLFiles(root string) (map[string]map[string]interface{}, error) {
 	return filesMapping, nil
 }
 
-func convertToHelmTemplate(cfs fs.FS, t *compare.ReferenceTemplate) (string, error) {
+func convertToHelmTemplate(cfs fs.FS, t compare.ReferenceTemplate) (string, error) {
 	var templateStructure = `{{- $values := list (dict)}}
 {{- if .Values.%v}}
 {{- $values = .Values.%v }}
@@ -187,11 +187,11 @@ func convertToHelmTemplate(cfs fs.FS, t *compare.ReferenceTemplate) (string, err
 %v 
 {{ end -}}
 `
-	content, err := fs.ReadFile(cfs, t.Name())
+	content, err := fs.ReadFile(cfs, t.GetIdentifier())
 	if err != nil {
-		return "", fmt.Errorf("failed to read template named: %s %w", t.Name(), err)
+		return "", fmt.Errorf("failed to read template named: %s %w", t.GetIdentifier(), err)
 	}
-	compName := getCompName(t.Name())
+	compName := getCompName(t.GetIdentifier())
 	helmTemplate := fmt.Sprintf(templateStructure, compName, compName, string(content))
 	return helmTemplate, nil
 }

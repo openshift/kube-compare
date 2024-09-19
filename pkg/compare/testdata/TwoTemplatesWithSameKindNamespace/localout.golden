@@ -17,7 +17,7 @@ Diff Output: diff -u -N TEMP/apps-v1_daemonset_somens_name TEMP/apps-v1_daemonse
 
 Summary
 CRs with diffs: 1/1
-No CRs are missing from the cluster
+No validation issues with the cluster
 No CRs are unmatched to reference CRs
 Metadata Hash: e4a0c8433c5a751d41ebe85fceb11cb225dcd771f1c450818ff4cd1738f0b2bc
 No patched CRs

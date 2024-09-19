@@ -1,0 +1,18 @@
+apiVersion: v2
+parts:
+  - name: ExamplePart
+    components:
+      - name: DemonSets
+        allOf:
+          - path: cm.yaml
+          - path: cr.yaml
+          - path: crb.yaml
+        anyOf:
+          - path: deploymentDashboard.yaml
+          - path: deploymentMetrics.yaml
+          - path: ns.yaml
+          - path: rb.yaml
+          - path: role.yaml
+          - path: sa.yaml
+          - path: secret.yaml
+          - path: service.yaml

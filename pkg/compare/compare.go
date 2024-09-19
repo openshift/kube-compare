@@ -4,11 +4,9 @@ package compare
 
 import (
 	"bytes"
-	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"io/fs"
 	"math"
 	"os"
@@ -16,11 +14,9 @@ import (
 	"slices"
 	"sort"
 	"strings"
-	"text/template"
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/gosimple/slug"
-	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -33,7 +29,6 @@ import (
 	"k8s.io/kubectl/pkg/util/i18n"
 	"k8s.io/kubectl/pkg/util/templates"
 	"k8s.io/utils/exec"
-	"sigs.k8s.io/yaml"
 )
 
 var (
@@ -126,9 +121,9 @@ type Options struct {
 	OutputFormat       string
 
 	builder        *resource.Builder
-	correlator     *MultiCorrelator[*ReferenceTemplate]
+	correlator     *MultiCorrelator[ReferenceTemplate]
 	metricsTracker *MetricsTracker
-	templates      []*ReferenceTemplate
+	templates      []ReferenceTemplate
 	local          bool
 	types          []string
 	ref            Reference
@@ -290,7 +285,7 @@ func (o *Options) Complete(f kcmdutil.Factory, cmd *cobra.Command, args []string
 			return err
 		}
 	}
-	o.templates, err = ParseTemplates(o.ref.GetTemplates(), o.ref.GetTemplateFunctionFiles(), cfs, o.ref)
+	o.templates, err = ParseTemplates(o.ref, cfs)
 	if err != nil {
 		return err
 	}
@@ -354,7 +349,7 @@ var defaultFieldGroups = [][][]string{
 // The base correlators are combined using a MultiCorrelator, which attempts to match a template for each base correlator
 // in the specified sequence.
 func (o *Options) setupCorrelators() error {
-	var correlators []Correlator[*ReferenceTemplate]
+	var correlators []Correlator[ReferenceTemplate]
 	if len(o.userConfig.CorrelationSettings.ManualCorrelation.CorrelationPairs) > 0 {
 		manualCorrelator, err := NewExactMatchCorrelator(o.userConfig.CorrelationSettings.ManualCorrelation.CorrelationPairs, o.templates)
 		if err != nil {
@@ -407,9 +402,9 @@ func (o *Options) setupOverrideCorrelators() error {
 // types supported by the live cluster in order to not raise errors by the visitor. In a case the reference includes types that
 // are not supported by the user a warning will be created.
 func (o *Options) setLiveSearchTypes(f kcmdutil.Factory) error {
-	kindSet := make(map[string][]*ReferenceTemplate)
+	kindSet := make(map[string][]ReferenceTemplate)
 	for _, t := range o.templates {
-		kindSet[t.metadata.GetKind()] = append(kindSet[t.metadata.GetKind()], t)
+		kindSet[t.GetMetadata().GetKind()] = append(kindSet[t.GetMetadata().GetKind()], t)
 	}
 
 	c, err := f.ToDiscoveryClient()
@@ -454,7 +449,7 @@ func getSupportedResourceTypes(client discovery.CachedDiscoveryInterface) (map[s
 
 // findAllRequestedSupportedTypes divides the requested types in to two groups: supported types and unsupported types based on if they are specified as supported.
 // The list of supported types will include the types in the form of {kind}.{group}.
-func findAllRequestedSupportedTypes(supportedTypesWithGroups map[string][]string, requestedTypes map[string][]*ReferenceTemplate) ([]string, []string) {
+func findAllRequestedSupportedTypes(supportedTypesWithGroups map[string][]string, requestedTypes map[string][]ReferenceTemplate) ([]string, []string) {
 	var typesIncludingGroup []string
 	var notSupportedTypes []string
 	for kind := range requestedTypes {
@@ -476,15 +471,15 @@ func extractPath(str string, pathIndex int) string {
 	return "Unknown Path"
 }
 
-func getBestMatchByLines(templates []*ReferenceTemplate, cr *unstructured.Unstructured, userOverrides []*UserOverride, o *Options) (*ReferenceTemplate, *bytes.Buffer, *UserOverride, error) {
-	var bestTemp *ReferenceTemplate
+func getBestMatchByLines(templates []ReferenceTemplate, cr *unstructured.Unstructured, userOverrides []*UserOverride, o *Options) (ReferenceTemplate, *bytes.Buffer, *UserOverride, error) {
+	var bestTemp ReferenceTemplate
 	minDiffNum := math.MaxInt
 	var minDiffOutput *bytes.Buffer
 	var minInfoObject *InfoObject
 	for _, temp := range templates {
 		templateOverrides := make([]*UserOverride, 0)
 		for _, uo := range userOverrides {
-			if uo.TemplatePath == "" || uo.TemplatePath == temp.Path {
+			if uo.TemplatePath == "" || uo.TemplatePath == temp.GetPath() {
 				templateOverrides = append(templateOverrides, uo)
 			}
 		}
@@ -512,16 +507,16 @@ func getBestMatchByLines(templates []*ReferenceTemplate, cr *unstructured.Unstru
 	return bestTemp, minDiffOutput, newUserOverride, nil
 }
 
-func diffAgainstTemplate(temp *ReferenceTemplate, clusterCR *unstructured.Unstructured, userOverrides []*UserOverride, o *Options) (*bytes.Buffer, *InfoObject, error) {
+func diffAgainstTemplate(temp ReferenceTemplate, clusterCR *unstructured.Unstructured, userOverrides []*UserOverride, o *Options) (*bytes.Buffer, *InfoObject, error) {
 	localRef, err := temp.Exec(clusterCR.Object)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, err //nolint: wrapcheck
 	}
 	obj := InfoObject{
 		injectedObjFromTemplate: localRef,
 		clusterObj:              clusterCR,
-		FieldsToOmit:            temp.FieldsToOmit(o.ref.GetFieldsToOmit()),
-		allowMerge:              temp.Config.AllowMerge,
+		FieldsToOmit:            temp.GetFieldsToOmit(o.ref.GetFieldsToOmit()),
+		allowMerge:              temp.GetConfig().GetAllowMerge(),
 		userOverrides:           userOverrides,
 	}
 
@@ -614,7 +609,7 @@ func (o *Options) Run() error {
 			numDiffCRs += 1
 		}
 
-		if uo != nil && slices.Contains(o.templatesToGenerateOverridesFor, temp.Path) {
+		if uo != nil && slices.Contains(o.templatesToGenerateOverridesFor, temp.GetPath()) {
 			o.newUserOverrides = append(o.newUserOverrides, uo)
 		}
 
@@ -652,9 +647,9 @@ func (o *Options) Run() error {
 	}
 
 	// We will return exit code 1 in case there are differences between the reference CRs and cluster CRs.
-	// The differences can be differences found in specific CRs or the absence of CRs from the cluster.
+	// The differences can be differences found in specific CRs or any validation issues.
 	// As long as we're not generating a set of user overrides.
-	if (numDiffCRs != 0 || sum.NumMissing != 0) && o.OutputFormat != PatchYaml {
+	if (numDiffCRs != 0 || len(sum.ValidationIssues) != 0) && o.OutputFormat != PatchYaml {
 		return exec.CodeExitError{Err: errors.New(DiffsFoundMsg), Code: 1}
 	}
 	return nil
@@ -664,7 +659,7 @@ func (o *Options) Run() error {
 type InfoObject struct {
 	injectedObjFromTemplate *unstructured.Unstructured
 	clusterObj              *unstructured.Unstructured
-	FieldsToOmit            []*ManifestPath
+	FieldsToOmit            []*ManifestPathV1
 	allowMerge              bool
 	userOverrides           []*UserOverride
 }
@@ -706,7 +701,7 @@ func (obj InfoObject) Merged() (runtime.Object, error) {
 	return obj.injectedObjFromTemplate, err
 }
 
-func findFieldPaths(object map[string]any, fields []*ManifestPath) [][]string {
+func findFieldPaths(object map[string]any, fields []*ManifestPathV1) [][]string {
 	result := make([][]string, 0)
 	for _, f := range fields {
 		if !f.IsPrefix {
@@ -731,7 +726,7 @@ func findFieldPaths(object map[string]any, fields []*ManifestPath) [][]string {
 	return result
 }
 
-func omitFields(object map[string]any, fields []*ManifestPath) {
+func omitFields(object map[string]any, fields []*ManifestPathV1) {
 	fieldPaths := findFieldPaths(object, fields)
 
 	for _, field := range fieldPaths {
@@ -773,173 +768,4 @@ func MergeManifests(localRef, clusterCR *unstructured.Unstructured) (updateLocal
 
 func (obj InfoObject) Name() string {
 	return slug.Make(apiKindNamespaceName(obj.clusterObj))
-}
-
-// DiffSum Contains the diff output and correlation info of a specific CR
-type DiffSum struct {
-	DiffOutput         string   `json:"DiffOutput"`
-	CorrelatedTemplate string   `json:"CorrelatedTemplate"`
-	CRName             string   `json:"CRName"`
-	Patched            string   `json:"Patched,omitempty"`
-	OverrideReasons    []string `json:"OverrideReason,omitempty"`
-}
-
-func (s DiffSum) String() string {
-	t := `
-Cluster CR: {{ .CRName }}
-Reference File: {{ .CorrelatedTemplate }}
-Diff Output: {{or .DiffOutput "None" }}
-{{- if ne (len  .Patched) 0 }}
-Patched with {{ .Patched }}
-{{- if or (eq .OverrideReasons nil) (eq (len .OverrideReasons ) 0)}}
-Patch Reasons: {{or .OverrideReasons "<None given>"}}
-{{- else }}
-Patch Reasons:
-{{- range $reason := .OverrideReasons }}
-- {{ $reason }}
-{{- end }}
-{{- end }}
-{{- end }}
-`
-	var buf bytes.Buffer
-	tmpl, _ := template.New("DiffSummary").Parse(t)
-	_ = tmpl.Execute(&buf, s)
-	return strings.TrimSpace(buf.String())
-}
-
-func (s DiffSum) HasDiff() bool {
-	return s.DiffOutput != ""
-}
-
-func (s DiffSum) WasPatched() bool {
-	return s.Patched != ""
-}
-
-// Summary Contains all info included in the Summary output of the compare command
-type Summary struct {
-	RequiredCRS  map[string]map[string][]string `json:"RequiredCRS"`
-	NumMissing   int                            `json:"NumMissing"`
-	UnmatchedCRS []string                       `json:"UnmatchedCRS"`
-	NumDiffCRs   int                            `json:"NumDiffCRs"`
-	TotalCRs     int                            `json:"TotalCRs"`
-	MetadataHash string                         `json:"MetadataHash"`
-	PatchedCRs   int                            `json:"patchedCRs"`
-}
-
-func newSummary(reference Reference, c *MetricsTracker, numDiffCRs int, templates []*ReferenceTemplate, numPatchedCRs int) *Summary {
-	s := Summary{NumDiffCRs: numDiffCRs, PatchedCRs: numPatchedCRs}
-	s.RequiredCRS, s.NumMissing = reference.GetMissingCRs(c.MatchedTemplatesNames)
-	s.TotalCRs = c.getTotalCRs()
-	s.UnmatchedCRS = lo.Map(c.UnMatchedCRs, func(r *unstructured.Unstructured, i int) string {
-		return apiKindNamespaceName(r)
-	})
-
-	hash := sha256.New()
-
-	refBytes, err := yaml.Marshal(reference)
-	if err != nil {
-		klog.Warning("There was an error in hashing the reference, don't trust the hash")
-	}
-	hash.Write(refBytes)
-
-	for _, template := range templates {
-		for _, node := range template.Tree.Root.Nodes {
-			hash.Write([]byte(node.String()))
-		}
-	}
-
-	s.MetadataHash = fmt.Sprintf("%x", hash.Sum(nil))
-
-	return &s
-}
-
-func (s Summary) String() string {
-	t := `
-Summary
-CRs with diffs: {{ .NumDiffCRs }}/{{ .TotalCRs }}
-{{- if ne (len  .RequiredCRS) 0 }}
-CRs in reference missing from the cluster: {{.NumMissing}}
-{{ toYaml .RequiredCRS}}
-{{- else}}
-No CRs are missing from the cluster
-{{- end }}
-{{- if ne (len  .UnmatchedCRS) 0 }}
-Cluster CRs unmatched to reference CRs: {{len  .UnmatchedCRS}}
-{{ toYaml .UnmatchedCRS}}
-{{- else}}
-No CRs are unmatched to reference CRs
-{{- end }}
-Metadata Hash: {{.MetadataHash}}
-{{- if ne .PatchedCRs 0}}
-Cluster CRs with patches applied: {{ .PatchedCRs }}
-{{- else}}
-No patched CRs
-{{- end }}
-`
-	var buf bytes.Buffer
-	tmpl, _ := template.New("Summary").Funcs(template.FuncMap{"toYaml": toYAML}).Parse(t)
-	_ = tmpl.Execute(&buf, s)
-	return strings.TrimSpace(buf.String())
-}
-
-// Output Contains the complete output of the command
-type Output struct {
-	Summary *Summary   `json:"Summary"`
-	Diffs   *[]DiffSum `json:"Diffs"`
-	patches []*UserOverride
-}
-
-func (o Output) String(showEmptyDiffs bool) string {
-	sort.Slice(*o.Diffs, func(i, j int) bool {
-		return (*o.Diffs)[i].CorrelatedTemplate+(*o.Diffs)[i].CRName < (*o.Diffs)[j].CorrelatedTemplate+(*o.Diffs)[j].CRName
-	})
-
-	diffParts := []string{}
-
-	for _, diffSum := range *o.Diffs {
-		if showEmptyDiffs || diffSum.HasDiff() || diffSum.WasPatched() {
-			diffParts = append(diffParts, fmt.Sprintln(diffSum.String()))
-		}
-	}
-
-	var str string
-	if len(diffParts) > 0 {
-		partsStr := strings.Join(diffParts, fmt.Sprintf("\n%s\n", DiffSeparator))
-		str = fmt.Sprintf("%s\n%s\n%s\n", DiffSeparator, partsStr, DiffSeparator)
-	}
-
-	return fmt.Sprintf("%s%s\n", str, o.Summary.String())
-}
-
-func (o Output) Print(format string, out io.Writer, showEmptyDiffs bool) (int, error) {
-	var (
-		content []byte
-		err     error
-	)
-	switch format {
-	case Json:
-		content, err = json.Marshal(o)
-		if err != nil {
-			return 0, fmt.Errorf("failed to marshal output to json: %w", err)
-		}
-		content = append(content, []byte("\n")...)
-
-	case Yaml:
-		content, err = yaml.Marshal(o)
-		if err != nil {
-			return 0, fmt.Errorf("failed to marshal output to yaml: %w", err)
-		}
-	case PatchYaml:
-		content, err = yaml.Marshal(o.patches)
-		if err != nil {
-			return 0, fmt.Errorf("failed to marshal patches to yaml: %w", err)
-		}
-	default:
-		content = []byte(o.String(showEmptyDiffs))
-	}
-	n, err := out.Write(content)
-	if err != nil {
-		return n, fmt.Errorf("error occurred when writing output: %w", err)
-	}
-	return n, nil
 }

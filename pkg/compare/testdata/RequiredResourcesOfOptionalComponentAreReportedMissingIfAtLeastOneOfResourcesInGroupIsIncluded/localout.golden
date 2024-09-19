@@ -3,7 +3,8 @@ CRs with diffs: 0/1
 CRs in reference missing from the cluster: 1
 ExamplePart1:
   Dashboard1:
-  - cm.yaml
+    Missing CRs:
+    - cm.yaml
 No CRs are unmatched to reference CRs
 Metadata Hash: d050e3182f5aa23fb2082c4f5642e1f5d32a8870cc151178ebd8ce95b4297783
 No patched CRs

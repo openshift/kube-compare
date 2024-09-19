@@ -48,7 +48,8 @@ CRs with diffs: 3/3
 CRs in reference missing from the cluster: 1
 ExamplePart:
   DemonSets:
-  - apps.v1.DaemonSet.kube-system.kindnet.yaml
+    Missing CRs:
+    - apps.v1.DaemonSet.kube-system.kindnet.yaml
 Cluster CRs unmatched to reference CRs: 27
 - v1_ConfigMap_kubernetes-dashboard_kubernetes-dashboard-settings
 - rbac.authorization.k8s.io/v1_ClusterRole_kubernetes-dashboard

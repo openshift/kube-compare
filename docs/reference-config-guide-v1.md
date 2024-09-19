@@ -1,6 +1,9 @@
 
 # Reference Configuration
 
+> [!WARNING]
+> This is the guide for V1 of the metadata file. If you want the V2 Docs go [here](./reference-config-guide-v2.md)
+
 The reference configuration consists of a metadata.yaml file and a set of CRs (yaml files with one CR per file). The
 metadata.yaml includes higher level logic, settings that are about the connection between multiple of crs and the CRs
 files contain lower level logic, validation rules on how to compare each templated CR with its matching cluster CR.
@@ -40,6 +43,7 @@ Thus, the file `metadata.yaml` includes an array denoted by `parts` of one or mo
 
 ```yaml
 # Every part denotes typically denotes a workload or set of workloads
+ apiVersion: v1 # Optional will default to v1
  parts:
   - name: ExamplePart1
     components:

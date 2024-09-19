@@ -3,15 +3,19 @@ CRs with diffs: 0/1
 CRs in reference missing from the cluster: 5
 ExamplePart1:
   Dashboard1:
-  - cm.yaml
+    Missing CRs:
+    - cm.yaml
   Dashboard2:
-  - deploymentDashboard.yaml
-  - deploymentMetrics.yaml
+    Missing CRs:
+    - deploymentDashboard.yaml
+    - deploymentMetrics.yaml
 ExamplePart2:
   Dashboard1:
-  - cr.yaml
+    Missing CRs:
+    - cr.yaml
   Dashboard2:
-  - crb.yaml
+    Missing CRs:
+    - crb.yaml
 No CRs are unmatched to reference CRs
 Metadata Hash: 98dca024e0509f46f0a228da2ad61b98804a3f4b5a7ad1ac31d41b46812c32ea
 No patched CRs

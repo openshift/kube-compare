@@ -112,7 +112,7 @@ func (o UserOverride) Apply(rendered, live *unstructured.Unstructured) (*unstruc
 	return &unstructured.Unstructured{Object: updatedObj}, nil
 }
 
-func CreateMergePatch(temp *ReferenceTemplate, obj *InfoObject, reason string) (*UserOverride, error) {
+func CreateMergePatch(temp ReferenceTemplate, obj *InfoObject, reason string) (*UserOverride, error) {
 	localRefRuntime, err := obj.Merged()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create patch: %w", err)
@@ -147,7 +147,7 @@ func CreateMergePatch(temp *ReferenceTemplate, obj *InfoObject, reason string) (
 		Type:         mergePatch,
 		Patch:        string(patch),
 		Reason:       reason,
-		TemplatePath: temp.Path,
+		TemplatePath: temp.GetPath(),
 	}
 
 	return &override, nil

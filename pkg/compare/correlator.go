@@ -235,7 +235,7 @@ func containOnly(err error, errTypes []error) bool {
 	return true
 }
 
-func (c *MetricsTracker) addMatch(temp *ReferenceTemplate) {
+func (c *MetricsTracker) addMatch(temp ReferenceTemplate) {
 	c.matchedLock.Lock()
 	c.MatchedTemplatesNames[temp.GetIdentifier()] += 1
 	c.matchedLock.Unlock()

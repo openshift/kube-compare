@@ -35,8 +35,7 @@ import (
 var update = flag.Bool("update", false, "update .golden files")
 
 const TestRefDirName = "reference"
-const TestRefConfigFileName = "metadata.yaml"
-const TestRefConfigFile = TestRefDirName + "/" + TestRefConfigFileName
+const defaultReferenceFilename = "metadata.yaml"
 
 var TestDirs = "testdata"
 
@@ -171,8 +170,10 @@ var defaultChecks = Checks{
 }
 
 type Test struct {
-	name                  string
-	subTestSuffix         string
+	name              string
+	subTestSuffix     string
+	referenceFileName string
+
 	leaveTemplateDirEmpty bool
 	mode                  []Mode
 	userConfigFileName    string
@@ -206,6 +207,7 @@ func (test Test) Clone() Test {
 		userOverridePath:      test.userOverridePath,
 		templToGenPatchFor:    slices.Clone(test.templToGenPatchFor),
 		overrideGenReason:     test.overrideGenReason,
+		referenceFileName:     test.referenceFileName,
 	}
 }
 
@@ -275,6 +277,12 @@ func (test Test) withOverrideReason(reason string) Test {
 	return newTest
 }
 
+func (test Test) withMetadataFile(referenceFileName string) Test {
+	newTest := test.Clone()
+	newTest.referenceFileName = referenceFileName
+	return newTest
+}
+
 func (test *Test) subTestName(mode Mode) string {
 	name := test.name
 	if test.subTestSuffix != "" {
@@ -285,9 +293,10 @@ func (test *Test) subTestName(mode Mode) string {
 
 func defaultTest(name string) Test {
 	return Test{
-		name:   name,
-		mode:   []Mode{DefaultMode},
-		checks: defaultChecks,
+		name:              name,
+		mode:              []Mode{DefaultMode},
+		checks:            defaultChecks,
+		referenceFileName: defaultReferenceFilename,
 	}
 }
 
@@ -417,6 +426,59 @@ func TestCompareRun(t *testing.T) {
 			withChecks(defaultChecks.withPrefixedSuffix("noReasonGenerate")),
 		defaultTest("Reference Has Valid Version"),
 		defaultTest("Reference Has Invalid Version"),
+		defaultTest("All Required Templates Exist And There Are No Diffs Ref V2").
+			withModes([]Mode{{Live, LocalRef}, {Local, LocalRef}, {Local, URL}, {Live, URL}}),
+
+		defaultTest("Reference V2 Too Many Keys In Component Group"),
+		defaultTest("Reference V2 Only One").
+			withSubTestSuffix("All Of").
+			withMetadataFile("metadata-all-of.yaml").
+			withChecks(defaultChecks.withPrefixedSuffix("allOf")),
+		defaultTest("Reference V2 Only One").
+			withSubTestSuffix("All Or None Of").
+			withMetadataFile("metadata-all-or-none-of.yaml").
+			withChecks(defaultChecks.withPrefixedSuffix("allOrNoneOf")),
+		defaultTest("Reference V2 Only One").
+			withSubTestSuffix("Any Of").
+			withMetadataFile("metadata-any-of.yaml").
+			withChecks(defaultChecks.withPrefixedSuffix("anyOf")),
+		defaultTest("Reference V2 Only One").
+			withSubTestSuffix("Any One Of").
+			withMetadataFile("metadata-any-one-of.yaml").
+			withChecks(defaultChecks.withPrefixedSuffix("anyOneOf")),
+		defaultTest("Reference V2 Only One").
+			withSubTestSuffix("None Of").
+			withMetadataFile("metadata-none-of.yaml").
+			withChecks(defaultChecks.withPrefixedSuffix("noneOf")),
+		defaultTest("Reference V2 Only One").
+			withSubTestSuffix("One Of").
+			withMetadataFile("metadata-one-of.yaml").
+			withChecks(defaultChecks.withPrefixedSuffix("oneOf")),
+
+		defaultTest("Reference V2 All").
+			withSubTestSuffix("All Of").
+			withMetadataFile("metadata-all-of.yaml").
+			withChecks(defaultChecks.withPrefixedSuffix("allOf")),
+		defaultTest("Reference V2 All").
+			withSubTestSuffix("All Or None Of").
+			withMetadataFile("metadata-all-or-none-of.yaml").
+			withChecks(defaultChecks.withPrefixedSuffix("allOrNoneOf")),
+		defaultTest("Reference V2 All").
+			withSubTestSuffix("Any Of").
+			withMetadataFile("metadata-any-of.yaml").
+			withChecks(defaultChecks.withPrefixedSuffix("anyOf")),
+		defaultTest("Reference V2 All").
+			withSubTestSuffix("Any One Of").
+			withMetadataFile("metadata-any-one-of.yaml").
+			withChecks(defaultChecks.withPrefixedSuffix("anyOneOf")),
+		defaultTest("Reference V2 All").
+			withSubTestSuffix("None Of").
+			withMetadataFile("metadata-none-of.yaml").
+			withChecks(defaultChecks.withPrefixedSuffix("noneOf")),
+		defaultTest("Reference V2 All").
+			withSubTestSuffix("One Of").
+			withMetadataFile("metadata-one-of.yaml").
+			withChecks(defaultChecks.withPrefixedSuffix("oneOf")),
 	}
 
 	tf := cmdtesting.NewTestFactory()
@@ -489,14 +551,14 @@ func getCommand(t *testing.T, test *Test, modeIndex int, tf *cmdtesting.TestFact
 			_, err = fmt.Fprint(w, string(body))
 			require.NoError(t, err)
 		}))
-		require.NoError(t, cmd.Flags().Set("reference", svr.URL+"/"+TestRefConfigFileName))
+		require.NoError(t, cmd.Flags().Set("reference", svr.URL+"/"+test.referenceFileName))
 		t.Cleanup(func() {
 			svr.Close()
 		})
 
 	case LocalRef:
 		if !test.leaveTemplateDirEmpty {
-			require.NoError(t, cmd.Flags().Set("reference", path.Join(test.getTestDir(), TestRefConfigFile)))
+			require.NoError(t, cmd.Flags().Set("reference", path.Join(test.getTestDir(), TestRefDirName, test.referenceFileName)))
 		}
 	}
 
