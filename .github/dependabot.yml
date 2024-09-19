@@ -13,6 +13,7 @@ updates:
       interval: "daily"
     labels:
       - "ok-to-test"
+      - "dependencies"
     open-pull-requests-limit: 5
     ignore:
       - dependency-name: "*"
