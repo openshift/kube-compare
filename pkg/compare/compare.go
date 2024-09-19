@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"math"
 	"os"
 	"path/filepath"
 	"slices"
@@ -34,21 +33,21 @@ import (
 var (
 	compareLong = templates.LongDesc(`
 		Compare a known valid reference configuration and a set of specific cluster configuration CRs.
-		
-		The reference configuration consists of Resource templates. 
+
+		The reference configuration consists of Resource templates.
 		Resource Templates are files that contain Resource definitions and with fixed and optional content. Optional content is represented as Go templates.
-		The compare command will match each Resource in the cluster configuration to a Resource Template in the reference 
-		configuration. Then, the templated Resource will be injected with the cluster Resource parameters. 
+		The compare command will match each Resource in the cluster configuration to a Resource Template in the reference
+		configuration. Then, the templated Resource will be injected with the cluster Resource parameters.
 		For each cluster Resource, a diff between the Resource and its matching injected template will be presented
 		to the user.
-		
+
 		The input cluster configuration may be provided as an "offline" set of CRs or can be pulled from a live cluster.
-		
+
 		The Reference also includes a mandatory metadata.yaml file where all the Resource templates should be specified.
 		The Resource templates can be divided into components. Each component and Resource template can be set as required,
 		resulting in a report to the user in case one of them is missing.
-		
-		Each Resource definition should be in its own template file. 
+
+		Each Resource definition should be in its own template file.
 		The input to the Go template is the "input cluster configuration" in order to allow expected user variable content
 		to be synchronized between cluster CR and reference CR prior to the diff.
 		The usage of all Go built-in functions is supported along with the functions in the Sprig library.
@@ -56,20 +55,20 @@ var (
 		Before using functions that can fail for nil values, always check that the value exists.
 
 		It's possible to pass a user config that contains an option to specify manual matches between cluster resources
-		and Resource templates. The matches can be added to the config as pairs of 
-		apiVersion_kind_namespace_name: <Template File Name>. For resources that don't have a namespace the matches can 
+		and Resource templates. The matches can be added to the config as pairs of
+		apiVersion_kind_namespace_name: <Template File Name>. For resources that don't have a namespace the matches can
 		be added  as pairs of apiVersion_kind_name: <Template File Name>.
 
 		KUBECTL_EXTERNAL_DIFF environment variable can be used to select your own diff
 		command. Users can use external commands with params too, example:
 		KUBECTL_EXTERNAL_DIFF="colordiff -N -u"
-		
+
 		By default, the "diff" command available in your path will be run with the "-u"
 		(unified diff) and "-N" (treat absent files as empty) options.
-		
+
 		Exit status: 0 No differences were found. 1 Differences were found. >1 kubectl
 		or diff failed with an error.
-		
+
 		Note: KUBECTL_EXTERNAL_DIFF, if used, is expected to follow that convention.
 
 		Experimental: This command is under active development and may change without notice.
@@ -78,7 +77,7 @@ var (
 	compareExample = templates.Examples(`
 		# Compare a known valid reference configuration with a live cluster:
 		kubectl cluster-compare -r ./reference/metadata.yaml
-		
+
 		# Compare a known valid reference configuration with a local set of CRs:
 		kubectl cluster-compare -r ./reference/metadata.yaml -f ./crsdir -R
 
@@ -471,11 +470,71 @@ func extractPath(str string, pathIndex int) string {
 	return "Unknown Path"
 }
 
+type matchCounts struct {
+	diffOutput   *bytes.Buffer
+	userOverride *UserOverride
+	temp         ReferenceTemplate
+
+	leafCount    *int
+	newlineCount int
+}
+
+func countNewlines(diffOutput *bytes.Buffer) int {
+	return bytes.Count(diffOutput.Bytes(), []byte("\n"))
+}
+
+func countLeaf(d any) int {
+	count := 0
+	switch t := d.(type) {
+	case map[string]any:
+		for _, v := range t {
+			count += countLeaf(v)
+		}
+	case []any:
+		for _, v := range t {
+			count += countLeaf(v)
+		}
+	default:
+		return 1
+	}
+	return count
+}
+
+func countLeaves(uo *UserOverride) *int {
+	var data map[string]any
+	err := json.Unmarshal([]byte(uo.Patch), &data)
+	if err != nil {
+		return nil
+	}
+	count := countLeaf(data)
+	return &count
+}
+
+func findBestMatch(matches []matchCounts) matchCounts {
+	var bestNewlineMatch *matchCounts
+	var bestLeafMatch *matchCounts
+	useNewlineMatch := false
+	for _, match := range matches {
+		if bestNewlineMatch == nil || match.newlineCount < bestNewlineMatch.newlineCount {
+			bestNewlineMatch = &match
+		}
+		if match.leafCount == nil {
+			useNewlineMatch = true
+		}
+		if !useNewlineMatch && (bestLeafMatch == nil || (*match.leafCount < *bestLeafMatch.leafCount)) {
+			bestLeafMatch = &match
+		}
+	}
+	if useNewlineMatch {
+		return *bestNewlineMatch
+	}
+	return *bestLeafMatch
+
+}
 func getBestMatchByLines(templates []ReferenceTemplate, cr *unstructured.Unstructured, userOverrides []*UserOverride, o *Options) (ReferenceTemplate, *bytes.Buffer, *UserOverride, error) {
-	var bestTemp ReferenceTemplate
-	minDiffNum := math.MaxInt
-	var minDiffOutput *bytes.Buffer
-	var minInfoObject *InfoObject
+	matches := make([]matchCounts, 0)
+	errs := make([]error, 0)
+
 	for _, temp := range templates {
 		templateOverrides := make([]*UserOverride, 0)
 		for _, uo := range userOverrides {
@@ -486,25 +545,25 @@ func getBestMatchByLines(templates []ReferenceTemplate, cr *unstructured.Unstruc
 
 		diffOutput, infoObj, err := diffAgainstTemplate(temp, cr, templateOverrides, o)
 		if err != nil {
-			return nil, minDiffOutput, nil, err
+			errs = append(errs, err)
+			continue
 		}
-		minDiffNum = min(bytes.Count(diffOutput.Bytes(), []byte("\n")), minDiffNum)
-		if minDiffNum == bytes.Count(diffOutput.Bytes(), []byte("\n")) {
-			bestTemp = temp
-			minDiffOutput = diffOutput
-			minInfoObject = infoObj
-		}
-	}
-
-	var newUserOverride *UserOverride
-	if minDiffOutput.Len() > 0 {
-		uo, err := CreateMergePatch(bestTemp, minInfoObject, o.overrideReason)
+		uo, err := CreateMergePatch(temp, infoObj, o.overrideReason)
+		var leafCount *int
+		// if user override is ok we can count the leaves in the patches
 		if err == nil {
-			newUserOverride = uo
+			leafCount = countLeaves(uo)
 		}
+		matches = append(matches, matchCounts{
+			diffOutput:   diffOutput,
+			temp:         temp,
+			userOverride: uo,
+			newlineCount: countNewlines(diffOutput),
+			leafCount:    leafCount,
+		})
 	}
-
-	return bestTemp, minDiffOutput, newUserOverride, nil
+	bestMatch := findBestMatch(matches)
+	return bestMatch.temp, bestMatch.diffOutput, bestMatch.userOverride, errors.Join(errs...)
 }
 
 func diffAgainstTemplate(temp ReferenceTemplate, clusterCR *unstructured.Unstructured, userOverrides []*UserOverride, o *Options) (*bytes.Buffer, *InfoObject, error) {
