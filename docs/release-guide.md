@@ -18,8 +18,15 @@ The release notes can be edited manually at any time if needed [here](https://gi
 
 ## Krew publication
 
-We publish this plugin or krew; After the github release is complete, we need
-to issue a PR to the [krew
-repository](https://github.com/kubernetes-sigs/krew-index) and update
-[plugins/cluster-compare.yaml](https://github.com/kubernetes-sigs/krew-index/blob/master/plugins/cluster-compare.yaml)
-to point at the new version.
+We publish this plugin or krew; After the github release is complete, run the
+`hack/krew-bump.sh` script. It will:
+
+- Detect the latest release (assuming the step above succeeded, it should be
+  that release)
+- Fork the kubernetes-sig/krew-index repository via the `gh repo fork` command
+  (reuses an existing fork if you already have made one)
+- Edit the plugins/cluster-compare.yaml with the updated version number and
+  artifact hashes
+- Start a PR for the change via `gh pr create --fill --web`
+
+The last step is to review the PR and complete it in your web browser.
