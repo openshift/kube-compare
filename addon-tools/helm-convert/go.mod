@@ -1,4 +1,4 @@
-module github.com/openshift/kube-compare/addon-tools/compare-to-helm
+module github.com/openshift/kube-compare/addon-tools/helm-convert
 
 go 1.22.0
 

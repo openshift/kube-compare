@@ -62,13 +62,13 @@ test-report-creator:
 build-report-creator:
 	go build ./addon-tools/report-creator/create-report.go
 
-.PHONY: build-helm-converter
-build-helm-converter:
-	go build ./addon-tools/helm-convertor/helm-convert.go
+.PHONY: build-helm-convert
+build-helm-convert:
+	go build ./addon-tools/helm-convert/helm-convert.go
 
-.PHONY: test-helm-converter
-test-helm-converter:
-	go test --race ./addon-tools/helm-convertor/*/
+.PHONY: test-helm-convert
+test-helm-convert:
+	go test --race ./addon-tools/helm-convert/*/
 
 .PHONY: golangci-lint
 golangci-lint: ## Run golangci-lint against code.
