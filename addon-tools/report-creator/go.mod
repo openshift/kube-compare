@@ -3,7 +3,7 @@ module github.com/openshift/kube-compare/addon-tools/report-creator
 go 1.22.0
 
 require (
-	github.com/openshift/kube-compare v0.0.0-20240731093548-ca27579af1f9
+	github.com/openshift/kube-compare v0.1.1
 	github.com/spf13/cobra v1.8.0
 	github.com/stretchr/testify v1.8.4
 	k8s.io/cli-runtime v0.30.0
