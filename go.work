@@ -2,6 +2,6 @@ go 1.22.0
 
 use (
 	.
-	addon-tools/helm-convertor
+	addon-tools/helm-convert
 	addon-tools/report-creator
 )

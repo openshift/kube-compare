@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/openshift/kube-compare/addon-tools/compare-to-helm/convert"
+	"github.com/openshift/kube-compare/addon-tools/helm-convert/convert"
 )
 
 func main() {
