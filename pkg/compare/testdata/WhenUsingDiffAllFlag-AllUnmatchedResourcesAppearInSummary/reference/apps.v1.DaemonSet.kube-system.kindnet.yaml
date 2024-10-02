@@ -4,6 +4,7 @@ metadata:
   namespace: SomeNS
   annotations:
     deprecated.daemonset.template.generation: "1"
+    dont.match.me: "1"
   generation: 1
   labels:
     app: kindnet
