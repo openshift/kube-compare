@@ -299,6 +299,27 @@ fieldsToOmit:
 
 The default value of `defaultOmitRef` is a built-in list  `cluster-compare-built-in` and can still be referenced even if the `defaultOmitRef` is set.
 
+#### Referencing field omission groups
+
+A group of field omissions may reference other groups of field omission items to allow less duplication in group creation. For example:
+
+```yaml
+fieldsToOmit:
+   defaultOmitRef: default
+   items:
+    common:
+      - pathToKey: metadata.annotations."kubernetes.io/metadata.name"
+      - pathToKey: metadata.annotations."kubernetes.io/metadata.name"
+      - pathToKey: metadata.annotations."kubectl.kubernetes.io/last-applied-configuration"
+      - pathToKey: metadata.creationTimestamp
+      - pathToKey: metadata.generation
+      - pathToKey: spec.ownerReferences
+      - pathToKey: metadata.ownerReferences
+    default:
+      - include: common
+      - pathToKey: status
+```
+
 #### pathToKey syntax
 
 The syntax for `pathToKey` is a dot seperated path.
