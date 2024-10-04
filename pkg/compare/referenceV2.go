@@ -9,8 +9,11 @@ import (
 	"io/fs"
 	"path"
 	"reflect"
+	"slices"
 	"strings"
 	"text/template"
+
+	"k8s.io/klog/v2"
 )
 
 const ReferenceVersionV2 string = "v2"
@@ -21,7 +24,7 @@ type ReferenceV2 struct {
 
 	Parts                 []*PartV2       `json:"parts"`
 	TemplateFunctionFiles []string        `json:"templateFunctionFiles,omitempty"`
-	FieldsToOmit          *FieldsToOmitV1 `json:"fieldsToOmit,omitempty"`
+	FieldsToOmit          *FieldsToOmitV2 `json:"fieldsToOmit,omitempty"`
 }
 
 func (r *ReferenceV2) GetAPIVersion() string {
@@ -79,6 +82,136 @@ func (r *ReferenceV2) GetValidationIssues(matchedTemplates map[string]int) (map[
 		}
 	}
 	return crs, count
+}
+
+func getbuiltInPathsV2() []*FieldsToOmitV2Entry {
+	res := make([]*FieldsToOmitV2Entry, 0)
+	for _, p := range builtInPathsV1 {
+		res = append(res, &FieldsToOmitV2Entry{ManifestPathV1: p})
+	}
+	return res
+}
+
+type FieldsToOmitV2 struct {
+	DefaultOmitRef string                            `json:"defaultOmitRef,omitempty"`
+	Items          map[string][]*FieldsToOmitV2Entry `json:"items,omitempty"`
+	items          map[string][]*ManifestPathV1
+}
+
+func (toOmit *FieldsToOmitV2) GetDefault() string {
+	return toOmit.DefaultOmitRef
+}
+
+func (toOmit *FieldsToOmitV2) GetItems() map[string][]*ManifestPathV1 {
+	return toOmit.items
+}
+
+// Setup FieldsToOmit to be used by setting defaults
+// and processing the item strings into paths
+func (toOmit *FieldsToOmitV2) process() error {
+	if toOmit.items == nil {
+		toOmit.items = make(map[string][]*ManifestPathV1)
+	}
+
+	if toOmit.Items == nil {
+		toOmit.Items = make(map[string][]*FieldsToOmitV2Entry)
+	}
+
+	if _, ok := toOmit.Items[builtInPathsKey]; ok {
+		klog.Warningf(fieldsToOmitBuiltInOverwritten, builtInPathsKey)
+	}
+
+	errs := make([]error, 0)
+
+	toOmit.Items[builtInPathsKey] = getbuiltInPathsV2()
+
+	if len(errs) > 0 {
+		return errors.Join(errs...)
+	}
+
+	if toOmit.DefaultOmitRef == "" {
+		toOmit.DefaultOmitRef = builtInPathsKey
+	}
+
+	for key := range toOmit.Items {
+		paths, err := processFieldsToOmitEntries(key, toOmit, []string{})
+		if err != nil {
+			errs = append(errs, err)
+		} else {
+			// TODO: we should look into dedupe the paths
+			toOmit.items[key] = append(toOmit.items[key], paths...)
+		}
+
+	}
+	return errors.Join(errs...)
+}
+
+func processFieldsToOmitEntries(key string, toOmit *FieldsToOmitV2, previousKeys []string) ([]*ManifestPathV1, error) {
+	currentKeys := make([]string, 0)
+	currentKeys = append(currentKeys, previousKeys...)
+	currentKeys = append(currentKeys, key)
+
+	errs := make([]error, 0)
+	paths := make([]*ManifestPathV1, 0)
+	for _, entry := range toOmit.Items[key] {
+		entryPaths, err := entry.process(currentKeys, toOmit)
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		paths = append(paths, entryPaths...)
+
+	}
+	return paths, errors.Join(errs...)
+}
+
+type FieldsToOmitV2Entry struct {
+	*ManifestPathV1
+	Include         string `json:"include,omitempty"`
+	paths           []*ManifestPathV1
+	processingError error
+}
+
+func (entry *FieldsToOmitV2Entry) process(previousKeys []string, toOmit *FieldsToOmitV2) ([]*ManifestPathV1, error) {
+	if len(entry.paths) != 0 {
+		return entry.paths, entry.processingError
+	}
+
+	paths := make([]*ManifestPathV1, 0)
+	if entry.Include == "" && (entry.ManifestPathV1 == nil || entry.PathToKey == "") {
+		return paths, fmt.Errorf("must have either include or pathToKey")
+	}
+
+	errs := make([]error, 0)
+	if entry.ManifestPathV1 != nil && entry.PathToKey != "" {
+		err := entry.ManifestPathV1.Process()
+		if err != nil {
+			errs = append(errs, err)
+		} else {
+			paths = append(paths, entry.ManifestPathV1)
+		}
+	}
+
+	if entry.Include != "" {
+		foundCircle := slices.Contains(previousKeys, entry.Include)
+		if foundCircle {
+			circularKeys := make([]string, 0)
+			circularKeys = append(circularKeys, previousKeys...)
+			circularKeys = append(circularKeys, entry.Include)
+			return paths, fmt.Errorf("circular import found %s", strings.Join(circularKeys, " -> "))
+		}
+
+		entryPaths, err := processFieldsToOmitEntries(entry.Include, toOmit, previousKeys)
+		if err != nil {
+			errs = append(errs, err)
+		} else {
+			paths = append(paths, entryPaths...)
+		}
+	}
+
+	entry.paths = append(entry.paths, paths...)
+	entry.processingError = errors.Join(errs...)
+	return paths, entry.processingError
 }
 
 type PartV2 struct {
@@ -349,7 +482,7 @@ func getReferenceV2(fsys fs.FS, referenceFileName string) (*ReferenceV2, error) 
 		return result, err
 	}
 	if result.FieldsToOmit == nil {
-		result.FieldsToOmit = &FieldsToOmitV1{}
+		result.FieldsToOmit = &FieldsToOmitV2{}
 	}
 	err = result.FieldsToOmit.process()
 	if err != nil {

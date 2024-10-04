@@ -1,0 +1,16 @@
+apiVersion: v2
+parts:
+  - name: ExamplePart
+    components:
+      - name: Dashboard
+        allOf:
+          - path: deploymentMetrics.yaml
+
+fieldsToOmit:
+  defaultOmitRef: deployment
+  items:
+    deployment:
+      - pathToKey: .spec.selector.matchLabels.k8s-app
+      - pathToKey: .metadata.labels.k8s-app
+      - pathToKey: .spec.template.metadata.labels.k8s-app
+
