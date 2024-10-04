@@ -283,6 +283,13 @@ func (test Test) withMetadataFile(referenceFileName string) Test {
 	return newTest
 }
 
+func (test Test) withSubTestWithMetadata(subName string) Test {
+	squashed := strings.ReplaceAll(subName, " ", "_")
+	return test.withSubTestSuffix(subName).
+		withMetadataFile(fmt.Sprintf("metadata_%s.yaml", squashed)).
+		withChecks(test.checks.withPrefixedSuffix("_" + squashed + "_"))
+}
+
 func (test *Test) subTestName(mode Mode) string {
 	name := test.name
 	if test.subTestSuffix != "" {
@@ -479,6 +486,20 @@ func TestCompareRun(t *testing.T) {
 			withSubTestSuffix("One Of").
 			withMetadataFile("metadata-one-of.yaml").
 			withChecks(defaultChecks.withPrefixedSuffix("oneOf")),
+
+		defaultTest("Reference V2 Diff in Custom Omitted Fields Isnt Shown").
+			withSubTestWithMetadata("basic"),
+		defaultTest("Reference V2 Diff in Custom Omitted Fields Isnt Shown").
+			withSubTestWithMetadata("quoted"),
+		defaultTest("Reference V2 Diff in Custom Omitted Fields Isnt Shown").
+			withSubTestWithMetadata("leading dot"),
+		defaultTest("Reference V2 Diff in Custom Omitted Fields Isnt Shown").
+			withSubTestWithMetadata("non default"),
+		defaultTest("Reference V2 Diff in Custom Omitted Fields Isnt Shown").
+			withSubTestWithMetadata("basic include"),
+		defaultTest("Reference V2 Diff in Custom Omitted Fields Isnt Shown").
+			withSubTestWithMetadata("circular include"),
+		defaultTest("Reference V2 Diff in Custom Omitted Fields Isnt Shown Prefix"),
 	}
 
 	tf := cmdtesting.NewTestFactory()
