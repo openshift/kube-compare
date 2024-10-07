@@ -19,6 +19,7 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/cli-runtime/pkg/genericiooptions"
 	"k8s.io/cli-runtime/pkg/resource"
 	"k8s.io/client-go/discovery"
@@ -429,36 +430,72 @@ func (o *Options) setLiveSearchTypes(f kcmdutil.Factory) error {
 
 // getSupportedResourceTypes retrieves a set of resource types that are supported by the cluster. For each supported
 // resource type it will specify a list of groups where it exists.
-func getSupportedResourceTypes(client discovery.CachedDiscoveryInterface) (map[string][]string, error) {
-	resources := make(map[string][]string)
-	lists, err := client.ServerPreferredResources()
+func getSupportedResourceTypes(client discovery.CachedDiscoveryInterface) (map[string][]schema.GroupVersion, error) {
+	resources := make(map[string][]schema.GroupVersion)
+	_, lists, err := client.ServerGroupsAndResources()
 	if err != nil {
 		return resources, fmt.Errorf("failed to get clusters resource types: %w", err)
 	}
 	for _, list := range lists {
 		if len(list.APIResources) != 0 {
 			for _, res := range list.APIResources {
-				resources[res.Kind] = append(resources[res.Kind], res.Group)
+				gv := schema.GroupVersion{Group: res.Group, Version: res.Version}
+				if !slices.Contains(resources[res.Kind], gv) {
+					resources[res.Kind] = append(resources[res.Kind], gv)
+				}
 			}
 		}
 	}
 	return resources, nil
+}
 
+func getExpectedGroups(templates []ReferenceTemplate) []schema.GroupVersion {
+	groups := make([]schema.GroupVersion, 0)
+	for _, t := range templates {
+		gvk := t.GetMetadata().GroupVersionKind()
+		gv := schema.GroupVersion{Group: gvk.Group, Version: gvk.Version}
+		if gvk.Group != "" && !slices.Contains(groups, gv) {
+			groups = append(groups, gv)
+		}
+	}
+	return groups
 }
 
 // findAllRequestedSupportedTypes divides the requested types in to two groups: supported types and unsupported types based on if they are specified as supported.
 // The list of supported types will include the types in the form of {kind}.{group}.
-func findAllRequestedSupportedTypes(supportedTypesWithGroups map[string][]string, requestedTypes map[string][]ReferenceTemplate) ([]string, []string) {
+func findAllRequestedSupportedTypes(supportedTypesWithGroups map[string][]schema.GroupVersion, requestedTypes map[string][]ReferenceTemplate) ([]string, []string) {
 	var typesIncludingGroup []string
 	var notSupportedTypes []string
-	for kind := range requestedTypes {
+	var badAPI []string
+	for kind, templates := range requestedTypes {
 		if _, ok := supportedTypesWithGroups[kind]; ok {
-			for _, group := range supportedTypesWithGroups[kind] {
-				typesIncludingGroup = append(typesIncludingGroup, strings.Join([]string{kind, group}, "."))
+			expectedGroups := getExpectedGroups(templates)
+			for _, gv := range supportedTypesWithGroups[kind] {
+				index := slices.Index(expectedGroups, gv)
+				if index > -1 {
+					expectedGroups = slices.Delete(expectedGroups, index, index+1)
+				}
+				var supported string
+				if gv.Group == "" {
+					supported = kind
+				} else {
+					supported = strings.Join([]string{kind, gv.Version, gv.Group}, ".")
+				}
+
+				typesIncludingGroup = append(typesIncludingGroup, supported)
+			}
+			for _, gv := range expectedGroups {
+				badAPI = append(badAPI, strings.Join([]string{kind, gv.Group + "/" + gv.Version}, "."))
 			}
 		} else {
 			notSupportedTypes = append(notSupportedTypes, kind)
 		}
+	}
+	if len(badAPI) > 0 {
+		slices.Sort(badAPI)
+		klog.Warningf(
+			"There may be an issue with the API resources exposed by the cluster. Found kind but missing group/version for %s ",
+			strings.Join(badAPI, ", "))
 	}
 	return typesIncludingGroup, notSupportedTypes
 }
