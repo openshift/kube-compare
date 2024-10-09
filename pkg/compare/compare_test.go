@@ -181,6 +181,7 @@ type Test struct {
 	outputFormat          string
 	checks                Checks
 	verboseOutput         bool
+	badAPIResources       bool
 
 	userOverridePath   string
 	templToGenPatchFor []string
@@ -208,6 +209,7 @@ func (test Test) Clone() Test {
 		templToGenPatchFor:    slices.Clone(test.templToGenPatchFor),
 		overrideGenReason:     test.overrideGenReason,
 		referenceFileName:     test.referenceFileName,
+		badAPIResources:       test.badAPIResources,
 	}
 }
 
@@ -280,6 +282,12 @@ func (test Test) withOverrideReason(reason string) Test {
 func (test Test) withMetadataFile(referenceFileName string) Test {
 	newTest := test.Clone()
 	newTest.referenceFileName = referenceFileName
+	return newTest
+}
+
+func (test Test) withBadAPIResources() Test {
+	newTest := test.Clone()
+	newTest.badAPIResources = true
 	return newTest
 }
 
@@ -479,6 +487,12 @@ func TestCompareRun(t *testing.T) {
 			withSubTestSuffix("One Of").
 			withMetadataFile("metadata-one-of.yaml").
 			withChecks(defaultChecks.withPrefixedSuffix("oneOf")),
+
+		defaultTest("All Required Templates Exist And There Are No Diffs").
+			withSubTestSuffix("Bad API Resources").
+			withBadAPIResources().
+			withModes([]Mode{{Live, LocalRef}}).
+			withChecks(defaultChecks.withPrefixedSuffix("badAPI")),
 	}
 
 	tf := cmdtesting.NewTestFactory()
@@ -539,7 +553,7 @@ func getCommand(t *testing.T, test *Test, modeIndex int, tf *cmdtesting.TestFact
 		require.NoError(t, cmd.Flags().Set("filename", resourcesDir))
 		require.NoError(t, cmd.Flags().Set("recursive", "true"))
 	case Live:
-		discoveryResources, resources := getResources(t, resourcesDir)
+		discoveryResources, resources := getResources(t, *test, resourcesDir)
 		updateTestDiscoveryClient(tf, discoveryResources)
 		setClient(t, resources, tf)
 	}
@@ -612,7 +626,7 @@ func setClient(t *testing.T, resources []*unstructured.Unstructured, tf *cmdtest
 	}
 }
 
-func getResources(t *testing.T, resourcesDir string) ([]v1.APIResource, []*unstructured.Unstructured) {
+func getResources(t *testing.T, test Test, resourcesDir string) ([]v1.APIResource, []*unstructured.Unstructured) {
 	var resources []*unstructured.Unstructured
 	var rL []v1.APIResource
 	require.NoError(t, filepath.Walk(resourcesDir,
@@ -634,7 +648,11 @@ func getResources(t *testing.T, resourcesDir string) ([]v1.APIResource, []*unstr
 			}
 			r := unstructured.Unstructured{Object: data}
 			resources = append(resources, &r)
-			rL = append(rL, v1.APIResource{Name: r.GetName(), Kind: r.GetKind(), Version: r.GetAPIVersion()})
+			res := v1.APIResource{Name: r.GetName(), Kind: r.GetKind(), Version: r.GroupVersionKind().Version, Group: r.GroupVersionKind().Group}
+			if test.badAPIResources {
+				res.Group = ""
+			}
+			rL = append(rL, res)
 			return nil
 		}))
 	return rL, resources

@@ -1,0 +1,7 @@
+There may be an issue with the API resources exposed by the cluster. Found kind but missing group/version for ClusterRole.rbac.authorization.k8s.io/v1, ClusterRoleBinding.rbac.authorization.k8s.io/v1, Deployment.apps/v1, RoleBinding.rbac.authorization.k8s.io/v1 
+Summary
+CRs with diffs: 0/14
+No validation issues with the cluster
+No CRs are unmatched to reference CRs
+Metadata Hash: 933892b7ae8a4f5232734acc34f6c93fc223844d836b37af390cfeaecf0b7a99
+No patched CRs
