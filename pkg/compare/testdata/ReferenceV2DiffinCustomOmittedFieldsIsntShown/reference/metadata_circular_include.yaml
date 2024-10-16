@@ -1,0 +1,19 @@
+apiVersion: v2
+parts:
+  - name: ExamplePart
+    components:
+      - name: Dashboard
+        allOf:
+          - path: deploymentMetrics.yaml
+
+fieldsToOmit:
+  defaultOmitRef: deployment
+  items:
+    deployment:
+      - include: deployment
+    includeMe:
+      - include: includeWithDepth
+    includeWithDepth:
+      - include: includeMe
+
+

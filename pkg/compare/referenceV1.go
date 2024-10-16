@@ -163,7 +163,7 @@ func (toOmit *FieldsToOmitV1) process() error {
 		klog.Warningf(fieldsToOmitBuiltInOverwritten, builtInPathsKey)
 	}
 
-	toOmit.Items[builtInPathsKey] = builtInPaths
+	toOmit.Items[builtInPathsKey] = builtInPathsV1
 
 	if toOmit.DefaultOmitRef == "" {
 		toOmit.DefaultOmitRef = builtInPathsKey
@@ -207,14 +207,15 @@ type ReferenceTemplateV1 struct {
 func (rf ReferenceTemplateV1) GetFieldsToOmit(fieldsToOmit FieldsToOmit) []*ManifestPathV1 {
 	result := make([]*ManifestPathV1, 0)
 	// ValidateFieldsToOmit should check the ok
-	fieldsToOmitv1 := fieldsToOmit.(*FieldsToOmitV1)
 
+	items := fieldsToOmit.GetItems()
 	if len(rf.Config.FieldsToOmitRefs) == 0 {
-		return fieldsToOmitv1.Items[fieldsToOmitv1.DefaultOmitRef]
+		result = append(result, items[fieldsToOmit.GetDefault()]...)
+		return result
 	}
 
 	for _, feildsRef := range rf.Config.FieldsToOmitRefs {
-		result = append(result, fieldsToOmitv1.Items[feildsRef]...)
+		result = append(result, items[feildsRef]...)
 	}
 	return result
 }
@@ -224,14 +225,10 @@ const (
 )
 
 func (rf ReferenceTemplateV1) ValidateFieldsToOmit(fieldsToOmit FieldsToOmit) error {
-	fieldsToOmitv1, ok := fieldsToOmit.(*FieldsToOmitV1)
-	if !ok {
-		return fmt.Errorf("unable to cast %T into %T to parse for V1", fieldsToOmit, fieldsToOmitv1)
-	}
-
 	errs := make([]error, 0)
+	items := fieldsToOmit.GetItems()
 	for _, feildsRef := range rf.Config.FieldsToOmitRefs {
-		if _, ok := fieldsToOmitv1.Items[feildsRef]; !ok {
+		if _, ok := items[feildsRef]; !ok {
 			errs = append(errs, fmt.Errorf(fieldsToOmitRefsNotFound, feildsRef))
 		}
 	}
@@ -280,7 +277,7 @@ func (rf ReferenceTemplateV1) GetTemplateTree() *parse.Tree {
 
 const builtInPathsKey = "cluster-compare-built-in"
 
-var builtInPaths = []*ManifestPathV1{
+var builtInPathsV1 = []*ManifestPathV1{
 	{PathToKey: "metadata.resourceVersion"},
 	{PathToKey: "metadata.generation"},
 	{PathToKey: "metadata.uid"},
@@ -299,6 +296,10 @@ type ManifestPathV1 struct {
 }
 
 func (p *ManifestPathV1) Process() error {
+	if len(p.parts) > 0 {
+		return nil
+	}
+
 	pathToKey, _ := strings.CutPrefix(p.PathToKey, ".")
 	r := csv.NewReader(strings.NewReader(pathToKey))
 	r.Comma = '.'
