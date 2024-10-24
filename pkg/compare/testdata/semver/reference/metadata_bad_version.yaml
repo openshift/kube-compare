@@ -1,0 +1,54 @@
+apiVersion: v2
+parts:
+  - name: ExamplePart
+    components:
+      - name: DemonSets
+        allOf:
+          - path: cv-4.19.yaml
+            config:
+              ignore-unspecified-fields: true
+              fieldsToOmitRefs:
+                - allowStatusCheck
+
+fieldsToOmit:
+  defaultOmitRef: all
+  items:
+    defaults:
+      - pathToKey: metadata.annotations."kubernetes.io/metadata.name"
+      - pathToKey: metadata.annotations."openshift.io/sa.scc.uid-range"
+      - pathToKey: metadata.annotations."kubernetes.io/metadata.name"
+      - pathToKey: metadata.annotations."openshift.io/sa.scc.mcs"
+      - pathToKey: metadata.annotations."openshift.io/sa.scc.supplemental-groups"
+      - pathToKey: metadata.annotations."kubectl.kubernetes.io/last-applied-configuration"
+      - pathToKey: metadata.annotations."ran.openshift.io/ztp-deploy-wave"
+      - pathToKey: metadata.annotations."machineconfiguration.openshift.io/mc-name-suffix"
+      - pathToKey: metadata.labels."kubernetes.io/metadata.name"
+      - pathToKey: metadata.labels."olm.operatorgroup.uid"
+      - pathToKey: metadata.labels."security.openshift.io/scc.podSecurityLabelSync"
+      - pathToKey: metadata.resourceVersion
+      - pathToKey: metadata.uid
+      - pathToKey: spec.finalizers
+      - pathToKey: metadata.creationTimestamp
+      - pathToKey: metadata.generation
+      - pathToKey: metadata.finalizers
+      - pathToKey: metadata.annotations."ran.openshift.io/ztp-gitops-generated"
+      - pathToKey: spec.ownerReferences
+      - pathToKey: metadata.ownerReferences
+      - pathToKey: metadata.annotations."include.release.openshift.io/ibm-cloud-managed"
+      - pathToKey: metadata.annotations."include.release.openshift.io/self-managed-high-availability"
+      - pathToKey: metadata.annotations."include.release.openshift.io/single-node-developer"
+      - pathToKey: metadata.annotations."release.openshift.io/create-only"
+      - pathToKey: metadata.labels."lca.openshift.io/target-ocp-version"
+      - pathToKey: metadata.labels."pod-security.kubernetes.io/"
+        isPrefix: true
+      - pathToKey: metadata.annotations."capability.openshift.io/name"
+      - pathToKey: metadata.annotations."olm.providedAPIs"
+      - pathToKey: metadata.annotations."operator.sriovnetwork.openshift.io/last-network-namespace"
+      - pathToKey: metadata.annotations."include.release.openshift.io/hypershift"
+      - pathToKey: metadata.labels."olm.operatorgroup.uid/"
+        isPrefix: true
+    allowStatusCheck:
+      - include: defaults
+    all:
+      - include: defaults
+      - pathToKey: status

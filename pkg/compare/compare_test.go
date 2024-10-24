@@ -514,6 +514,9 @@ func TestCompareRun(t *testing.T) {
 		defaultTest("Reference V2 Diff in Custom Omitted Fields Isnt Shown").
 			withSubTestWithMetadata("circular include"),
 		defaultTest("Reference V2 Diff in Custom Omitted Fields Isnt Shown Prefix"),
+
+		defaultTest("semver").withSubTestWithMetadata("good version"),
+		defaultTest("semver").withSubTestWithMetadata("bad version"),
 	}
 
 	tf := cmdtesting.NewTestFactory()

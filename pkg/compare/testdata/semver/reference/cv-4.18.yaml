@@ -1,0 +1,22 @@
+{{- define "versionMatch" }}
+{{- $value := (index . 0) }}
+{{- $prefix := (index . 1)  }}
+  {{- if $value }}
+      {{- $a := semver $value }}
+      {{- $b := semver $prefix }}
+      {{- if and (eq $a.Major $b.Major) (eq $a.Minor $b.Minor) }}
+          {{- $value }}
+      {{- else }}
+          {{- $prefix }}.*
+      {{- end }}
+  {{- else }}
+    {{- $prefix }}.*
+  {{- end }}
+{{- end }}
+apiVersion: config.openshift.io/v1
+kind: ClusterVersion
+metadata:
+  name: version
+status:
+  desired:
+    version: {{ template "versionMatch" (list .status.desired.version "4.18") }}
