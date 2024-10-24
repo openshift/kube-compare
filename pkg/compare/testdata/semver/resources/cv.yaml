@@ -1,0 +1,87 @@
+---
+apiVersion: config.openshift.io/v1
+kind: ClusterVersion
+metadata:
+  creationTimestamp: "2024-10-21T19:50:11Z"
+  generation: 2
+  name: version
+  resourceVersion: "209168"
+  uid: 71703533-c2e2-44b0-b375-406b1bbea2d9
+spec:
+  capabilities:
+    additionalEnabledCapabilities:
+    - NodeTuning
+    - OperatorLifecycleManager
+    - Ingress
+    baselineCapabilitySet: None
+  channel: stable-4.18
+  clusterID: 15049d24-a5c6-4cc2-9eab-787bc06b6398
+status:
+  availableUpdates: null
+  capabilities:
+    enabledCapabilities:
+    - Ingress
+    - NodeTuning
+    - OperatorLifecycleManager
+    knownCapabilities:
+    - Build
+    - CSISnapshot
+    - CloudControllerManager
+    - CloudCredential
+    - Console
+    - DeploymentConfig
+    - ImageRegistry
+    - Ingress
+    - Insights
+    - MachineAPI
+    - NodeTuning
+    - OperatorLifecycleManager
+    - Storage
+    - baremetal
+    - marketplace
+    - openshift-samples
+  conditions:
+  - lastTransitionTime: "2024-10-21T19:51:00Z"
+    message: 'Unable to retrieve available updates: currently reconciling cluster
+      version 4.18.0-ec.1 not found in the "stable-4.18" channel'
+    reason: VersionNotFound
+    status: "False"
+    type: RetrievedUpdates
+  - lastTransitionTime: "2024-10-21T19:51:00Z"
+    message: Capabilities match configured spec
+    reason: AsExpected
+    status: "False"
+    type: ImplicitlyEnabledCapabilities
+    reason: PayloadLoaded
+    status: "True"
+    type: ReleaseAccepted
+  - lastTransitionTime: "2024-10-21T20:33:23Z"
+    message: Done applying 4.18.0-ec.1
+    status: "True"
+    type: Available
+  - lastTransitionTime: "2024-10-22T19:52:01Z"
+    status: "False"
+    type: Failing
+  - lastTransitionTime: "2024-10-21T20:33:23Z"
+    message: Cluster version is 4.18.0-ec.1
+    status: "False"
+    type: Progressing
+  - lastTransitionTime: "2024-10-21T20:37:34Z"
+    message: 'Cluster operator operator-lifecycle-manager should not be upgraded
+      between minor versions: ClusterServiceVersions blocking cluster upgrade: openshift-logging/cluster-logging.v6.0.1
+      is incompatible with OpenShift minor versions greater than 4.17'
+    reason: IncompatibleOperatorsInstalled
+    status: "False"
+    type: Upgradeable
+  desired:
+    image: "registry.redhat.com/openshift-release-dev/ocp-release@sha256:e87292db8d5790f7059d90a449feab27aaa3299ac22f05f12b9bc9609468f67d"
+    version: 4.18.0-ec.1
+  history:
+  - completionTime: "2024-10-21T20:33:23Z"
+    image: registry.redhat.com/openshift-release-dev/ocp-release@sha256:e87292db8d5790f7059d90a449feab27aaa3299ac22f05f12b9bc9609468f67d
+    startedTime: "2024-10-21T19:51:00Z"
+    state: Completed
+    verified: false
+    version: 4.18.0-ec.1
+  observedGeneration: 2
+  versionHash: HITNLAAG5NQ=
