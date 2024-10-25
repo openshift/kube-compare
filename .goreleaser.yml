@@ -1,4 +1,5 @@
 project_name: kube-compare
+version: 2
 release:
   github:
     owner: openshift
@@ -7,23 +8,67 @@ builds:
   - id: kube-compare
     binary: kubectl-cluster_compare
     goos:
-    - linux
-    - windows
-    - darwin
+      - linux
+      - windows
+      - darwin
     goarch:
-    - amd64
-    - arm64
+      - amd64
+      - arm64
     env:
       - CGO_ENABLED=0
       - GO111MODULE=on
     main: cmd/kubectl-cluster_compare.go
     ldflags: -s -w
       -X github.com/openshift/kube-compare/pkg/version.version=
+  - id: helm-convert
+    binary: helm-convert
+    goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    env:
+      - CGO_ENABLED=0
+      - GO111MODULE=on
+    main: addon-tools/helm-convert/helm-convert.go
+    ldflags: -s -w
+      -X github.com/openshift/kube-compare/addon-tools/helm-convert/version.version=
+  - id: report-creator
+    binary: report-creator
+    goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    env:
+      - CGO_ENABLED=0
+      - GO111MODULE=on
+    main: addon-tools/report-creator/create-report.go
+    ldflags: -s -w
+      -X github.com/openshift/kube-compare/addon-tools/report-creator/version.version=
 archives:
   - id: kube-compare
     builds:
-    - kube-compare
+      - kube-compare
     name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
     format_overrides:
-    - goos: windows
-      format: zip
+      - goos: windows
+        format: zip
+  - id: kube-compare-addon-tools
+    builds:
+      - helm-convert
+      - report-creator
+    name_template: "{{ .ProjectName }}_addon_tools_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - src: addon-tools/helm-convert/README.md
+        dst: README_helm-convert.md
+      # TODO: No readme for report-creator yet
+      # - src: addon-tools/report-creator/README.md
+      #   dst: README_report-creator.md
