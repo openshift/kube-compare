@@ -1,7 +1,7 @@
 IMAGE_NAME=kube-compare
 
 PACKAGE_NAME          := github.com/openshift/kube-compare
-GOLANG_CROSS_VERSION  ?= v1.22.3
+GOLANG_CROSS_VERSION  ?= v1.22.7
 
 # Default values for GOOS and GOARCH
 GOOS ?= linux
