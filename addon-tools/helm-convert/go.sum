@@ -161,8 +161,7 @@ github.com/onsi/ginkgo/v2 v2.15.0 h1:79HwNRBAZHOEwrczrgSOPy+eFTTlIGELKy5as+ClttY
 github.com/onsi/ginkgo/v2 v2.15.0/go.mod h1:HlxMHtYF57y6Dpf+mc5529KKmSq9h2FpCF+/ZkwUxKM=
 github.com/onsi/gomega v1.31.0 h1:54UJxxj6cPInHS3a35wm6BK/F9nHYueZ1NVujHDrnXE=
 github.com/onsi/gomega v1.31.0/go.mod h1:DW9aCi7U6Yi40wNVAvT6kzFnEVEI5n3DloYBiKiT6zk=
-github.com/openshift/kube-compare v0.1.1 h1:jWTTtd2fBCuPnTkXcedRulcSIPGvZQv7Me8iLEmjaCw=
-github.com/openshift/kube-compare v0.1.1/go.mod h1:4uykk9QkJVdW+bh+aoDhC3jpsbqhEJabnmeHYXGjvBg=
+github.com/openshift/kube-compare v0.2.0 h1:c/OUdV4rS0GxZLXpDR3LfuCU/aAXNLtQeQjU9mlFyzc=
 github.com/peterbourgon/diskv v2.0.1+incompatible h1:UBdAOUP5p4RWqPBg048CAvpKN+vxiaj6gdUUzhl4XmI=
 github.com/peterbourgon/diskv v2.0.1+incompatible/go.mod h1:uqqh8zWWbv1HBMNONnaR/tNboyR3/BZd58JJSHlUSCU=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
