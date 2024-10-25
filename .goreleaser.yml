@@ -47,7 +47,7 @@ builds:
     env:
       - CGO_ENABLED=0
       - GO111MODULE=on
-    main: addon-tools/report-creator/create-report.go
+    main: addon-tools/report-creator/report-creator.go
     ldflags: -s -w
       -X github.com/openshift/kube-compare/addon-tools/report-creator/version.version=
 archives:
