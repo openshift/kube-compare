@@ -67,8 +67,9 @@ archives:
       - goos: windows
         format: zip
     files:
+      - src: addon-tools/README.md
+        dst: README.md
       - src: addon-tools/helm-convert/README.md
         dst: README_helm-convert.md
-      # TODO: No readme for report-creator yet
-      # - src: addon-tools/report-creator/README.md
-      #   dst: README_report-creator.md
+      - src: addon-tools/report-creator/README.md
+        dst: README_report-creator.md
