@@ -60,7 +60,7 @@ test-report-creator:
 
 .PHONY: build-report-creator
 build-report-creator:
-	go build ./addon-tools/report-creator/create-report.go
+	go build ./addon-tools/report-creator/report-creator.go
 
 .PHONY: build-helm-convert
 build-helm-convert:

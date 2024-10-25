@@ -29,7 +29,7 @@ The tool divides the result of the cluster compare into 3 test suites:
 report-creator -j <COMPARE_JSON_OUTPUT_PATH> [flags]
 
 Flags
-  -h, --help            help for create-report
+  -h, --help            help for report-creator
   -j, --json string     Path to the file including the json output of the cluster-compare command
   -o, --output string   Path to save the report (default "report.xml")
 ```
