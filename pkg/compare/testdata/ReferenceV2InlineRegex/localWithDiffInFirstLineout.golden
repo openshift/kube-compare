@@ -1,0 +1,24 @@
+**********************************
+
+Cluster CR: v1_ConfigMap_kubernetes-dashboard_kubernetes-dashboard-settings
+Reference File: cm-regex-with-diff-in-first-line.yaml
+Diff Output: diff -u -N TEMP/v1_configmap_kubernetes-dashboard_kubernetes-dashboard-settings TEMP/v1_configmap_kubernetes-dashboard_kubernetes-dashboard-settings
+--- TEMP/v1_configmap_kubernetes-dashboard_kubernetes-dashboard-settings	DATE
++++ TEMP/v1_configmap_kubernetes-dashboard_kubernetes-dashboard-settings	DATE
+@@ -7,5 +7,5 @@
+   namespace: kubernetes-dashboard
+ spec:
+   bigTextBlock: |-
+-    This is a big text block with some static content, like this line
+-    It also has a place where (?<username>[a-z0-9]+) would put in their own name. (?<username>[a-z0-9]+) would put in their own name.
++    This is a big text block with some static content, like this line.
++    It also has a place where exampleuser would put in their own name. exampleuser would put in their own name.
+
+**********************************
+
+Summary
+CRs with diffs: 1/1
+No validation issues with the cluster
+No CRs are unmatched to reference CRs
+Metadata Hash: b2cafdff9a5edf9a9f3c6640345e541d456d8130b215a19a4847271563b87ea2
+No patched CRs

@@ -1,0 +1,11 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  labels:
+    k8s-app: kubernetes-dashboard
+  name: kubernetes-dashboard-settings
+  namespace: kubernetes-dashboard
+spec:
+  bigTextBlock: |-
+    This is a big text block with some static content, like this line.
+    It also has a place where (?<username>[0-9]+) would put in their own name. (?<username>[0-9]+) would put in their own name.

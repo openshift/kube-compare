@@ -494,7 +494,27 @@ func TestCompareRun(t *testing.T) {
 			withSubTestSuffix("One Of").
 			withMetadataFile("metadata-one-of.yaml").
 			withChecks(defaultChecks.withPrefixedSuffix("oneOf")),
-
+		defaultTest("ReferenceV2InlineRegex"),
+		defaultTest("ReferenceV2InlineRegex").
+			withSubTestSuffix("Invalid Regex").
+			withMetadataFile("metadata-invalid-regex.yaml").
+			withChecks(defaultChecks.withPrefixedSuffix("invalidRegex")),
+		defaultTest("ReferenceV2InlineRegex").
+			withSubTestSuffix("With Diff").
+			withMetadataFile("metadata-regex-with-diff.yaml").
+			withChecks(defaultChecks.withPrefixedSuffix("withDiff")),
+		defaultTest("ReferenceV2InlineRegex").
+			withSubTestSuffix("With Diff In First Line").
+			withMetadataFile("metadata-regex-with-diff-in-first-line.yaml").
+			withChecks(defaultChecks.withPrefixedSuffix("WithDiffInFirstLine")),
+		defaultTest("ReferenceV2PerFieldMatcherValidation").
+			withSubTestSuffix("Matcher Does Not exist").
+			withMetadataFile("metadata-does-not-exist.yaml").
+			withChecks(defaultChecks.withPrefixedSuffix("matcherNotExist")),
+		defaultTest("ReferenceV2PerFieldMatcherValidation").
+			withSubTestSuffix("pathToKey Does Not Exist In Template").
+			withMetadataFile("metadata-path-does-not-exist-in-template.yaml").
+			withChecks(defaultChecks.withPrefixedSuffix("pathNotItTemplate")),
 		defaultTest("All Required Templates Exist And There Are No Diffs").
 			withSubTestSuffix("Bad API Resources").
 			withBadAPIResources().

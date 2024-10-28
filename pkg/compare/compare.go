@@ -614,6 +614,7 @@ func diffAgainstTemplate(temp ReferenceTemplate, clusterCR *unstructured.Unstruc
 		FieldsToOmit:            temp.GetFieldsToOmit(o.ref.GetFieldsToOmit()),
 		allowMerge:              temp.GetConfig().GetAllowMerge(),
 		userOverrides:           userOverrides,
+		templateFieldConf:       temp.GetConfig().GetInlineDiffFuncs(),
 	}
 
 	differ, err := diff.NewDiffer("MERGED", "LIVE")
@@ -672,7 +673,7 @@ func (o *Options) Run() error {
 			klog.Warningf(skipInvalidResources, extractPath(err.Error(), 2), err.Error()[strings.LastIndex(err.Error(), ":"):])
 			return true
 		}
-		return containOnly(err, []error{UnknownMatch{}, MergeError{}})
+		return containOnly(err, []error{UnknownMatch{}, MergeError{}, InlineDiffError{}})
 	})
 
 	err := r.Visit(func(info *resource.Info, _ error) error { // ignoring previous errors
@@ -758,6 +759,7 @@ type InfoObject struct {
 	FieldsToOmit            []*ManifestPathV1
 	allowMerge              bool
 	userOverrides           []*UserOverride
+	templateFieldConf       map[string]inlineDiffType
 }
 
 // Live Returns the cluster version of the object
@@ -792,9 +794,51 @@ func (obj InfoObject) Merged() (runtime.Object, error) {
 		}
 		obj.injectedObjFromTemplate = patched
 	}
-
+	err = obj.runInlineDiffFuncs()
+	if err != nil {
+		return obj.injectedObjFromTemplate, &InlineDiffError{obj: &obj, err: err}
+	}
 	omitFields(obj.injectedObjFromTemplate.Object, obj.FieldsToOmit)
 	return obj.injectedObjFromTemplate, err
+}
+
+type InlineDiffError struct {
+	obj *InfoObject
+	err error
+}
+
+func (e InlineDiffError) Error() string {
+	return fmt.Sprintf("failed to properly run inline diff functions for %s some diff may be incorrect: %s", e.obj.Name(), e.err)
+}
+
+func (obj InfoObject) runInlineDiffFuncs() error {
+	var errs []error
+	for pathToKey, inlineDiffFunc := range obj.templateFieldConf {
+		listedPath, err := pathToList(pathToKey)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to parse path of field %s that uses inline diff func: %w", pathToKey, err))
+			continue
+		}
+		value, exist, err := unstructured.NestedString(obj.injectedObjFromTemplate.Object, listedPath...)
+		if err != nil || !exist {
+			errs = append(errs, fmt.Errorf("failed to acces value in template of field %s that uses inline diff func: %w", pathToKey, err))
+			continue
+		}
+		clusterValue, exist, err := unstructured.NestedString(obj.clusterObj.Object, listedPath...)
+		if !exist {
+			continue // if value does not appear in cluster CR then there will be a diff anyway and this is not an error
+		}
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to acces value in cluster cr of field %s that uses inline diff func: %w", pathToKey, err))
+			continue
+		}
+		err = unstructured.SetNestedField(obj.injectedObjFromTemplate.Object, InlineDiffs[inlineDiffFunc].diff(value, clusterValue), listedPath...)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to update value of inline diff func result for field %s, %w", pathToKey, err))
+			continue
+		}
+	}
+	return errors.Join(errs...)
 }
 
 func findFieldPaths(object map[string]any, fields []*ManifestPathV1) [][]string {

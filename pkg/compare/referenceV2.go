@@ -9,11 +9,14 @@ import (
 	"io/fs"
 	"path"
 	"reflect"
+	"regexp"
 	"slices"
 	"strings"
 	"text/template"
 
 	"k8s.io/klog/v2"
+
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 const ReferenceVersionV2 string = "v2"
@@ -30,8 +33,8 @@ type ReferenceV2 struct {
 func (r *ReferenceV2) GetAPIVersion() string {
 	return r.normalisedVersion
 }
-func (r *ReferenceV2) getTemplates() []*ReferenceTemplateV1 {
-	var templates []*ReferenceTemplateV1
+func (r *ReferenceV2) getTemplates() []*ReferenceTemplateV2 {
+	var templates []*ReferenceTemplateV2
 	for _, part := range r.Parts {
 		for _, comp := range part.Components {
 			templates = append(templates, comp.getTemplates()...)
@@ -214,6 +217,92 @@ func (entry *FieldsToOmitV2Entry) process(previousKeys []string, toOmit *FieldsT
 	return paths, entry.processingError
 }
 
+type ReferenceTemplateV2 struct {
+	Config ReferenceTemplateConfigV2 `json:"config,omitempty"`
+	ReferenceTemplateV1
+}
+
+func (rf ReferenceTemplateV2) GetConfig() TemplateConfig {
+	return rf.Config
+}
+
+type ReferenceTemplateConfigV2 struct {
+	PerField []*PerFieldConfigV2 `json:"perField,omitempty"`
+	ReferenceTemplateConfigV1
+}
+
+func (config ReferenceTemplateConfigV2) GetInlineDiffFuncs() map[string]inlineDiffType {
+	diffFuncs := make(map[string]inlineDiffType)
+	for _, fieldConf := range config.PerField {
+		diffFuncs[fieldConf.PathToKey] = fieldConf.InlineDiffFunc
+	}
+	return diffFuncs
+}
+
+func (rf ReferenceTemplateV2) validateConfigPerField() error {
+	for pathToKey, inlineDiffFunc := range rf.GetConfig().GetInlineDiffFuncs() {
+		listedPath, err := pathToList(pathToKey)
+		if err != nil {
+			return fmt.Errorf("reference contains template with config per field with pathToKey that is not in "+
+				"supoorted format. path: %s. error: %v", pathToKey, err)
+		}
+		value, exist, err := unstructured.NestedString(rf.metadata.Object, listedPath...)
+		if err != nil || !exist {
+			return fmt.Errorf("reference contains template with config per field with pathToKey that points to a "+
+				"path that does not exist in the template. path: %s", pathToKey)
+		}
+		validator, ok := InlineDiffs[inlineDiffFunc]
+		if !ok {
+			return fmt.Errorf("reference contains template with config per field with InlineDiffFunc that does not "+
+				"exist. InlineDiffFunc: %s", inlineDiffFunc)
+		}
+		if err := validator.validate(value); err != nil {
+			return fmt.Errorf("reference contains template with config per field with InlineDiffFunc that fails "+
+				"validation. InlineDiffFunc: %s. error: %v", inlineDiffFunc, err)
+		}
+	}
+	return nil
+}
+
+type PerFieldConfigV2 struct {
+	PathToKey      string         `json:"pathToKey,omitempty"`
+	InlineDiffFunc inlineDiffType `json:"inlineDiffFunc,omitempty"`
+}
+
+type inlineDiffType string
+
+const (
+	regex inlineDiffType = "regex"
+)
+
+var InlineDiffs = map[inlineDiffType]InlineDiff{regex: RegexInlineDiff{}}
+
+type InlineDiff interface {
+	diff(templateValue, crValue string) string
+	validate(templateValue string) error
+}
+
+type RegexInlineDiff struct{}
+
+func (id RegexInlineDiff) diff(regex, crValue string) string {
+	re, err := regexp.Compile(regex)
+	if err != nil {
+		return regex
+	}
+	if re.MatchString(crValue) {
+		return crValue
+	}
+	return regex
+}
+
+func (id RegexInlineDiff) validate(regex string) error {
+	_, err := regexp.Compile(regex)
+	if err != nil {
+		return fmt.Errorf("invalid regex passed to inline rgegex diff function: %w", err)
+	}
+	return nil
+}
+
 type PartV2 struct {
 	Name       string         `json:"name"`
 	Components []*ComponentV2 `json:"components"`
@@ -244,21 +333,21 @@ type ComponentV2 struct {
 }
 
 type ComponentV2Group interface {
-	SetTemplates([]*ReferenceTemplateV1)
-	GetTemplates() []*ReferenceTemplateV1
+	SetTemplates([]*ReferenceTemplateV2)
+	GetTemplates() []*ReferenceTemplateV2
 	UnmarshalJSON([]byte) (err error)
 	getMissingCRs(map[string]int) (ValidationIssue, int)
 }
 
 type componentGroup struct {
-	templates []*ReferenceTemplateV1
+	templates []*ReferenceTemplateV2
 }
 
-func (g *componentGroup) SetTemplates(t []*ReferenceTemplateV1) {
+func (g *componentGroup) SetTemplates(t []*ReferenceTemplateV2) {
 	g.templates = t
 }
 
-func (g *componentGroup) GetTemplates() []*ReferenceTemplateV1 {
+func (g *componentGroup) GetTemplates() []*ReferenceTemplateV2 {
 	return g.templates
 }
 
@@ -271,7 +360,7 @@ func getFieldNameFromStructTag(c *ComponentV2, s ComponentV2Group) string {
 }
 
 func componentV2GroupUnmarshalJSON(s ComponentV2Group, b []byte) (err error) {
-	list := make([]*ReferenceTemplateV1, 0)
+	list := make([]*ReferenceTemplateV2, 0)
 	err = json.Unmarshal(b, &list)
 	s.SetTemplates(list)
 	return err // nolint wrapcheck
@@ -462,8 +551,8 @@ func (comp *ComponentV2) validate(index int) error {
 	return nil
 }
 
-func (comp ComponentV2) getTemplates() []*ReferenceTemplateV1 {
-	templates := make([]*ReferenceTemplateV1, 0)
+func (comp ComponentV2) getTemplates() []*ReferenceTemplateV2 {
+	templates := make([]*ReferenceTemplateV2, 0)
 	for _, g := range comp.parts {
 		templates = append(templates, g.GetTemplates()...)
 	}
@@ -516,9 +605,14 @@ func ParseV2Templates(ref *ReferenceV2, fsys fs.FS) ([]ReferenceTemplate, error)
 			}
 		}
 		temp.Template = parsedTemp
+		temp.ReferenceTemplateV1.Config = temp.Config.ReferenceTemplateConfigV1
 		temp.metadata, err = temp.Exec(map[string]any{}) // Extract Metadata
 		if err != nil {
 			errs = append(errs, fmt.Errorf("failed to parse template %s with empty data: %w", temp.Path, err))
+		}
+		err = temp.validateConfigPerField()
+		if err != nil {
+			errs = append(errs, err)
 		}
 		err = temp.ValidateFieldsToOmit(ref.FieldsToOmit)
 		if err != nil {
