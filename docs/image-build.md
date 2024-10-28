@@ -1,7 +1,8 @@
-
 # Kube-compare image build
 
-## Build container
+This image is also distributed in a container build, mostly for Red Hat downstream distribution purposes.
+
+## Building the container
 
 ```bash
 make image-build
@@ -15,15 +16,17 @@ make image-build
 make cross-build
 ```
 
-- Another option is to extract the binary from the container
+## Extracting the tool from the container
 
 ```bash
-docker create --name kube-compare kube-compare:latest
-docker cp kube-compare:/usr/share/openshift/linux_amd64/kube-compare.rhel9 ./kube-compare.rhel9
-docker rm -f kube-compare
+ENGINE=podman # works with "docker" too
+IMAGE=kube-compare:latest
+BASEOS=rhel9 # "rhel8" is an option too, for older systems
+$ENGINE create --name kube-compare "$IMAGE"
+$ENGINE cp "kube-compare:/usr/share/openshift/linux_amd64/kube-compare.$BASEOS" ./kubectl-cluster_compare
+$ENGINE rm -f kube-compare
 
 # run 
 export PATH=$PWD:$PATH
-mv kube-compare.rhel9 kubectl-cluster_compare
 oc cluster-compare -h
 ```
