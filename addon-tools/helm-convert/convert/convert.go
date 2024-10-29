@@ -66,7 +66,7 @@ func convertToHelm(o *Options) error {
 		return fmt.Errorf("failed to get filesystem of cluster-compare reference %w", err)
 	}
 
-	templates, helperFuncs, err := getTemplates(cfs)
+	templates, helperFuncs, err := getTemplates(cfs, filepath.Base(o.refPath))
 	if err != nil {
 		return err
 	}
@@ -122,8 +122,8 @@ func convertToHelm(o *Options) error {
 	return createChart(helmTemplates, helmValues, o.outputDir, o.chartDescription, o.chartVersion)
 }
 
-func getTemplates(cfs fs.FS) ([]compare.ReferenceTemplate, string, error) {
-	ref, err := compare.GetReference(cfs, "metadata.yaml")
+func getTemplates(cfs fs.FS, referenceFileName string) ([]compare.ReferenceTemplate, string, error) {
+	ref, err := compare.GetReference(cfs, referenceFileName)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to get cluster-compare reference  %w", err)
 	}
