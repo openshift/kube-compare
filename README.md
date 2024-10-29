@@ -1,22 +1,31 @@
 # kube-compare
 
-`kube-compare` allows the user to compare an individual manifest or entire running cluster to a reference and find the differences. Expected differences are ignored as are cluster-managed fields, highlighting only differences that are of interest.
+[![Main branch test status](https://prow.ci.openshift.org/badge.svg?jobs=branch-ci-openshift-kube-compare-main-system-test)](https://prow.ci.openshift.org/job-history/gs/test-platform-results/logs/branch-ci-openshift-kube-compare-main-system-test)
 
-`kube-compare` is intended for administrators, architects, support engineers, and others to quickly check that a configuration is as-expected. For a more detailed description of the purpose and approach of the tool please read the [proposal document](docs/proposal.md).
+This repository is primarily home to a kubectl plugin called `cluster-compare`
+which allows the user to compare an individual manifest or entire running
+cluster to a reference and find the differences. Expected differences are
+ignored as are cluster-managed fields, highlighting only differences that are
+of interest.
+
+`cluster-compare` is intended for administrators, architects, support
+engineers, and others to quickly check that a configuration is as-expected. For
+a more detailed description of the purpose and approach of the tool please read
+the [proposal document](docs/proposal.md).
 
 ## Install
 
-Build the code locally and install it in `/usr/local/bin`:
+This plugin can be installed with the [Krew](https://krew.sigs.k8s.io/) plugin manager:
+
+```shell
+kubectl krew install cluster-compare
+```
+
+Alternatively, build the code locally and install it in `/usr/local/bin`:
 
 ```shell
 make build
 sudo make install
-```
-
-This plugin can be installed with plugin manager Krew as well:
-
-```shell
-kubectl krew install cluster-compare
 ```
 
 ## Run
