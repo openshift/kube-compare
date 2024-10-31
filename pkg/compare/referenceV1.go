@@ -193,6 +193,10 @@ func (config ReferenceTemplateConfigV1) GetAllowMerge() bool {
 	return config.AllowMerge
 }
 
+func (config ReferenceTemplateConfigV1) GetInlineDiffFuncs() map[string]inlineDiffType {
+	return map[string]inlineDiffType{}
+}
+
 func (config ReferenceTemplateConfigV1) GetFieldsToOmitRefs() []string {
 	return config.FieldsToOmitRefs
 }
@@ -299,16 +303,20 @@ func (p *ManifestPathV1) Process() error {
 	if len(p.parts) > 0 {
 		return nil
 	}
+	var err error
+	p.parts, err = pathToList(p.PathToKey)
+	return err
+}
 
-	pathToKey, _ := strings.CutPrefix(p.PathToKey, ".")
+func pathToList(path string) ([]string, error) {
+	pathToKey, _ := strings.CutPrefix(path, ".")
 	r := csv.NewReader(strings.NewReader(pathToKey))
 	r.Comma = '.'
 	fields, err := r.Read()
 	if err != nil {
-		return fmt.Errorf("failed to parse path: %w", err)
+		return nil, fmt.Errorf("failed to parse path: %w", err)
 	}
-	p.parts = fields
-	return nil
+	return fields, nil
 }
 
 func ParseV1Templates(ref *ReferenceV1, fsys fs.FS) ([]ReferenceTemplate, error) {

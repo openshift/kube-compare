@@ -1,0 +1,2 @@
+error: reference contains template with config per field with pathToKey that points to a path that does not exist in the template. path: spec.bigTextBloc
+error code:2

@@ -344,3 +344,69 @@ metadata:
 ```
 
 you use would use `metadata.annotations."workload.openshift.io/allowed"`.
+
+### PerField Configuration
+
+#### Inline Diff Funcs
+
+This Version of the tool contains builtin Inline diff functions. Inline diff functions are functions that run on a specific
+field in the templates. The functions contain common advanced diff functions that may be also implemented with pure go templating
+but if they were implemented with go templating would result in unclear diff logic that is hard to maintain.
+The functions goal is to enable a more clear and readable usage for common custom templating functions and allow more complex
+functionalities.
+
+To specify an inline function for a specific field yse the `perField` section in the metadata.yaml file as in this example:
+
+```yaml
+apiVersion: v2
+parts:
+- name: ExamplePart
+  components:
+  - name: Example
+    allOf:
+    - path: cm.yaml
+      config:
+        perField:
+        - pathToKey: spec.bigTextBlock # Field in template to run the inline diff function in pathToKey syntax
+          inlineDiffFunc: regex # Inline function 
+```
+
+Supported inline diff functions:
+
+##### Regex Inline Diff Function
+
+The regex Inline diff function allows validating fields in CRs based on a regex. When using the function the command will
+show no diffs in case the cluster CR will match the regex, if it does not match the regex a diff will be shown between the
+cluster CR and the regex expression.
+To use the regex inline diff function you need to enable the regexInline function for the specific field and template in
+the metadata.yaml and also specify the regex inside the template.
+For example:
+
+For a template named cm.yaml where spec.bigTextBlock should be validated by regex:
+
+```yaml
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  namespace: kubernetes-dashboard
+spec:
+  bigTextBlock: |-
+    This is a big text block with some static content, like this line.
+    It also has a place where (?<username>[a-z0-9]+) would put in their own name. (?<username>[a-z0-9]+) would put in their own name.
+```
+
+the metadata.yaml should contain:
+
+```yaml
+apiVersion: v2
+parts:
+- name: ExamplePart
+  components:
+  - name: Example
+    allOf:
+    - path: cm.yaml
+      config:
+        perField:
+        - pathToKey: spec.bigTextBlock 
+          inlineDiffFunc: regex  
+```

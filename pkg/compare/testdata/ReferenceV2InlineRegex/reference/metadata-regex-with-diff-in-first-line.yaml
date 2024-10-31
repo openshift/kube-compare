@@ -1,0 +1,11 @@
+apiVersion: v2
+parts:
+  - name: ExamplePart
+    components:
+      - name: DemonSets
+        allOf:
+          - path: cm-regex-with-diff-in-first-line.yaml
+            config:
+                perField:
+                - pathToKey: spec.bigTextBlock
+                  inlineDiffFunc: regex

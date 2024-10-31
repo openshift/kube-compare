@@ -35,6 +35,7 @@ type ReferenceTemplate interface {
 type TemplateConfig interface {
 	GetAllowMerge() bool
 	GetFieldsToOmitRefs() []string
+	GetInlineDiffFuncs() map[string]inlineDiffType
 }
 
 type FieldsToOmit interface {

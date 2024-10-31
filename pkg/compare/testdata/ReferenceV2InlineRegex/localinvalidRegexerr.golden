@@ -1,0 +1,2 @@
+error: reference contains template with config per field with InlineDiffFunc that fails validation. InlineDiffFunc: regex. error: invalid regex passed to inline rgegex diff function: error parsing regexp: invalid named capture: `(?<username[a-z0-9]+) would put in their own name. (?<username>`
+error code:2
