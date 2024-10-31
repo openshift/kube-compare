@@ -833,7 +833,7 @@ func (obj InfoObject) runInlineDiffFuncs() error {
 			errs = append(errs, fmt.Errorf("failed to acces value in cluster cr of field %s that uses inline diff func: %w", pathToKey, err))
 			continue
 		}
-		err = unstructured.SetNestedField(obj.injectedObjFromTemplate.Object, InlineDiffs[inlineDiffFunc].diff(value, clusterValue), listedPath...)
+		err = unstructured.SetNestedField(obj.injectedObjFromTemplate.Object, InlineDiffs[inlineDiffFunc].Diff(value, clusterValue), listedPath...)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("failed to update value of inline diff func result for field %s, %w", pathToKey, err))
 			continue
