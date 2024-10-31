@@ -8,6 +8,7 @@ require (
 	github.com/evanphx/json-patch v5.9.0+incompatible
 	github.com/gosimple/slug v1.14.0
 	github.com/samber/lo v1.39.0
+	github.com/sergi/go-diff v1.3.1
 	github.com/spf13/cobra v1.8.0
 	github.com/stretchr/testify v1.8.4
 	k8s.io/apimachinery v0.30.3
