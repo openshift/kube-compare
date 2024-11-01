@@ -271,7 +271,8 @@ type PerFieldConfigV2 struct {
 type inlineDiffType string
 
 var InlineDiffs = map[inlineDiffType]InlineDiff{
-	regex: RegexInlineDiff{},
+	regex:         RegexInlineDiff{},
+	capturegroups: CapturegroupsInlineDiff{},
 }
 
 type InlineDiff interface {

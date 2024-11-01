@@ -1,0 +1,26 @@
+**********************************
+
+Cluster CR: v1_ConfigMap_kubernetes-dashboard_kubernetes-dashboard-settings
+Reference File: cm-with-mismatched-capturegroups.yaml
+Diff Output: diff -u -N TEMP/v1_configmap_kubernetes-dashboard_kubernetes-dashboard-settings TEMP/v1_configmap_kubernetes-dashboard_kubernetes-dashboard-settings
+--- TEMP/v1_configmap_kubernetes-dashboard_kubernetes-dashboard-settings	DATE
++++ TEMP/v1_configmap_kubernetes-dashboard_kubernetes-dashboard-settings	DATE
+@@ -7,7 +7,6 @@
+   namespace: kubernetes-dashboard
+ spec:
+   bigTextBlock: |-
+-    This is a big text block with some static text, like this line.
+-    It also has a place where exampleuser would put in their own name. exampleuser would put in their text.
++    This is a big text block with some static content, like this line.
++    It also has a place where exampleuser would put in their own name. exampleuser would put in their own name.
+     More complicated [capture groups] are also allowed.
+-    WARNING: Capturegroup (?<test>…) matched multiple values: « text | content | own name »
+
+**********************************
+
+Summary
+CRs with diffs: 1/1
+No validation issues with the cluster
+No CRs are unmatched to reference CRs
+Metadata Hash: 68c4cd314f30ac2e8f0976723d63a47e20179d93647b55d56c97420dc229f7d5
+No patched CRs

@@ -1,0 +1,11 @@
+apiVersion: v2
+parts:
+  - name: ExamplePart
+    components:
+      - name: DemonSets
+        allOf:
+          - path: cm.yaml
+            config:
+                perField:
+                - pathToKey: spec.bigTextBlock
+                  inlineDiffFunc: capturegroups
