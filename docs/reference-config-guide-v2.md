@@ -88,6 +88,30 @@ components:
       - path: OptionalExclusiveTemplate2.yaml
 ```
 
+### Reference Descriptions
+
+In order to make detected differences more actionable, each template may
+include a description section which is displayed when a difference is detected,
+or if a required template is absent.
+
+The description section is a free-form multiline text field which can contain
+instructions or a URL referencing extra documentation about the template in
+question, such as why it is required or which fields are optional.
+
+```yaml
+components:
+  - name: ExampleComponent1
+    allOf:
+      - path: RequiredTemplate1.yaml
+        description: |-
+          Required for Important Reasons.
+          See https://github.com/org/repo/doc.md for details.
+      - path: RequiredTemplate2.yaml
+        description: |-
+          Non-optional when RequiredTemplate1 is present.
+          See https://github.com/org/repo/doc.md for details.
+```
+
 ### Example Reference Configuration CR
 
 User variable content is handled by golang formatted templating within the reference configuration

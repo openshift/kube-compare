@@ -1,0 +1,12 @@
+apiVersion: v2
+parts:
+  - name: ExamplePart
+    components:
+      - name: Description example
+        allOf:
+          - path: cm-matches.yaml
+          - path: cm-missing.yaml
+            description: |-
+              This is a freeform field.  You could point at why this
+              particular CR is required, or add an URL that points at more
+              documentation.  It is only shown when a difference is detected.

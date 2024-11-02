@@ -30,6 +30,7 @@ type ReferenceTemplate interface {
 	GetPath() string
 	GetConfig() TemplateConfig
 	GetTemplateTree() *parse.Tree
+	GetDescription() string
 }
 
 type TemplateConfig interface {
@@ -123,7 +124,12 @@ func ParseTemplates(ref Reference, fsys fs.FS) ([]ReferenceTemplate, error) {
 	return nil, fmt.Errorf("unknown reference file apiVersion: '%s'", ref.GetAPIVersion())
 }
 
+type CRMetadata struct {
+	Description string `json:"description,omitempty"`
+}
+
 type ValidationIssue struct {
-	Msg string   `json:"Msg,omitempty"`
-	CRs []string `json:"CRs,omitempty"`
+	Msg        string                `json:"Msg,omitempty"`
+	CRs        []string              `json:"CRs,omitempty"`
+	CRMetadata map[string]CRMetadata `json:"crMetadata,omitempty"`
 }

@@ -729,6 +729,7 @@ func (o *Options) Run() error {
 			CRName:             apiKindNamespaceName(clusterCR),
 			Patched:            patched,
 			OverrideReasons:    reasons,
+			Description:        temp.GetDescription(),
 		})
 		return err
 	})

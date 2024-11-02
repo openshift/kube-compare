@@ -1,0 +1,11 @@
+parts:
+  - name: ExamplePart
+    components:
+      - name: Description example
+        type: Required
+        requiredTemplates:
+          - path: cm-matches.yaml
+            description: |-
+              This is a freeform field.  You could point at why this
+              particular CR is required, or add an URL that points at more
+              documentation.  It is only shown when a difference is detected.

@@ -82,12 +82,22 @@ func (r *ReferenceV1) GetTemplateFunctionFiles() []string {
 
 func (c *ComponentV1) getMissingCRs(matchedTemplates map[string]int) ValidationIssue {
 	var crs []string
+	metadata := make(map[string]CRMetadata)
 	for _, temp := range c.RequiredTemplates {
 		if wasMatched, ok := matchedTemplates[temp.Path]; !ok || wasMatched == 0 {
 			crs = append(crs, temp.Path)
+			if description := temp.GetDescription(); description != "" {
+				metadata[temp.GetPath()] = CRMetadata{
+					Description: description,
+				}
+			}
 		}
 	}
-	return ValidationIssue{Msg: MissingCRsMsg, CRs: crs}
+	return ValidationIssue{
+		Msg:        MissingCRsMsg,
+		CRs:        crs,
+		CRMetadata: metadata,
+	}
 }
 
 func (p *PartV1) getMissingCRs(matchedTemplates map[string]int) (map[string]ValidationIssue, int) {
@@ -204,6 +214,7 @@ func (config ReferenceTemplateConfigV1) GetFieldsToOmitRefs() []string {
 type ReferenceTemplateV1 struct {
 	*template.Template `json:"-"`
 	Path               string                    `json:"path"`
+	Description        string                    `json:"description,omitempty"`
 	Config             ReferenceTemplateConfigV1 `json:"config,omitempty"`
 	metadata           *unstructured.Unstructured
 }
@@ -265,6 +276,10 @@ func (rf ReferenceTemplateV1) GetPath() string {
 
 func (rf ReferenceTemplateV1) GetIdentifier() string {
 	return rf.GetPath()
+}
+
+func (rf ReferenceTemplateV1) GetDescription() string {
+	return rf.Description
 }
 
 func (rf ReferenceTemplateV1) GetMetadata() *unstructured.Unstructured {
