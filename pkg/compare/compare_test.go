@@ -709,3 +709,60 @@ func updateTestDiscoveryClient(tf *cmdtesting.TestFactory, discoveryResources []
 	discoveryClient.PreferredResources = append(discoveryClient.PreferredResources, &ResourceList)
 	tf.WithDiscoveryClient(discoveryClient)
 }
+
+type RegexTest struct {
+	regex    string
+	input    string
+	expected string
+}
+
+func TestInlineRegex(t *testing.T) {
+	tests := []RegexTest{
+		{
+			regex:    "Hello",
+			input:    "Hello",
+			expected: "Hello",
+		},
+		{
+			regex:    "Hello",
+			input:    "bye",
+			expected: "Hello",
+		},
+		{
+			regex:    "He(llo)",
+			input:    "Hello",
+			expected: "Hello",
+		},
+		{
+			regex:    "He(llo)",
+			input:    "bye",
+			expected: "He(llo)",
+		},
+		{
+			regex:    "He(?<simple>llo)",
+			input:    "Hello",
+			expected: "Hello",
+		},
+		{
+			regex:    "He(?<simple>llo)",
+			input:    "Bye",
+			expected: "He(?<simple>llo)",
+		},
+		{
+			regex:    "He(?<simple>llo), World",
+			input:    "Hello, World",
+			expected: "Hello, World",
+		},
+		{
+			regex:    "(?<simple>Hello), (?<simple>World)",
+			input:    "Hello, World",
+			expected: "Hello, <matched value does not equal previously matched value Hello != World >",
+		},
+	}
+
+	inlineFunc := InlineDiffs["regex"]
+	for _, test := range tests {
+		actual := inlineFunc.diff(test.regex, test.input)
+		require.Equal(t, test.expected, actual)
+	}
+}

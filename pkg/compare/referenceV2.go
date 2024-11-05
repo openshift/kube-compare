@@ -10,6 +10,7 @@ import (
 	"path"
 	"reflect"
 	"regexp"
+	"regexp/syntax"
 	"slices"
 	"strings"
 	"text/template"
@@ -284,15 +285,88 @@ type InlineDiff interface {
 
 type RegexInlineDiff struct{}
 
+// getRegexParts Returns a capture group or all parts before the capture group.
+func getRegexParts(r *syntax.Regexp) (*syntax.Regexp, *syntax.Regexp) {
+	if r.Op != syntax.OpConcat {
+		return r, nil
+	}
+
+	first := &syntax.Regexp{
+		Op:  syntax.OpConcat,
+		Sub: make([]*syntax.Regexp, 0),
+	}
+	var leftovers *syntax.Regexp
+	for i, p := range r.Sub {
+		if p.Op == syntax.OpCapture {
+			leftoversIndex := i
+			if i == 0 {
+				first.Sub = append(first.Sub, p)
+				leftoversIndex = 1
+			}
+			first.Sub0 = [1]*syntax.Regexp{first.Sub[0]}
+
+			if len(r.Sub) <= leftoversIndex {
+				return first, nil
+			}
+			leftovers = &syntax.Regexp{
+				Op:   syntax.OpConcat,
+				Sub:  r.Sub[leftoversIndex:],
+				Sub0: [1]*syntax.Regexp{r.Sub[leftoversIndex]},
+			}
+
+			return first, leftovers
+		} else {
+			first.Sub = append(first.Sub, p)
+		}
+	}
+	return first, nil
+}
+
 func (id RegexInlineDiff) diff(regex, crValue string) string {
-	re, err := regexp.Compile(regex)
+	matched := ""
+	var r *syntax.Regexp
+	l, err := syntax.Parse(regex, syntax.Perl)
 	if err != nil {
 		return regex
 	}
-	if re.MatchString(crValue) {
-		return crValue
+	namedGroupValues := map[string]string{}
+	for {
+		r, l = getRegexParts(l)
+		fmt.Println(l)
+		t := matched + "(" + r.String() + ")" + "(.*?)"
+		fmt.Println(t)
+		re, _ := regexp.Compile(t)
+		matchValues := re.FindStringSubmatch(crValue)
+		if len(matchValues) == 0 {
+			if matched != crValue {
+				// TODO: Include error message
+				return regex
+			}
+		}
+		matchAdded := false
+
+		for n, captureName := range re.SubexpNames() {
+			if captureName != "" {
+				seen, ok := namedGroupValues[captureName]
+				if ok && seen != matchValues[n] {
+					matched += fmt.Sprintf("<matched value does not equal previously matched value %s != %s >", seen, matchValues[n])
+					matchAdded = true
+				} else if !ok {
+					namedGroupValues[captureName] = matchValues[n]
+				}
+			}
+		}
+
+		if !matchAdded {
+			matched += matchValues[1]
+		}
+
+		// TODO keep track of named capture groups
+		if l == nil || len(l.Sub) == 0 {
+			break
+		}
 	}
-	return regex
+	return matched
 }
 
 func (id RegexInlineDiff) validate(regex string) error {
