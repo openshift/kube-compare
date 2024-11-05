@@ -532,7 +532,17 @@ func TestCompareRun(t *testing.T) {
 		defaultTest("Reference V2 Diff in Custom Omitted Fields Isnt Shown").
 			withSubTestWithMetadata("basic include"),
 		defaultTest("Reference V2 Diff in Custom Omitted Fields Isnt Shown").
-			withSubTestWithMetadata("circular include"),
+			withSubTestWithMetadata("circular include").
+			withChecks(Checks{
+				// Note: This produces 3 specific errors but the order is nondeterministic, so we use a regex instead
+				Err: matchErrorRegexCheck(
+					"(?s)(" +
+						"(circular import found deployment -> deployment\\s*)|" +
+						"(circular import found includeMe -> includeWithDepth -> includeMe\\s*)|" +
+						"(circular import found includeWithDepth -> includeMe -> includeWithDepth\\s*)|" +
+						"){3}",
+				),
+			}),
 		defaultTest("Reference V2 Diff in Custom Omitted Fields Isnt Shown Prefix"),
 
 		defaultTest("semver").withSubTestWithMetadata("good version"),
