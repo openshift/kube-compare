@@ -209,7 +209,7 @@ func TestCapturegroupsDiff(t *testing.T) {
 				{
 					message: "matching pattern differently each time",
 					value:   []string{"Line one", "Line a a two b", "Line three"},
-					expected: []string{"Line one", "Line a a two a a", "Line a a",
+					expected: []string{"Line one", "Line (?<g1>=a a) two (?<g1>=a a)", "Line (?<g1>=a a)",
 						"WARNING: Capturegroup (?<g1>…) matched multiple values: « a a | b | three »",
 					},
 				},

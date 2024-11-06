@@ -9,8 +9,8 @@ Diff Output: diff -u -N TEMP/v1_configmap_kubernetes-dashboard_kubernetes-dashbo
    namespace: kubernetes-dashboard
  spec:
    bigTextBlock: |-
--    This is a big text block with some static text, like this line.
--    It also has a place where exampleuser would put in their own name. exampleuser would put in their text.
+-    This is a big (?<test>=text) block with some static (?<test>=text), like this line.
+-    It also has a place where exampleuser would put in their own name. exampleuser would put in their (?<test>=text).
 +    This is a big text block with some static content, like this line.
 +    It also has a place where exampleuser would put in their own name. exampleuser would put in their own name.
      More complicated [capture groups] are also allowed.

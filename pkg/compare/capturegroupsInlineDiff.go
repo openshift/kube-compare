@@ -288,7 +288,12 @@ func (id CapturegroupsInlineDiff) Diff(pattern, value string) string {
 			reconciledString += pattern[idx:group.Start]
 		}
 		if matches, ok := cgDiff.caps[group.Name]; ok {
-			reconciledString += matches[0]
+			if len(matches) == 1 {
+				reconciledString += matches[0]
+			} else {
+				// Multiple matches detected, so call attention to them
+				reconciledString += fmt.Sprintf("(?<%s>=%s)", group.Name, matches[0])
+			}
 		} else {
 			reconciledString += pattern[group.Start:group.End]
 		}
