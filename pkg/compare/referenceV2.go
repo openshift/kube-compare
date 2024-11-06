@@ -375,7 +375,6 @@ func (id RegexInlineDiff) diff(regex, crValue string) string {
 			}
 		}
 
-		// TODO: properly handle nested capture groups (validate func should prevent them ATM)
 		names := re.SubexpNames()
 		if len(names) == 1 {
 			// No capture groups just use the entire thing
@@ -384,7 +383,7 @@ func (id RegexInlineDiff) diff(regex, crValue string) string {
 		}
 
 		if len(names) > 2 {
-
+			// TODO: properly handle nested capture groups instead of ignoring
 			klog.Warningf("nested match value ignored in pattern %s", re.String())
 		}
 		captureName := names[1]
