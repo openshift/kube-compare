@@ -808,8 +808,7 @@ func TestInlineRegexValidate(t *testing.T) {
 			regex: "Hello, (World)",
 		},
 		{
-			regex:    "(Hello (World))",
-			expected: errors.New("nested capture is not supported: '(Hello (World))'"),
+			regex: "(Hello (World))", // TODO: Capture warning
 		},
 	}
 

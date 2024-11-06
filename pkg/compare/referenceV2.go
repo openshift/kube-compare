@@ -384,6 +384,7 @@ func (id RegexInlineDiff) diff(regex, crValue string) string {
 		}
 
 		if len(names) > 2 {
+
 			klog.Warningf("nested match value ignored in pattern %s", re.String())
 		}
 		captureName := names[1]
@@ -422,16 +423,14 @@ func findCaptureNode(node *syntax.Regexp) []*syntax.Regexp {
 	return nodes
 }
 
-func validateRegexSynaxTree(node *syntax.Regexp) error {
+func warnNestedCaptureGroups(node *syntax.Regexp) {
 	captureNodes := findCaptureNode(node)
-	errs := make([]error, 0)
 	for _, capture := range captureNodes {
 		nested := findCaptureNode(capture)
 		if len(nested) > 1 {
-			errs = append(errs, fmt.Errorf("nested capture is not supported: '%s'", capture.String()))
+			klog.Warningf("nested capture is not supported: '%s'", capture.String())
 		}
 	}
-	return errors.Join(errs...)
 }
 
 func (id RegexInlineDiff) validate(regex string) error {
@@ -439,7 +438,8 @@ func (id RegexInlineDiff) validate(regex string) error {
 	if err != nil {
 		return fmt.Errorf("invalid regex passed to inline rgegex diff function: %w", err)
 	}
-	return validateRegexSynaxTree(tree)
+	warnNestedCaptureGroups(tree)
+	return nil
 }
 
 type PartV2 struct {
