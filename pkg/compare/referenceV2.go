@@ -364,45 +364,45 @@ func (id RegexInlineDiff) diff(regex, crValue string) string {
 		return regex
 	}
 	namedGroupValues := map[string]string{}
-	for {
+	for leftovers != nil {
 		toMatch, leftovers = getRegexParts(leftovers)
 		re, _ := getCompiledRegex(matched, toMatch)
 		matchValues := re.FindStringSubmatch(crValue)
+
 		if len(matchValues) == 0 {
 			if matched != crValue {
 				return regex
 			}
 		}
 
-		if toMatch.Op != syntax.OpCapture {
-			// If we don't have a capture groups to check we can just take all the matched string
+		// TODO: properly handle nested capture groups (validate func should prevent them ATM)
+		names := re.SubexpNames()
+		if len(names) == 1 {
+			// No capture groups just use the entire thing
 			matched = matchValues[0]
+			continue
+		}
+
+		if len(names) > 2 {
+			klog.Warningf("nested match value ignored in pattern %s", re.String())
+		}
+		captureName := names[1]
+		if captureName == "" {
+			// not a named group don't need to care
+			matched = matchValues[0]
+			continue
+		}
+		seen, ok := namedGroupValues[captureName]
+		matchedValue := matchValues[1]
+		if ok && seen != matchedValue {
+			matched += fmt.Sprintf("<previously matched value does not equal the currently matched value '%s' != '%s'>", seen, matchedValue)
 		} else {
-			// TODO: properly handle nested capture groups (validate func should prevent them ATM)
-			for n, captureName := range re.SubexpNames() {
-				if n == 0 {
-					// skip group with all match in
-					continue
-				}
-
-				if captureName != "" {
-					seen, ok := namedGroupValues[captureName]
-					if ok && seen != matchValues[n] {
-						matched += fmt.Sprintf("<matched value does not equal previously matched value %s != %s >", seen, matchValues[n])
-						continue
-					} else if !ok {
-						namedGroupValues[captureName] = matchValues[n]
-						matched += matchValues[n]
-					}
-				} else {
-					matched += matchValues[n]
-				}
+			if !ok {
+				namedGroupValues[captureName] = matchedValue
 			}
+			matched += matchedValue
 		}
 
-		if leftovers == nil {
-			break
-		}
 	}
 	return matched
 }

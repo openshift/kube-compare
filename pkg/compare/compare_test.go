@@ -756,19 +756,26 @@ func TestInlineRegexDiff(t *testing.T) {
 		{
 			regex:    "(?<simple>Hello), (?<simple>World)",
 			input:    "Hello, World",
-			expected: "Hello, <matched value does not equal previously matched value Hello != World >",
+			expected: "Hello, <previously matched value does not equal the currently matched value 'Hello' != 'World'>",
 		},
 		{
 			regex:    "Hello, (World)",
 			input:    "Hello, Bob",
 			expected: "Hello, (World)",
 		},
+		{
+			regex:    "(Hello, (World))",
+			input:    "Hello, World",
+			expected: "Hello, World",
+		},
 	}
 
 	inlineFunc := InlineDiffs["regex"]
 	for _, test := range tests {
-		actual := inlineFunc.diff(test.regex, test.input)
-		require.Equal(t, test.expected, actual)
+		t.Run(test.regex, func(t *testing.T) {
+			actual := inlineFunc.diff(test.regex, test.input)
+			require.Equal(t, test.expected, actual)
+		})
 	}
 }
 
