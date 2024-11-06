@@ -783,6 +783,24 @@ func TestInlineRegexValidate(t *testing.T) {
 			regex: "Hello",
 		},
 		{
+			regex: "He(llo)",
+		},
+		{
+			regex: "He(?<simple>llo)",
+		},
+		{
+			regex: "He(?<simple>llo)",
+		},
+		{
+			regex: "He(?<simple>llo), World",
+		},
+		{
+			regex: "(?<simple>Hello), (?<simple>World)",
+		},
+		{
+			regex: "Hello, (World)",
+		},
+		{
 			regex:    "(Hello (World))",
 			expected: errors.New("nested capture is not supported: '(Hello (World))'"),
 		},
@@ -790,15 +808,17 @@ func TestInlineRegexValidate(t *testing.T) {
 
 	inlineFunc := InlineDiffs["regex"]
 	for _, test := range tests {
-		actual := inlineFunc.validate(test.regex)
-		if actual == nil && test.expected == nil { //nolint: gocritic
-			continue
-		} else if actual == nil && test.expected != nil {
-			t.Fatal("actual == nil && test.expected != nil")
-		} else if actual != nil && test.expected == nil {
-			t.Fatal("actual != nil && test.expected == nil")
-		} else {
-			require.Equal(t, test.expected.Error(), actual.Error())
-		}
+		t.Run(test.regex, func(t *testing.T) {
+			actual := inlineFunc.validate(test.regex)
+			if actual == nil && test.expected == nil { //nolint: gocritic
+				return
+			} else if actual == nil && test.expected != nil {
+				t.Fatal("actual == nil && test.expected != nil")
+			} else if actual != nil && test.expected == nil {
+				t.Fatal("actual != nil && test.expected == nil")
+			} else {
+				require.Equal(t, test.expected.Error(), actual.Error())
+			}
+		})
 	}
 }

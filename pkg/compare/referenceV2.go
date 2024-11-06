@@ -375,7 +375,7 @@ func (id RegexInlineDiff) diff(regex, crValue string) string {
 		}
 
 		if toMatch.Op != syntax.OpCapture {
-			// If we don't have a capture group we can just take all the matched string
+			// If we don't have a capture groups to check we can just take all the matched string
 			matched = matchValues[0]
 		} else {
 			// TODO: properly handle nested capture groups (validate func should prevent them ATM)
@@ -408,10 +408,10 @@ func (id RegexInlineDiff) diff(regex, crValue string) string {
 }
 
 func findCaptureNode(node *syntax.Regexp) []*syntax.Regexp {
-	if node.Op == syntax.OpCapture {
-		return []*syntax.Regexp{node}
-	}
 	nodes := make([]*syntax.Regexp, 0)
+	if node.Op == syntax.OpCapture {
+		nodes = append(nodes, node)
+	}
 	if node.Sub == nil {
 		return nodes
 	}
@@ -427,7 +427,7 @@ func validateRegexSynaxTree(node *syntax.Regexp) error {
 	errs := make([]error, 0)
 	for _, capture := range captureNodes {
 		nested := findCaptureNode(capture)
-		if len(nested) > 0 {
+		if len(nested) > 1 {
 			errs = append(errs, fmt.Errorf("nested capture is not supported: '%s'", capture.String()))
 		}
 	}
