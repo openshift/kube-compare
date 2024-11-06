@@ -758,6 +758,11 @@ func TestInlineRegex(t *testing.T) {
 			input:    "Hello, World",
 			expected: "Hello, <matched value does not equal previously matched value Hello != World >",
 		},
+		{
+			regex:    "Hello, (World)",
+			input:    "Hello, Bob",
+			expected: "Hello, (World)",
+		},
 	}
 
 	inlineFunc := InlineDiffs["regex"]

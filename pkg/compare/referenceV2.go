@@ -285,84 +285,120 @@ type InlineDiff interface {
 
 type RegexInlineDiff struct{}
 
+func constructFromParts(parts []*syntax.Regexp) *syntax.Regexp {
+	if len(parts) == 0 {
+		return nil
+	}
+
+	if len(parts) == 1 {
+		return parts[0]
+	}
+
+	return &syntax.Regexp{
+		Op:   syntax.OpConcat,
+		Sub:  parts,
+		Sub0: [1]*syntax.Regexp{parts[0]},
+	}
+}
+
 // getRegexParts Returns a capture group or all parts before the capture group.
 func getRegexParts(r *syntax.Regexp) (*syntax.Regexp, *syntax.Regexp) {
 	if r.Op != syntax.OpConcat {
 		return r, nil
 	}
-
-	first := &syntax.Regexp{
-		Op:  syntax.OpConcat,
-		Sub: make([]*syntax.Regexp, 0),
-	}
-	var leftovers *syntax.Regexp
+	leftoverParts := make([]*syntax.Regexp, 0)
+	takenParts := make([]*syntax.Regexp, 0)
 	for i, p := range r.Sub {
-		if p.Op == syntax.OpCapture {
-			leftoversIndex := i
-			if i == 0 {
-				first.Sub = append(first.Sub, p)
-				leftoversIndex = 1
-			}
-			first.Sub0 = [1]*syntax.Regexp{first.Sub[0]}
-
-			if len(r.Sub) <= leftoversIndex {
-				return first, nil
-			}
-			leftovers = &syntax.Regexp{
-				Op:   syntax.OpConcat,
-				Sub:  r.Sub[leftoversIndex:],
-				Sub0: [1]*syntax.Regexp{r.Sub[leftoversIndex]},
-			}
-
-			return first, leftovers
+		if p.Op != syntax.OpCapture {
+			takenParts = append(takenParts, p)
 		} else {
-			first.Sub = append(first.Sub, p)
+			leftoverPartsIndex := i
+			if i == 0 {
+				takenParts = append(takenParts, p)
+				leftoverPartsIndex = 1
+			}
+			leftoverParts = r.Sub[leftoverPartsIndex:]
+			break
 		}
 	}
-	return first, nil
+
+	return constructFromParts(takenParts), constructFromParts(leftoverParts)
+}
+
+// Constuct a literal with the current matched then add current part to it.
+func getCompiledRegex(matched string, toMatch *syntax.Regexp) (*regexp.Regexp, error) {
+	runes := []rune(matched)
+	if len(runes) == 0 {
+		return regexp.Compile(toMatch.String()) //nolint:wrapcheck
+	}
+
+	shortRunes := [2]rune{}
+	for n := range runes {
+		if n == 2 {
+			break
+		}
+		shortRunes[n] = runes[n]
+	}
+
+	res := syntax.Regexp{
+		Op: syntax.OpConcat,
+		Sub: []*syntax.Regexp{
+			{
+				Op:    syntax.OpLiteral,
+				Rune:  runes,
+				Rune0: shortRunes,
+			},
+			toMatch,
+		},
+	}
+	return regexp.Compile(res.String()) //nolint:wrapcheck
+
 }
 
 func (id RegexInlineDiff) diff(regex, crValue string) string {
 	matched := ""
-	var r *syntax.Regexp
-	l, err := syntax.Parse(regex, syntax.Perl)
+	var toMatch *syntax.Regexp
+	leftovers, err := syntax.Parse(regex, syntax.Perl)
 	if err != nil {
 		return regex
 	}
 	namedGroupValues := map[string]string{}
 	for {
-		r, l = getRegexParts(l)
-		fmt.Println(l)
-		t := matched + "(" + r.String() + ")" + "(.*?)"
-		fmt.Println(t)
-		re, _ := regexp.Compile(t)
+		toMatch, leftovers = getRegexParts(leftovers)
+		re, _ := getCompiledRegex(matched, toMatch)
 		matchValues := re.FindStringSubmatch(crValue)
 		if len(matchValues) == 0 {
 			if matched != crValue {
-				// TODO: Include error message
 				return regex
 			}
 		}
-		matchAdded := false
 
-		for n, captureName := range re.SubexpNames() {
-			if captureName != "" {
-				seen, ok := namedGroupValues[captureName]
-				if ok && seen != matchValues[n] {
-					matched += fmt.Sprintf("<matched value does not equal previously matched value %s != %s >", seen, matchValues[n])
-					matchAdded = true
-				} else if !ok {
-					namedGroupValues[captureName] = matchValues[n]
+		if toMatch.Op != syntax.OpCapture {
+			// If we don't have a capture group we can just take all the matched string
+			matched = matchValues[0]
+		} else {
+			for n, captureName := range re.SubexpNames() {
+				if n == 0 {
+					// skip group with all match in
+					continue
+				}
+
+				if captureName != "" {
+					seen, ok := namedGroupValues[captureName]
+					if ok && seen != matchValues[n] {
+						matched += fmt.Sprintf("<matched value does not equal previously matched value %s != %s >", seen, matchValues[n])
+						continue
+					} else if !ok {
+						namedGroupValues[captureName] = matchValues[n]
+						matched += matchValues[n]
+					}
+				} else {
+					matched += matchValues[n]
 				}
 			}
 		}
 
-		if !matchAdded {
-			matched += matchValues[1]
-		}
-
-		// TODO keep track of named capture groups
-		if l == nil || len(l.Sub) == 0 {
+		if leftovers == nil {
 			break
 		}
 	}
