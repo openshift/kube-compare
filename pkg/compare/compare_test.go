@@ -710,14 +710,14 @@ func updateTestDiscoveryClient(tf *cmdtesting.TestFactory, discoveryResources []
 	tf.WithDiscoveryClient(discoveryClient)
 }
 
-type RegexTest struct {
+type RegexTestDiff struct {
 	regex    string
 	input    string
 	expected string
 }
 
-func TestInlineRegex(t *testing.T) {
-	tests := []RegexTest{
+func TestInlineRegexDiff(t *testing.T) {
+	tests := []RegexTestDiff{
 		{
 			regex:    "Hello",
 			input:    "Hello",
@@ -769,5 +769,36 @@ func TestInlineRegex(t *testing.T) {
 	for _, test := range tests {
 		actual := inlineFunc.diff(test.regex, test.input)
 		require.Equal(t, test.expected, actual)
+	}
+}
+
+type RegexTestValidate struct {
+	regex    string
+	expected error
+}
+
+func TestInlineRegexValidate(t *testing.T) {
+	tests := []RegexTestValidate{
+		{
+			regex: "Hello",
+		},
+		{
+			regex:    "(Hello (World))",
+			expected: errors.New("nested capture is not supported: '(Hello (World))'"),
+		},
+	}
+
+	inlineFunc := InlineDiffs["regex"]
+	for _, test := range tests {
+		actual := inlineFunc.validate(test.regex)
+		if actual == nil && test.expected == nil { //nolint: gocritic
+			continue
+		} else if actual == nil && test.expected != nil {
+			t.Fatal("actual == nil && test.expected != nil")
+		} else if actual != nil && test.expected == nil {
+			t.Fatal("actual != nil && test.expected == nil")
+		} else {
+			require.Equal(t, test.expected.Error(), actual.Error())
+		}
 	}
 }

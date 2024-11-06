@@ -332,6 +332,7 @@ func getCompiledRegex(matched string, toMatch *syntax.Regexp) (*regexp.Regexp, e
 		return regexp.Compile(toMatch.String()) //nolint:wrapcheck
 	}
 
+	// Initialise array so we can handle only a single rune
 	shortRunes := [2]rune{}
 	for n := range runes {
 		if n == 2 {
@@ -377,6 +378,7 @@ func (id RegexInlineDiff) diff(regex, crValue string) string {
 			// If we don't have a capture group we can just take all the matched string
 			matched = matchValues[0]
 		} else {
+			// TODO: properly handle nested capture groups (validate func should prevent them ATM)
 			for n, captureName := range re.SubexpNames() {
 				if n == 0 {
 					// skip group with all match in
@@ -405,12 +407,39 @@ func (id RegexInlineDiff) diff(regex, crValue string) string {
 	return matched
 }
 
+func findCaptureNode(node *syntax.Regexp) []*syntax.Regexp {
+	if node.Op == syntax.OpCapture {
+		return []*syntax.Regexp{node}
+	}
+	nodes := make([]*syntax.Regexp, 0)
+	if node.Sub == nil {
+		return nodes
+	}
+
+	for _, subNode := range node.Sub {
+		nodes = append(nodes, findCaptureNode(subNode)...)
+	}
+	return nodes
+}
+
+func validateRegexSynaxTree(node *syntax.Regexp) error {
+	captureNodes := findCaptureNode(node)
+	errs := make([]error, 0)
+	for _, capture := range captureNodes {
+		nested := findCaptureNode(capture)
+		if len(nested) > 0 {
+			errs = append(errs, fmt.Errorf("nested capture is not supported: '%s'", capture.String()))
+		}
+	}
+	return errors.Join(errs...)
+}
+
 func (id RegexInlineDiff) validate(regex string) error {
-	_, err := regexp.Compile(regex)
+	tree, err := syntax.Parse(regex, syntax.Perl)
 	if err != nil {
 		return fmt.Errorf("invalid regex passed to inline rgegex diff function: %w", err)
 	}
-	return nil
+	return validateRegexSynaxTree(tree)
 }
 
 type PartV2 struct {
