@@ -1,0 +1,28 @@
+**********************************
+
+Cluster CR: v1_ConfigMap_ConfigMap
+Reference File: cm-diff.yaml
+Description:
+  This is a freeform field.  You could point at why this
+  particular CR is required, or add an URL that points at more
+  documentation.  It is only shown when a difference is detected.
+Diff Output: diff -u -N TEMP/v1_configmap_configmap TEMP/v1_configmap_configmap
+--- TEMP/v1_configmap_configmap	DATE
++++ TEMP/v1_configmap_configmap	DATE
+@@ -1,6 +1,6 @@
+ apiVersion: v1
+ data:
+-  key: wrong value
++  key: value
+ kind: ConfigMap
+ metadata:
+   name: ConfigMap
+
+**********************************
+
+Summary
+CRs with diffs: 1/1
+No validation issues with the cluster
+No CRs are unmatched to reference CRs
+Metadata Hash: bb7dfc980f720d7f14b3d56d97bd99a354e4bdb2732494a0b703358f3c13406f
+No patched CRs

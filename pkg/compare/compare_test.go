@@ -545,6 +545,13 @@ func TestCompareRun(t *testing.T) {
 			}),
 		defaultTest("Reference V2 Diff in Custom Omitted Fields Isnt Shown Prefix"),
 
+		defaultTest("Description").withSubTestWithMetadata("shown for diff"),
+		defaultTest("Description").withSubTestWithMetadata("shown for missing file"),
+		defaultTest("Description").withSubTestWithMetadata("hidden for match"),
+		defaultTest("Description V1").withSubTestWithMetadata("shown for diff"),
+		defaultTest("Description V1").withSubTestWithMetadata("shown for missing file"),
+		defaultTest("Description V1").withSubTestWithMetadata("hidden for match"),
+
 		defaultTest("semver").withSubTestWithMetadata("good version"),
 		defaultTest("semver").withSubTestWithMetadata("bad version"),
 	}

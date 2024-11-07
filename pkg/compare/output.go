@@ -10,6 +10,7 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/Masterminds/sprig/v3"
 	"github.com/samber/lo"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -24,12 +25,17 @@ type DiffSum struct {
 	CRName             string   `json:"CRName"`
 	Patched            string   `json:"Patched,omitempty"`
 	OverrideReasons    []string `json:"OverrideReason,omitempty"`
+	Description        string   `json:"description,omitempty"`
 }
 
 func (s DiffSum) String() string {
 	t := `
 Cluster CR: {{ .CRName }}
 Reference File: {{ .CorrelatedTemplate }}
+{{- if .Description }}
+Description:
+{{ .Description | indent 2 }}
+{{- end }}
 Diff Output: {{or .DiffOutput "None" }}
 {{- if ne (len  .Patched) 0 }}
 Patched with {{ .Patched }}
@@ -44,7 +50,7 @@ Patch Reasons:
 {{- end }}
 `
 	var buf bytes.Buffer
-	tmpl, _ := template.New("DiffSummary").Parse(t)
+	tmpl, _ := template.New("DiffSummary").Funcs(sprig.TxtFuncMap()).Parse(t)
 	_ = tmpl.Execute(&buf, s)
 	return strings.TrimSpace(buf.String())
 }
@@ -95,38 +101,27 @@ func newSummary(reference Reference, c *MetricsTracker, numDiffCRs int, template
 	return &s
 }
 
-type valdationMsg ValidationIssue
-
-func (v valdationMsg) MarshalJSON() ([]byte, error) {
-	return json.Marshal(&map[string][]string{v.Msg: v.CRs}) // nolint wrap check
-}
-
-func displayValidationIssues(v map[string]map[string]ValidationIssue) string {
-	// Convert ValidationIssue -> valdationMsg so we can display it better
-	newV := make(map[string]map[string]valdationMsg)
-	for pk, pv := range v {
-		newV[pk] = make(map[string]valdationMsg)
-		for ck, cv := range pv {
-			newV[pk][ck] = valdationMsg{Msg: cv.Msg, CRs: cv.CRs}
-		}
-	}
-
-	data, err := yaml.Marshal(newV)
-	if err != nil {
-		// Swallow errors inside of a template.
-		return ""
-	}
-	x := string(data)
-	return strings.TrimSuffix(x, "\n")
-}
-
 func (s Summary) String() string {
 	t := `
 Summary
 CRs with diffs: {{ .NumDiffCRs }}/{{ .TotalCRs }}
 {{- if ne (len  .ValidationIssues) 0 }}
 CRs in reference missing from the cluster: {{.NumMissing}}
-{{ displayValidationIssues .ValidationIssues}}
+{{- range $groupname, $group := .ValidationIssues }}
+{{ $groupname }}:
+  {{- range $partname, $issue := $group }}
+  {{ $partname }}:
+    {{ $issue.Msg }}:
+    {{- range $cr := $issue.CRs }}
+    - {{ $cr }}
+      {{- $md := index $issue.CRMetadata $cr }}
+      {{- if $md.Description }}
+      Description:
+        {{- $md.Description | nindent 8 }}
+      {{- end }}
+    {{- end }}
+  {{- end }}
+{{- end }}
 {{- else}}
 No validation issues with the cluster
 {{- end }}
@@ -144,7 +139,7 @@ No patched CRs
 {{- end }}
 `
 	var buf bytes.Buffer
-	tmpl, _ := template.New("Summary").Funcs(template.FuncMap{"toYaml": toYAML, "displayValidationIssues": displayValidationIssues}).Parse(t)
+	tmpl, _ := template.New("Summary").Funcs(sprig.TxtFuncMap()).Funcs(template.FuncMap{"toYaml": toYAML}).Parse(t)
 	_ = tmpl.Execute(&buf, s)
 	return strings.TrimSpace(buf.String())
 }

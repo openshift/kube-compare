@@ -439,15 +439,22 @@ func (g *AllOf) UnmarshalJSON(b []byte) (err error) {
 
 func (g *AllOf) getMissingCRs(matchedTemplates map[string]int) (ValidationIssue, int) {
 	notMatched := make([]string, 0)
+	metadata := make(map[string]CRMetadata)
 	for _, temp := range g.templates {
 		if n, ok := matchedTemplates[temp.GetPath()]; !ok || (ok && n == 0) {
 			notMatched = append(notMatched, temp.GetPath())
+			if description := temp.GetDescription(); description != "" {
+				metadata[temp.GetPath()] = CRMetadata{
+					Description: description,
+				}
+			}
 		}
 	}
 	if len(notMatched) > 0 {
 		return ValidationIssue{
-			Msg: MissingCRsMsg,
-			CRs: notMatched,
+			Msg:        MissingCRsMsg,
+			CRs:        notMatched,
+			CRMetadata: metadata,
 		}, len(notMatched)
 	}
 	return ValidationIssue{}, 0
