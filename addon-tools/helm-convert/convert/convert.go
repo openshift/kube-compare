@@ -200,7 +200,9 @@ func getCompName(templateName string) string {
 	compName := strings.TrimSuffix(templateName, ".yaml")
 	compName = strings.TrimSuffix(compName, ".yml")
 	compName = strings.ReplaceAll(compName, "/", "_")
-	return strings.ReplaceAll(compName, "-", "_")
+	compName = strings.ReplaceAll(compName, "-", "_")
+	compName = strings.ReplaceAll(compName, ".", "_")
+	return compName
 }
 
 func loadValues(path string) (map[string]interface{}, error) {

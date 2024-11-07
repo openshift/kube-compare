@@ -1,0 +1,10 @@
+parts:
+  - name: ExamplePart
+    components:
+      - name: DemonSets
+        type: Required
+        requiredTemplates:
+          - path: config-map.yaml
+          - path: crb.yml
+          - path: subdir/cr.yaml
+          - path: deployment.dashboard.yaml

@@ -65,6 +65,11 @@ func TestConvert(t *testing.T) {
 			description: "Templates Are Created As Expected Test",
 		},
 		{
+			name:        "Odd Filenames",
+			version:     "2",
+			description: "Test escaping of odd or unexpected characters in reference filenames",
+		},
+		{
 			name:           "Default Values Addition",
 			passDefaultDir: true,
 		},
