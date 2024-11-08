@@ -9,7 +9,6 @@ import (
 	"io/fs"
 	"path"
 	"reflect"
-	"regexp"
 	"slices"
 	"strings"
 	"text/template"
@@ -251,12 +250,12 @@ func (rf ReferenceTemplateV2) validateConfigPerField() error {
 			return fmt.Errorf("reference contains template with config per field with pathToKey that points to a "+
 				"path that does not exist in the template. path: %s", pathToKey)
 		}
-		validator, ok := InlineDiffs[inlineDiffFunc]
+		diffFn, ok := InlineDiffs[inlineDiffFunc]
 		if !ok {
 			return fmt.Errorf("reference contains template with config per field with InlineDiffFunc that does not "+
 				"exist. InlineDiffFunc: %s", inlineDiffFunc)
 		}
-		if err := validator.validate(value); err != nil {
+		if err := diffFn.Validate(value); err != nil {
 			return fmt.Errorf("reference contains template with config per field with InlineDiffFunc that fails "+
 				"validation. InlineDiffFunc: %s. error: %v", inlineDiffFunc, err)
 		}
@@ -271,36 +270,14 @@ type PerFieldConfigV2 struct {
 
 type inlineDiffType string
 
-const (
-	regex inlineDiffType = "regex"
-)
-
-var InlineDiffs = map[inlineDiffType]InlineDiff{regex: RegexInlineDiff{}}
+var InlineDiffs = map[inlineDiffType]InlineDiff{
+	regex:         RegexInlineDiff{},
+	capturegroups: CapturegroupsInlineDiff{},
+}
 
 type InlineDiff interface {
-	diff(templateValue, crValue string) string
-	validate(templateValue string) error
-}
-
-type RegexInlineDiff struct{}
-
-func (id RegexInlineDiff) diff(regex, crValue string) string {
-	re, err := regexp.Compile(regex)
-	if err != nil {
-		return regex
-	}
-	if re.MatchString(crValue) {
-		return crValue
-	}
-	return regex
-}
-
-func (id RegexInlineDiff) validate(regex string) error {
-	_, err := regexp.Compile(regex)
-	if err != nil {
-		return fmt.Errorf("invalid regex passed to inline rgegex diff function: %w", err)
-	}
-	return nil
+	Diff(templateValue, crValue string) string
+	Validate(templateValue string) error
 }
 
 type PartV2 struct {

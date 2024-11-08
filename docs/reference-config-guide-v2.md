@@ -392,14 +392,14 @@ parts:
       config:
         perField:
         - pathToKey: spec.bigTextBlock # Field in template to run the inline diff function in pathToKey syntax
-          inlineDiffFunc: regex # Inline function 
+          inlineDiffFunc: regex # Inline function
 ```
 
 Supported inline diff functions:
 
 ##### Regex Inline Diff Function
 
-The regex Inline diff function allows validating fields in CRs based on a regex. When using the function the command will
+The `regex` inline diff function allows validating fields in CRs based on a regex. When using the function the command will
 show no diffs in case the cluster CR will match the regex, if it does not match the regex a diff will be shown between the
 cluster CR and the regex expression.
 To use the regex inline diff function you need to enable the regexInline function for the specific field and template in
@@ -413,7 +413,7 @@ kind: ConfigMap
 apiVersion: v1
 metadata:
   namespace: kubernetes-dashboard
-spec:
+data:
   bigTextBlock: |-
     This is a big text block with some static content, like this line.
     It also has a place where (?<username>[a-z0-9]+) would put in their own name. (?<username>[a-z0-9]+) would put in their own name.
@@ -431,6 +431,56 @@ parts:
     - path: cm.yaml
       config:
         perField:
-        - pathToKey: spec.bigTextBlock 
-          inlineDiffFunc: regex  
+        - pathToKey: data.bigTextBlock
+          inlineDiffFunc: regex
+```
+
+##### Capturegroup Inline Diff Function
+
+The `capturegroups` inline diff function is related to the `regex` inline diff,
+but is better suited for maintaining readability and comparisons of multi-line
+strings.  Instead of the entire template value being treated as a single
+regular expression, it treats any text outside of a regex-format named capture
+group (ie, something like `(?<somename>...)`) as text that must match exactly,
+only performing regular expression matching within the individual capturegroups.
+
+When rendering the template document, we also apply a diff algorithm to attempt
+to retain the maximum amount of text in common between the template and the
+object being compared, and then we attempt to reconcile any outstanding
+differences by attempting to match the capturegroups in the template with the
+corresponding text in the object being compared.  This is inexact, but does a
+better job than the plain `regex` especially for larger multi-line text blocks.
+
+Additionally, we validate that all identically-named capturegroups match the
+same values.  For example, it will ensure that both instances of
+`(?<username>[a-z0-9]+)` in the example below match the same username.
+
+For a template named cm.yaml where spec.bigTextBlock should be validated by
+capturegroups:
+
+```yaml
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  namespace: kubernetes-dashboard
+data:
+  bigTextBlock: |-
+    This is a big text block with some static content, like this line.
+    It also has a place where (?<username>[a-z0-9]+) would put in their own name. (?<username>[a-z0-9]+) would put in their own name.
+```
+
+the metadata.yaml should contain:
+
+```yaml
+apiVersion: v2
+parts:
+- name: ExamplePart
+  components:
+  - name: Example
+    allOf:
+    - path: cm.yaml
+      config:
+        perField:
+        - pathToKey: data.bigTextBlock
+          inlineDiffFunc: capturegroups
 ```
