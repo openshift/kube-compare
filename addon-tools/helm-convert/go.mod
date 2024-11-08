@@ -5,7 +5,7 @@ go 1.22.0
 require (
 	github.com/openshift/kube-compare v0.3.0
 	github.com/spf13/cobra v1.8.0
-	github.com/stretchr/testify v1.8.4
+	github.com/stretchr/testify v1.9.0
 	helm.sh/helm/v3 v3.15.3
 	k8s.io/apimachinery v0.30.3
 	k8s.io/client-go v0.30.0
