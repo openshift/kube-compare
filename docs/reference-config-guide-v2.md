@@ -90,26 +90,50 @@ components:
 
 ### Reference Descriptions
 
-In order to make detected differences more actionable, each template may
-include a description section which is displayed when a difference is detected,
-or if a required template is absent.
+In order to make detected differences more actionable, each part, component,
+and template may include a description section which is displayed when a
+difference is detected, or if a required template is absent.
 
-The description section is a free-form multiline text field which can contain
+The description section is a free-form multi-line text field which can contain
 instructions or a URL referencing extra documentation about the template in
 question, such as why it is required or which fields are optional.
 
+Only one description is shown per template, and more specific descriptions
+override those which are less specific. In other words, we display whichever of
+these 3 matches first:
+
+1. Template description, if set
+2. Component description, if set
+3. Part description, if set
+
+Example metadata.yaml with descriptions:
+
 ```yaml
-components:
-  - name: ExampleComponent1
-    allOf:
-      - path: RequiredTemplate1.yaml
+apiVersion: v2
+parts:
+  - name: ExamplePart1
+    description: |-
+      General text for every template beneath, unless overridden.
+    components:
+      - name: ExampleComponent1o
+        # With no description set, this inherits that of the part above.
+        OneOf:
+          - path: Template1.yaml
+            # Likewise this inherits the component description
+          - path: Template2.yaml
+          - path: Template3.yaml
+            description: |-
+              This template has special instructions that don't apply to the others.
+      - name: ExampleComponent2
         description: |-
-          Required for Important Reasons.
-          See https://github.com/org/repo/doc.md for details.
-      - path: RequiredTemplate2.yaml
-        description: |-
-          Non-optional when RequiredTemplate1 is present.
-          See https://github.com/org/repo/doc.md for details.
+          This overrides the part text with something more specific.
+          Multi-line text is supported, at all levels.
+        allOf:
+          - path: RequiredTemplate1.yaml
+          - path: RequiredTemplate2.yaml
+            description: |-
+              Required for Important Reasons.
+          - path: RequiredTemplate3.yaml
 ```
 
 ### Example Reference Configuration CR
