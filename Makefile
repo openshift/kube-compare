@@ -50,6 +50,9 @@ install:
 	install kubectl_complete-cluster_compare $(DESTDIR)
 	install $(GO_BUILD_BINDIR)/kubectl-cluster_compare  $(DESTDIR)
 
+.PHONE: test-all
+test-all: test test-report-creator test-helm-convert
+
 .PHONY: test
 test:
 	go test --race ./pkg/*
@@ -157,3 +160,9 @@ clean-cross-build:
 	if [ -d '$(OUTPUT_DIR)' ]; then \
 		$(RM) -r '$(OUTPUT_DIR)'; \
 	fi
+
+.PHONE: dependency-sync
+dependency-sync:
+	go work sync
+	go work vendor
+	go mod tidy
