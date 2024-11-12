@@ -36,7 +36,7 @@ func (r *ReferenceV2) getTemplates() []*ReferenceTemplateV2 {
 	var templates []*ReferenceTemplateV2
 	for _, part := range r.Parts {
 		for _, comp := range part.Components {
-			templates = append(templates, comp.getTemplates()...)
+			templates = append(templates, comp.getTemplates(part)...)
 		}
 	}
 	return templates
@@ -217,12 +217,26 @@ func (entry *FieldsToOmitV2Entry) process(previousKeys []string, toOmit *FieldsT
 }
 
 type ReferenceTemplateV2 struct {
-	Config ReferenceTemplateConfigV2 `json:"config,omitempty"`
+	Config    ReferenceTemplateConfigV2 `json:"config,omitempty"`
+	part      *PartV2                   `json:"-"`
+	component *ComponentV2              `json:"-"`
 	ReferenceTemplateV1
 }
 
 func (rf ReferenceTemplateV2) GetConfig() TemplateConfig {
 	return rf.Config
+}
+
+func (rf ReferenceTemplateV2) GetDescription() string {
+	switch {
+	case rf.Description != "":
+		return rf.Description
+	case rf.component != nil && rf.component.Description != "":
+		return rf.component.Description
+	case rf.part != nil && rf.part.Description != "":
+		return rf.part.Description
+	}
+	return ""
 }
 
 type ReferenceTemplateConfigV2 struct {
@@ -281,8 +295,9 @@ type InlineDiff interface {
 }
 
 type PartV2 struct {
-	Name       string         `json:"name"`
-	Components []*ComponentV2 `json:"components"`
+	Name        string         `json:"name"`
+	Description string         `json:"description,omitempty"`
+	Components  []*ComponentV2 `json:"components"`
 }
 
 func (p *PartV2) getValidationIssues(matchedTemplates map[string]int) (map[string]ValidationIssue, int) {
@@ -300,6 +315,7 @@ func (p *PartV2) getValidationIssues(matchedTemplates map[string]int) (map[strin
 
 type ComponentV2 struct {
 	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
 	OneOf       `json:"oneOf,omitempty"`
 	NoneOf      `json:"noneOf,omitempty"`
 	AllOf       `json:"allOf,omitempty"`
@@ -311,7 +327,7 @@ type ComponentV2 struct {
 
 type ComponentV2Group interface {
 	SetTemplates([]*ReferenceTemplateV2)
-	GetTemplates() []*ReferenceTemplateV2
+	GetTemplates(*PartV2, *ComponentV2) []*ReferenceTemplateV2
 	UnmarshalJSON([]byte) (err error)
 	getMissingCRs(map[string]int) (ValidationIssue, int)
 }
@@ -324,7 +340,11 @@ func (g *componentGroup) SetTemplates(t []*ReferenceTemplateV2) {
 	g.templates = t
 }
 
-func (g *componentGroup) GetTemplates() []*ReferenceTemplateV2 {
+func (g *componentGroup) GetTemplates(part *PartV2, component *ComponentV2) []*ReferenceTemplateV2 {
+	for _, t := range g.templates {
+		t.component = component
+		t.part = part
+	}
 	return g.templates
 }
 
@@ -535,10 +555,10 @@ func (comp *ComponentV2) validate(index int) error {
 	return nil
 }
 
-func (comp ComponentV2) getTemplates() []*ReferenceTemplateV2 {
+func (comp ComponentV2) getTemplates(component *PartV2) []*ReferenceTemplateV2 {
 	templates := make([]*ReferenceTemplateV2, 0)
 	for _, g := range comp.parts {
-		templates = append(templates, g.GetTemplates()...)
+		templates = append(templates, g.GetTemplates(component, &comp)...)
 	}
 	return templates
 }

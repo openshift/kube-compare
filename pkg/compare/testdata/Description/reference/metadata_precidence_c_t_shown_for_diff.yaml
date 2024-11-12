@@ -1,0 +1,9 @@
+apiVersion: v2
+parts:
+  - name: ExamplePart
+    components:
+      - name: Description example
+        description: Component description
+        allOf:
+          - path: cm-diff.yaml
+            description: Template description
