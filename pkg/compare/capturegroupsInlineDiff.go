@@ -15,21 +15,47 @@ const (
 	capturegroups inlineDiffType = "capturegroups"
 )
 
+type CapturedValues struct {
+	caps map[string][]string
+}
+
+func (c *CapturedValues) addCapture(name, value string) {
+	if c.caps == nil {
+		c.caps = make(map[string][]string)
+	}
+	if !slices.Contains(c.caps[name], value) {
+		c.caps[name] = append(c.caps[name], value)
+	}
+}
+
+func (c *CapturedValues) getWarnings() string {
+	warnings := ""
+	for cgName, cgValues := range c.caps {
+		if len(cgValues) > 1 {
+			warnings += fmt.Sprintf("\nWARNING: Capturegroup (?<%s>…) matched multiple values: « %s »", cgName, strings.Join(cgValues, " | "))
+		}
+	}
+	return warnings
+}
+
+func (c *CapturedValues) groupValues(name string) string {
+	if matches, ok := c.caps[name]; ok {
+		if len(matches) == 1 {
+			return matches[0]
+		} else {
+			// Multiple matches detected, so call attention to them
+			return fmt.Sprintf("(?<%s>=%s)", name, matches[0])
+		}
+	}
+	return ""
+}
+
 type CapturegroupsInlineDiff struct{}
 
 type diffInfo struct {
 	dmp   *diffmatchpatch.DiffMatchPatch
 	diffs []diffmatchpatch.Diff
-	caps  map[string][]string
-}
-
-func (id *diffInfo) addCapture(name, value string) {
-	if id.caps == nil {
-		id.caps = make(map[string][]string)
-	}
-	if !slices.Contains(id.caps[name], value) {
-		id.caps[name] = append(id.caps[name], value)
-	}
+	CapturedValues
 }
 
 type CgInfo struct {
@@ -249,7 +275,7 @@ func (id CapturegroupsInlineDiff) Diff(pattern, value string) string {
 	//  - Match all relevant capturegroups
 	//  - Substitute in the values for all matched capturegroups to the pattern
 
-	cgDiff := diffInfo{}
+	cgDiff := diffInfo{CapturedValues: CapturedValues{caps: make(map[string][]string)}}
 
 	// Doing a word-wise diff shrinks the probleset by avoiding any text that
 	// is identical or an obvious plain deletion or addition.
@@ -287,13 +313,8 @@ func (id CapturegroupsInlineDiff) Diff(pattern, value string) string {
 		if idx < group.Start {
 			reconciledString += pattern[idx:group.Start]
 		}
-		if matches, ok := cgDiff.caps[group.Name]; ok {
-			if len(matches) == 1 {
-				reconciledString += matches[0]
-			} else {
-				// Multiple matches detected, so call attention to them
-				reconciledString += fmt.Sprintf("(?<%s>=%s)", group.Name, matches[0])
-			}
+		if groupMatch := cgDiff.groupValues(group.Name); groupMatch != "" {
+			reconciledString += groupMatch
 		} else {
 			reconciledString += pattern[group.Start:group.End]
 		}
@@ -305,11 +326,7 @@ func (id CapturegroupsInlineDiff) Diff(pattern, value string) string {
 
 	// And for clarity, highlight any capturegroups that had different values
 	// matched at different points
-	for cgName, cgValues := range cgDiff.caps {
-		if len(cgValues) > 1 {
-			reconciledString += fmt.Sprintf("\nWARNING: Capturegroup (?<%s>…) matched multiple values: « %s »", cgName, strings.Join(cgValues, " | "))
-		}
-	}
+	reconciledString += cgDiff.getWarnings()
 
 	return reconciledString
 }
