@@ -724,6 +724,11 @@ func TestInlineRegexDiff(t *testing.T) {
 			expected: "Hello",
 		},
 		{
+			regex:    "H[e|i]llo",
+			input:    "Hello",
+			expected: "Hello",
+		},
+		{
 			regex:    "Hello",
 			input:    "bye",
 			expected: "Hello",
