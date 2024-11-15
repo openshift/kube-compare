@@ -325,11 +325,9 @@ func getRegexParts(r *syntax.Regexp) (*syntax.Regexp, *syntax.Regexp) {
 	return constructFromParts(takenParts), constructFromParts(leftoverParts)
 }
 
-// Constuct a literal with the current matched then add current part to it.
-func getCompiledRegex(matched string, toMatch *syntax.Regexp) (*regexp.Regexp, error) {
-	runes := []rune(matched)
+func getLiteralFromRunes(runes []rune) *syntax.Regexp {
 	if len(runes) == 0 {
-		return regexp.Compile(toMatch.String()) //nolint:wrapcheck
+		return nil
 	}
 
 	// Initialise array so we can handle only a single rune
@@ -340,45 +338,156 @@ func getCompiledRegex(matched string, toMatch *syntax.Regexp) (*regexp.Regexp, e
 		}
 		shortRunes[n] = runes[n]
 	}
-
-	res := syntax.Regexp{
-		Op: syntax.OpConcat,
-		Sub: []*syntax.Regexp{
-			{
-				Op:    syntax.OpLiteral,
-				Rune:  runes,
-				Rune0: shortRunes,
-			},
-			toMatch,
-		},
+	return &syntax.Regexp{
+		Op:    syntax.OpLiteral,
+		Rune:  runes,
+		Rune0: shortRunes,
 	}
-	return regexp.Compile(res.String()) //nolint:wrapcheck
+}
 
+func getNextSubAttempt(r *syntax.Regexp, extras []rune, fromLeft bool) (*syntax.Regexp, *syntax.Regexp) {
+	if r.Op != syntax.OpLiteral {
+		return r, nil
+	}
+	if len(r.Rune) <= 1 {
+		runes := make([]rune, 1)
+		runes[0] = r.Rune[0]
+		runes = append(runes, extras...)
+		return getLiteralFromRunes(runes), nil
+	}
+	leftovers := make([]rune, 0)
+	taken := make([]rune, 0)
+
+	if fromLeft {
+		index := len(r.Rune) - 1
+		taken = append(taken, r.Rune[:index]...)
+		leftovers = append(leftovers, r.Rune[index:]...)
+		leftovers = append(leftovers, extras...)
+	} else {
+		taken = append(taken, r.Rune[1:]...)
+		leftovers = append(leftovers, extras...)
+		leftovers = append(leftovers, r.Rune[:1]...)
+	}
+
+	return getLiteralFromRunes(taken), getLiteralFromRunes(leftovers)
+}
+
+// // Constuct a literal with the current matched then add current part to it.
+// func getCompiledRegex(matched string, toMatch *syntax.Regexp) (*regexp.Regexp, error) {
+// 	matchedRegex := getLiteralFromRunes([]rune(matched))
+// 	if matchedRegex == nil {
+// 		return regexp.Compile(toMatch.String()) // nolint: wrapcheck
+// 	}
+
+// 	res := syntax.Regexp{
+// 		Op: syntax.OpConcat,
+// 		Sub: []*syntax.Regexp{
+// 			matchedRegex,
+// 			toMatch,
+// 		},
+// 	}
+// 	return regexp.Compile(res.String()) //nolint:wrapcheck
+
+// }
+
+func matchPossible(trimmedCrValue string, toMatch *syntax.Regexp) (result, ignore string) {
+	short, leftover := getNextSubAttempt(toMatch, []rune{}, true)
+	first := true
+
+	for leftover != nil || first {
+		first = false
+		re, err := regexp.Compile(short.String())
+		if err != nil {
+			return fmt.Sprintf("<compile error %s>", err), ""
+		}
+		matches := re.FindStringSubmatch(trimmedCrValue)
+		if len(matches) == 0 {
+			if leftover == nil {
+				continue
+			}
+			short, leftover = getNextSubAttempt(short, leftover.Rune, true)
+		} else {
+			result = matches[0]
+			ignore = matches[0]
+			break
+		}
+	}
+	if leftover != nil {
+		trimmedCrValue := strings.TrimPrefix(trimmedCrValue, result)
+		short, leftover := getNextSubAttempt(leftover, []rune{}, false)
+		first := true
+		for leftover != nil || first {
+			first = false
+			re, err := regexp.Compile(short.String())
+			if err != nil {
+				return fmt.Sprintf("<compile error %s>", err), ""
+			}
+			matches := re.FindStringSubmatch(trimmedCrValue)
+			if len(matches) == 0 {
+				if leftover == nil {
+					continue
+				}
+				short, leftover = getNextSubAttempt(short, leftover.Rune, false)
+			} else {
+				if leftover != nil {
+					if leftover.Op == syntax.OpLiteral {
+						result += string(leftover.Rune)
+					} else {
+						result += leftover.String()
+					}
+				}
+				result += matches[0]
+				index := re.FindStringSubmatchIndex(trimmedCrValue)
+				ignore += trimmedCrValue[:index[1]]
+				break
+			}
+		}
+	}
+
+	return result, ignore
 }
 
 func (id RegexInlineDiff) diff(regex, crValue string) string {
-	matched := ""
+	result := ""
+	ignore := ""
 	var toMatch *syntax.Regexp
 	leftovers, err := syntax.Parse(regex, syntax.Perl)
 	if err != nil {
 		return regex
 	}
 	namedGroupValues := map[string]string{}
+
 	for leftovers != nil {
+		trimmedCrValue := strings.TrimPrefix(crValue, ignore)
+
 		toMatch, leftovers = getRegexParts(leftovers)
-		re, _ := getCompiledRegex(matched, toMatch)
-		matchValues := re.FindStringSubmatch(crValue)
+		re, _ := regexp.Compile(toMatch.String())
+		matchSliceIndex := re.FindStringSubmatchIndex(trimmedCrValue)
+		matchValues := re.FindStringSubmatch(trimmedCrValue)
 
 		if len(matchValues) == 0 {
-			if matched != crValue {
-				return regex
+			subResult, extraIgnore := matchPossible(trimmedCrValue, toMatch)
+			result += subResult
+			ignore += extraIgnore
+
+			if subResult == "" {
+				// No match found insert the regex
+				if toMatch.Op == syntax.OpLiteral {
+					result += string(toMatch.Rune)
+				} else {
+					result += toMatch.String()
+				}
 			}
+
+			continue
 		}
+
+		ignore += trimmedCrValue[:matchSliceIndex[1]]
 
 		names := re.SubexpNames()
 		if len(names) == 1 {
 			// No capture groups just use the entire thing
-			matched = matchValues[0]
+			result += matchValues[0]
 			continue
 		}
 
@@ -389,22 +498,23 @@ func (id RegexInlineDiff) diff(regex, crValue string) string {
 		captureName := names[1]
 		if captureName == "" {
 			// not a named group don't need to care
-			matched = matchValues[0]
+			result += matchValues[0]
 			continue
 		}
 		seen, ok := namedGroupValues[captureName]
 		matchedValue := matchValues[1]
 		if ok && seen != matchedValue {
-			matched += fmt.Sprintf("<previously matched value does not equal the currently matched value '%s' != '%s'>", seen, matchedValue)
+
+			result += fmt.Sprintf("<previously matched value does not equal the currently matched value '%s' != '%s'>", seen, matchedValue)
 		} else {
 			if !ok {
 				namedGroupValues[captureName] = matchedValue
 			}
-			matched += matchedValue
+			result += matchedValue
 		}
 
 	}
-	return matched
+	return result
 }
 
 func findCaptureNode(node *syntax.Regexp) []*syntax.Regexp {

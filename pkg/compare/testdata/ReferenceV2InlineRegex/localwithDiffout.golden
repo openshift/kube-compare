@@ -9,7 +9,7 @@ Diff Output: diff -u -N TEMP/v1_configmap_kubernetes-dashboard_kubernetes-dashbo
  spec:
    bigTextBlock: |-
      This is a big text block with some static content, like this line.
--    It also has a place where (?<username>[0-9]+) would put in their own name. (?<username>[0-9]+) would put in their own name.
+-    It also has a place where (?P<username>[0-9]+) would put in their own name. (?P<username>[0-9]+) would put in their own name.
 +    It also has a place where exampleuser would put in their own name. exampleuser would put in their own name.
 
 **********************************

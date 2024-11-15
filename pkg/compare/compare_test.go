@@ -751,7 +751,7 @@ func TestInlineRegexDiff(t *testing.T) {
 		{
 			regex:    "He(?<simple>llo)",
 			input:    "Bye",
-			expected: "He(?<simple>llo)",
+			expected: "He(?P<simple>llo)",
 		},
 		{
 			regex:    "He(?<simple>llo), World",
@@ -772,6 +772,26 @@ func TestInlineRegexDiff(t *testing.T) {
 			regex:    "(Hello, (World))",
 			input:    "Hello, World",
 			expected: "Hello, World",
+		},
+		{
+			regex:    "Hello (World)",
+			input:    "Hello, World",
+			expected: "Hello World",
+		},
+		{
+			regex:    "Hello, (World)",
+			input:    "Hello World",
+			expected: "Hello, World",
+		},
+		{
+			regex:    "(World)",
+			input:    "Hello World",
+			expected: "World",
+		},
+		{
+			regex:    "(Hello)",
+			input:    "Hello World",
+			expected: "Hello",
 		},
 	}
 
