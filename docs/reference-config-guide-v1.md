@@ -286,9 +286,7 @@ The default value of `defaultOmitRef` is a built-in list  `cluster-compare-built
 
 ### pathToKey syntax
 
-The syntax for `pathToKey` is a dot seperated path.
-
-> Limitation: currently we are not able to traverse lists.
+The syntax for `pathToKey` is a dot-seperated path.
 
 The path: `"spec.selector.matchLabels.k8s-app"` will match:
 
@@ -299,7 +297,8 @@ spec:
       k8s-app: "..."
 ```
 
-Segements with dots should be quoted. So to match:
+Segements with dots should be quoted. So the path
+`metadata.annotations."workload.openshift.io/allowed"` would match:
 
 ```yaml
 metadata:
@@ -308,3 +307,13 @@ metadata:
 ```
 
 you use would use `metadata.annotations."workload.openshift.io/allowed"`.
+
+Lists may be traversed by using an integer to refer to the list index.
+
+The path: `"spec.templates.0.name"` will match:
+
+```yaml
+spec:
+  templates:
+    - name: "..."
+```

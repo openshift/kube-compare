@@ -160,7 +160,7 @@ func createGroupHashFunc(fieldGroup [][]string) templateHashFunc {
 	groupHashFunc := func(cr *unstructured.Unstructured, replaceEmptyWith string) (group string, err error) {
 		var values []string
 		for _, fields := range fieldGroup {
-			value, isFound, NotStringErr := unstructured.NestedString(cr.Object, fields...)
+			value, isFound, NotStringErr := NestedString(cr.Object, fields...)
 			if !isFound || value == "" {
 				return "", fmt.Errorf("the field %s doesn't exist in resource", strings.Join(fields, FieldSeparator))
 			}

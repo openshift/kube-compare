@@ -14,8 +14,6 @@ import (
 	"text/template"
 
 	"k8s.io/klog/v2"
-
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 const ReferenceVersionV2 string = "v2"
@@ -259,7 +257,7 @@ func (rf ReferenceTemplateV2) validateConfigPerField() error {
 			return fmt.Errorf("reference contains template with config per field with pathToKey that is not in "+
 				"supoorted format. path: %s. error: %v", pathToKey, err)
 		}
-		value, exist, err := unstructured.NestedString(rf.metadata.Object, listedPath...)
+		value, exist, err := NestedString(rf.metadata.Object, listedPath...)
 		if err != nil || !exist {
 			return fmt.Errorf("reference contains template with config per field with pathToKey that points to a "+
 				"path that does not exist in the template. path: %s", pathToKey)
