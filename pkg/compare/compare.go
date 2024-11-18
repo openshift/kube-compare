@@ -599,8 +599,11 @@ func getBestMatchByLines(templates []ReferenceTemplate, cr *unstructured.Unstruc
 			leafCount:    leafCount,
 		})
 	}
-	bestMatch := findBestMatch(matches)
-	return bestMatch.temp, bestMatch.diffOutput, bestMatch.userOverride, errors.Join(errs...)
+	if len(matches) > 0 {
+		bestMatch := findBestMatch(matches)
+		return bestMatch.temp, bestMatch.diffOutput, bestMatch.userOverride, errors.Join(errs...)
+	}
+	return ReferenceTemplateV1{}, nil, nil, errors.Join(errs...)
 }
 
 func diffAgainstTemplate(temp ReferenceTemplate, clusterCR *unstructured.Unstructured, userOverrides []*UserOverride, o *Options) (*bytes.Buffer, *InfoObject, error) {
@@ -821,8 +824,12 @@ func (obj InfoObject) runInlineDiffFuncs() error {
 			continue
 		}
 		value, exist, err := NestedString(obj.injectedObjFromTemplate.Object, listedPath...)
-		if err != nil || !exist {
+		if err != nil {
 			errs = append(errs, fmt.Errorf("failed to acces value in template of field %s that uses inline diff func: %w", pathToKey, err))
+			continue
+		}
+		if !exist {
+			errs = append(errs, fmt.Errorf("failed to acces value in template of field %s that uses inline diff func: Not found", pathToKey))
 			continue
 		}
 		clusterValue, exist, err := NestedString(obj.clusterObj.Object, listedPath...)
@@ -833,7 +840,13 @@ func (obj InfoObject) runInlineDiffFuncs() error {
 			errs = append(errs, fmt.Errorf("failed to acces value in cluster cr of field %s that uses inline diff func: %w", pathToKey, err))
 			continue
 		}
-		err = SetNestedString(obj.injectedObjFromTemplate.Object, InlineDiffs[inlineDiffFunc].Diff(value, clusterValue), listedPath...)
+		diffFn := InlineDiffs[inlineDiffFunc]
+		err = diffFn.Validate(value)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to validate the inline diff for field %s, %w", pathToKey, err))
+			continue
+		}
+		err = SetNestedString(obj.injectedObjFromTemplate.Object, diffFn.Diff(value, clusterValue), listedPath...)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("failed to update value of inline diff func result for field %s, %w", pathToKey, err))
 			continue

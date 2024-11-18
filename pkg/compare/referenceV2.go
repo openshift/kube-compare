@@ -257,20 +257,21 @@ func (rf ReferenceTemplateV2) validateConfigPerField() error {
 			return fmt.Errorf("reference contains template with config per field with pathToKey that is not in "+
 				"supoorted format. path: %s. error: %v", pathToKey, err)
 		}
-		value, exist, err := NestedString(rf.metadata.Object, listedPath...)
-		if err != nil || !exist {
-			return fmt.Errorf("reference contains template with config per field with pathToKey that points to a "+
-				"path that does not exist in the template. path: %s", pathToKey)
-		}
 		diffFn, ok := InlineDiffs[inlineDiffFunc]
 		if !ok {
 			return fmt.Errorf("reference contains template with config per field with InlineDiffFunc that does not "+
 				"exist. InlineDiffFunc: %s", inlineDiffFunc)
 		}
-		if err := diffFn.Validate(value); err != nil {
-			return fmt.Errorf("reference contains template with config per field with InlineDiffFunc that fails "+
-				"validation. InlineDiffFunc: %s. error: %v", inlineDiffFunc, err)
+		value, exist, err := NestedString(rf.metadata.Object, listedPath...)
+		if err == nil && exist {
+			if err := diffFn.Validate(value); err != nil {
+				return fmt.Errorf("reference contains template with config per field with InlineDiffFunc that fails "+
+					"validation. InlineDiffFunc: %s. error: %v", inlineDiffFunc, err)
+			}
+		} else if err != nil {
+			return err
 		}
+		// If it's not found, it could be because the actual template is in an optional list
 	}
 	return nil
 }
