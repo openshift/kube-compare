@@ -7,5 +7,5 @@ metadata:
   namespace: kubernetes-dashboard
 spec:
   bigTextBlock: |-
-    This is a big text block with some static content, like this line
+    This is a big text block with some static content.
     It also has a place where (?<username>[a-z0-9]+) would put in their own name. (?<username>[a-z0-9]+) would put in their own name.

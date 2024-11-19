@@ -215,6 +215,22 @@ func TestCapturegroupsDiff(t *testing.T) {
 				},
 			},
 		},
+		{
+			message: "Nested capture groups",
+			pattern: []string{"(?<hello>H(?<nested>[a-z]+)) (?<world>W(?<nested>[a-z]+))"},
+			cases: []Case{
+				{
+					message:  "matching sub pattern",
+					value:    []string{"Hello Wello"},
+					expected: []string{"Hello Wello"},
+				},
+				{
+					message:  "different sub pattern",
+					value:    []string{"Hello World"},
+					expected: []string{"Hello World", "WARNING: Capturegroup (?<nested>…) matched multiple values: « ello | orld »"},
+				},
+			},
+		},
 	}
 	for _, s := range suites {
 		t.Run(s.message, func(t *testing.T) {
