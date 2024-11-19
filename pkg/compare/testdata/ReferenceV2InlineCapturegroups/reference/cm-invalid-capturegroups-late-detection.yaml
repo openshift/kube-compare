@@ -7,7 +7,9 @@ metadata:
   namespace: kubernetes-dashboard
 spec:
   list:
+    {{- range .spec.list }}
     - bigTextBlock: |-
         This is a big text block with some static content, like this line.
-        It also has a place where exampleuser would put in their own name. exampleuser would put in their own name.
-        More complicated [capture groups] are also allowed.
+        It also has a place where (?<username[a-z0-9]+) would put in their own name. (?<username>[a-z0-9]+) would put in their own name.
+        More complicated [(?<group>[^a-z A-Z]+)] are also allowed.
+    {{- end }}

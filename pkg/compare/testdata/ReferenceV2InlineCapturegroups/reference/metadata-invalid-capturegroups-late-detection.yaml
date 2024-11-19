@@ -4,7 +4,7 @@ parts:
     components:
       - name: DemonSets
         allOf:
-          - path: cm-with-mismatched-capturegroups.yaml
+          - path: cm-invalid-capturegroups-late-detection.yaml
             config:
                 perField:
                 - pathToKey: spec.list.0.bigTextBlock

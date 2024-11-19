@@ -5,13 +5,13 @@ Reference File: cm-with-diff-between-capturegroups.yaml
 Diff Output: diff -u -N TEMP/v1_configmap_kubernetes-dashboard_kubernetes-dashboard-settings TEMP/v1_configmap_kubernetes-dashboard_kubernetes-dashboard-settings
 --- TEMP/v1_configmap_kubernetes-dashboard_kubernetes-dashboard-settings	DATE
 +++ TEMP/v1_configmap_kubernetes-dashboard_kubernetes-dashboard-settings	DATE
-@@ -8,5 +8,5 @@
- spec:
-   bigTextBlock: |-
-     This is a big text block with some static content, like this line.
--    It also has a place where exampleuser would put NEW TEXT in their own name. exampleuser would put in their own name.
-+    It also has a place where exampleuser would put in their own name. exampleuser would put in their own name.
-     More complicated [capture groups] are also allowed.
+@@ -9,5 +9,5 @@
+   list:
+   - bigTextBlock: |-
+       This is a big text block with some static content, like this line.
+-      It also has a place where exampleuser would put NEW TEXT in their own name. exampleuser would put in their own name.
++      It also has a place where exampleuser would put in their own name. exampleuser would put in their own name.
+       More complicated [capture groups] are also allowed.
 
 **********************************
 
@@ -19,5 +19,5 @@ Summary
 CRs with diffs: 1/1
 No validation issues with the cluster
 No CRs are unmatched to reference CRs
-Metadata Hash: 136964be31324a5d6e2377fc22ccb7e129feb46e322ee0dde257b7daf47be29e
+Metadata Hash: 8dc383ef1094f008b5964b1cd7359cbed7d9aa0803b0e5c0732292234575c01f
 No patched CRs

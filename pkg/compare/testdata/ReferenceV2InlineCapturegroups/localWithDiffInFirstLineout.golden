@@ -5,14 +5,14 @@ Reference File: cm-with-diff-in-first-line.yaml
 Diff Output: diff -u -N TEMP/v1_configmap_kubernetes-dashboard_kubernetes-dashboard-settings TEMP/v1_configmap_kubernetes-dashboard_kubernetes-dashboard-settings
 --- TEMP/v1_configmap_kubernetes-dashboard_kubernetes-dashboard-settings	DATE
 +++ TEMP/v1_configmap_kubernetes-dashboard_kubernetes-dashboard-settings	DATE
-@@ -7,6 +7,6 @@
-   namespace: kubernetes-dashboard
+@@ -8,6 +8,6 @@
  spec:
-   bigTextBlock: |-
--    This is a big text block with some static content, like this line
-+    This is a big text block with some static content, like this line.
-     It also has a place where exampleuser would put in their own name. exampleuser would put in their own name.
-     More complicated [capture groups] are also allowed.
+   list:
+   - bigTextBlock: |-
+-      This is a big text block with some static content, like this line
++      This is a big text block with some static content, like this line.
+       It also has a place where exampleuser would put in their own name. exampleuser would put in their own name.
+       More complicated [capture groups] are also allowed.
 
 **********************************
 
@@ -20,5 +20,5 @@ Summary
 CRs with diffs: 1/1
 No validation issues with the cluster
 No CRs are unmatched to reference CRs
-Metadata Hash: a23015d06e6f252ccc774a0261cd3089f21269ecb70152d34f199e38bf85dad3
+Metadata Hash: 28c5a8aaf899f69e286d1490a1677bf733f66faaa0d3f074fb839f885438acf1
 No patched CRs

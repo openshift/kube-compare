@@ -514,6 +514,10 @@ func TestCompareRun(t *testing.T) {
 			withMetadataFile("metadata-invalid-capturegroups.yaml").
 			withChecks(defaultChecks.withPrefixedSuffix("invalidCapturegroups")),
 		defaultTest("ReferenceV2InlineCapturegroups").
+			withSubTestSuffix("Invalid Capturegroups Late Detection").
+			withMetadataFile("metadata-invalid-capturegroups-late-detection.yaml").
+			withChecks(defaultChecks.withPrefixedSuffix("invalidCapturegroupsLateDetection")),
+		defaultTest("ReferenceV2InlineCapturegroups").
 			withSubTestSuffix("With Diff").
 			withMetadataFile("metadata-with-diff.yaml").
 			withChecks(defaultChecks.withPrefixedSuffix("withDiff")),
