@@ -7,5 +7,5 @@ parts:
           - path: cm.yaml
             config:
                 perField:
-                - pathToKey: spec.bigTextBlock
+                - pathToKey: spec.list.0.bigTextBlock
                   inlineDiffFunc: capturegroups

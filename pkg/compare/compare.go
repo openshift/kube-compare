@@ -599,8 +599,11 @@ func getBestMatchByLines(templates []ReferenceTemplate, cr *unstructured.Unstruc
 			leafCount:    leafCount,
 		})
 	}
-	bestMatch := findBestMatch(matches)
-	return bestMatch.temp, bestMatch.diffOutput, bestMatch.userOverride, errors.Join(errs...)
+	if len(matches) > 0 {
+		bestMatch := findBestMatch(matches)
+		return bestMatch.temp, bestMatch.diffOutput, bestMatch.userOverride, errors.Join(errs...)
+	}
+	return ReferenceTemplateV1{}, nil, nil, errors.Join(errs...)
 }
 
 func diffAgainstTemplate(temp ReferenceTemplate, clusterCR *unstructured.Unstructured, userOverrides []*UserOverride, o *Options) (*bytes.Buffer, *InfoObject, error) {
@@ -820,12 +823,16 @@ func (obj InfoObject) runInlineDiffFuncs() error {
 			errs = append(errs, fmt.Errorf("failed to parse path of field %s that uses inline diff func: %w", pathToKey, err))
 			continue
 		}
-		value, exist, err := unstructured.NestedString(obj.injectedObjFromTemplate.Object, listedPath...)
-		if err != nil || !exist {
+		value, exist, err := NestedString(obj.injectedObjFromTemplate.Object, listedPath...)
+		if err != nil {
 			errs = append(errs, fmt.Errorf("failed to acces value in template of field %s that uses inline diff func: %w", pathToKey, err))
 			continue
 		}
-		clusterValue, exist, err := unstructured.NestedString(obj.clusterObj.Object, listedPath...)
+		if !exist {
+			errs = append(errs, fmt.Errorf("failed to acces value in template of field %s that uses inline diff func: Not found", pathToKey))
+			continue
+		}
+		clusterValue, exist, err := NestedString(obj.clusterObj.Object, listedPath...)
 		if !exist {
 			continue // if value does not appear in cluster CR then there will be a diff anyway and this is not an error
 		}
@@ -833,7 +840,13 @@ func (obj InfoObject) runInlineDiffFuncs() error {
 			errs = append(errs, fmt.Errorf("failed to acces value in cluster cr of field %s that uses inline diff func: %w", pathToKey, err))
 			continue
 		}
-		err = unstructured.SetNestedField(obj.injectedObjFromTemplate.Object, InlineDiffs[inlineDiffFunc].Diff(value, clusterValue), listedPath...)
+		diffFn := InlineDiffs[inlineDiffFunc]
+		err = diffFn.Validate(value)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to validate the inline diff for field %s, %w", pathToKey, err))
+			continue
+		}
+		err = SetNestedString(obj.injectedObjFromTemplate.Object, diffFn.Diff(value, clusterValue), listedPath...)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("failed to update value of inline diff func result for field %s, %w", pathToKey, err))
 			continue
@@ -851,7 +864,7 @@ func findFieldPaths(object map[string]any, fields []*ManifestPathV1) [][]string 
 			start := f.parts[:len(f.parts)-1]
 			prefix := f.parts[len(f.parts)-1]
 
-			val, _, _ := unstructured.NestedFieldNoCopy(object, start...)
+			val, _, _ := NestedField(object, start...)
 			if mapping, ok := val.(map[string]any); ok {
 				for key := range mapping {
 					if strings.HasPrefix(key, prefix) {
@@ -873,7 +886,7 @@ func omitFields(object map[string]any, fields []*ManifestPathV1) {
 	for _, field := range fieldPaths {
 		unstructured.RemoveNestedField(object, field...)
 		for i := 0; i <= len(field); i++ {
-			val, _, _ := unstructured.NestedFieldNoCopy(object, field[:len(field)-i]...)
+			val, _, _ := NestedField(object, field[:len(field)-i]...)
 			if mapping, ok := val.(map[string]any); ok && len(mapping) == 0 {
 				unstructured.RemoveNestedField(object, field[:len(field)-i]...)
 			}

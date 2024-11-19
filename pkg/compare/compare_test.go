@@ -13,6 +13,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"runtime/debug"
 	"slices"
 	"strings"
 	"testing"
@@ -513,6 +514,10 @@ func TestCompareRun(t *testing.T) {
 			withMetadataFile("metadata-invalid-capturegroups.yaml").
 			withChecks(defaultChecks.withPrefixedSuffix("invalidCapturegroups")),
 		defaultTest("ReferenceV2InlineCapturegroups").
+			withSubTestSuffix("Invalid Capturegroups Late Detection").
+			withMetadataFile("metadata-invalid-capturegroups-late-detection.yaml").
+			withChecks(defaultChecks.withPrefixedSuffix("invalidCapturegroupsLateDetection")),
+		defaultTest("ReferenceV2InlineCapturegroups").
 			withSubTestSuffix("With Diff").
 			withMetadataFile("metadata-with-diff.yaml").
 			withChecks(defaultChecks.withPrefixedSuffix("withDiff")),
@@ -606,7 +611,7 @@ func TestCompareRun(t *testing.T) {
 				defer func() {
 					r := recover()
 					if s, ok := r.(string); r != nil && (!ok || s != ExpectedPanic) {
-						t.Fatalf("test paniced: %v", r)
+						t.Fatalf("test paniced: %v\n%s", r, string(debug.Stack()))
 					}
 					if !hasCheckedError && test.checks.Err.hasErrorFile(test, mode) {
 						t.Fatalf("Unchecked error file %s", test.checks.Err.getPath(test, mode))

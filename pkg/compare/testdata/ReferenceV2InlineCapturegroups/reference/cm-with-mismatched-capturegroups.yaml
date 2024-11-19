@@ -6,7 +6,10 @@ metadata:
   name: kubernetes-dashboard-settings
   namespace: kubernetes-dashboard
 spec:
-  bigTextBlock: |-
-    This is a big (?<test>[a-z\s]+) block with some static (?<test>[a-z\s]+), like this line.
-    It also has a place where (?<username>[a-z0-9]+) would put in their own name. (?<username>[a-z0-9]+) would put in their (?<test>[a-z\s]+).
-    More complicated [(?<group>[^\]]+)] are also allowed.
+  list:
+    {{- range .spec.list }}
+    - bigTextBlock: |-
+        This is a big (?<test>[a-z\s]+) block with some static (?<test>[a-z\s]+), like this line.
+        It also has a place where (?<username>[a-z0-9]+) would put in their own name. (?<username>[a-z0-9]+) would put in their (?<test>[a-z\s]+).
+        More complicated [(?<group>[^\]]+)] are also allowed.
+    {{- end }}
