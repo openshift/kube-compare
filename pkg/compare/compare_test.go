@@ -8,6 +8,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -53,6 +54,8 @@ const (
 	matchRegex  checkType = "regex"
 	matchYaml   checkType = "yaml"
 )
+
+var envVarKeys = map[string]bool{}
 
 type Check struct {
 	checkType checkType
@@ -183,6 +186,7 @@ type Test struct {
 	checks                Checks
 	verboseOutput         bool
 	badAPIResources       bool
+	envVar                map[string]string
 
 	userOverridePath   string
 	templToGenPatchFor []string
@@ -211,6 +215,7 @@ func (test Test) Clone() Test {
 		overrideGenReason:     test.overrideGenReason,
 		referenceFileName:     test.referenceFileName,
 		badAPIResources:       test.badAPIResources,
+		envVar:                maps.Clone(test.envVar),
 	}
 }
 
@@ -299,6 +304,13 @@ func (test Test) withSubTestWithMetadata(subName string) Test {
 		withChecks(test.checks.withPrefixedSuffix("_" + squashed + "_"))
 }
 
+func (test Test) withEnvVar(name, value string) Test {
+	newTest := test.Clone()
+	newTest.envVar[name] = value
+	envVarKeys[name] = true
+	return newTest
+}
+
 func (test *Test) subTestName(mode Mode) string {
 	name := test.name
 	if test.subTestSuffix != "" {
@@ -313,6 +325,7 @@ func defaultTest(name string) Test {
 		mode:              []Mode{DefaultMode},
 		checks:            defaultChecks,
 		referenceFileName: defaultReferenceFilename,
+		envVar:            make(map[string]string),
 	}
 }
 
@@ -325,9 +338,16 @@ func matchErrorRegexCheck(msg string) Check {
 
 const ExpectedPanic = "Expected Error Test Case"
 
+func startWithCleanEnv() {
+	for envName := range envVarKeys {
+		os.Unsetenv(envName)
+	}
+}
+
 // TestCompareRun ensures that Run command calls the right actions
 // and returns the expected error.
 func TestCompareRun(t *testing.T) {
+
 	tests := []Test{
 		defaultTest("No Input").
 			skipReferenceFlag(),
@@ -586,14 +606,26 @@ func TestCompareRun(t *testing.T) {
 
 		defaultTest("semver").withSubTestWithMetadata("good version"),
 		defaultTest("semver").withSubTestWithMetadata("bad version"),
+
+		defaultTest("All Required Templates Exist And There Are No Diffs").
+			withEnvVar("KUBECTL_EXTERNAL_DIFF", "diff -y -W 150").
+			withChecks(defaultChecks.withPrefixedSuffix("with_diff_y")),
+		defaultTest("Some Diffs").
+			withEnvVar("KUBECTL_EXTERNAL_DIFF", "diff -y -W 150").
+			withChecks(defaultChecks.withPrefixedSuffix("with_diff_y")),
 	}
+	startWithCleanEnv()
 
 	tf := cmdtesting.NewTestFactory()
 	testFlags := flag.NewFlagSet("test", flag.ContinueOnError)
 	klog.InitFlags(testFlags)
 	klog.LogToStderr(false)
 	_ = testFlags.Parse([]string{"--skip_headers"})
+
 	for _, test := range tests {
+		for evName, evValue := range test.envVar {
+			t.Setenv(evName, evValue)
+		}
 		for i, mode := range test.mode {
 			t.Run(test.subTestName(mode), func(t *testing.T) {
 				IOStream, _, out, _ := genericiooptions.NewTestIOStreams()
@@ -622,6 +654,7 @@ func TestCompareRun(t *testing.T) {
 			})
 		}
 	}
+
 }
 
 func getCommand(t *testing.T, test *Test, modeIndex int, tf *cmdtesting.TestFactory, streams *genericiooptions.IOStreams) *cobra.Command {
