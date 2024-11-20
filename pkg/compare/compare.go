@@ -512,15 +512,18 @@ type matchCounts struct {
 	userOverride *UserOverride
 	temp         ReferenceTemplate
 
-	leafCount    *int
-	newlineCount int
+	leafCount int
 }
 
 func (m matchCounts) IsDiff() bool {
-	if m.diffResult.exitError != nil {
-		return m.diffResult.exitError.ExitStatus() == 1
+	res := m.leafCount > 0
+	if !res && m.diffResult.exitError != nil && m.diffResult.exitError.ExitStatus() == 1 {
+		klog.Warning("Our internally we found no difference but the external tool responded with an exit code of 1")
 	}
-	return false
+	if res && m.diffResult.exitError == nil {
+		klog.Warning("Our internally we found a difference but the external tool responded with an exit code of 0")
+	}
+	return res
 }
 
 func (m matchCounts) DiffOutput() *bytes.Buffer {
@@ -548,35 +551,23 @@ func countLeaf(d any) int {
 	return count
 }
 
-func countLeaves(uo *UserOverride) *int {
+func countLeaves(uo *UserOverride) (int, error) {
 	var data map[string]any
 	err := json.Unmarshal([]byte(uo.Patch), &data)
 	if err != nil {
-		return nil
+		return 0, fmt.Errorf("failed to unmarshal internal diff: %w", err)
 	}
-	count := countLeaf(data)
-	return &count
+	return countLeaf(data), nil
 }
 
-func findBestMatch(matches []matchCounts) matchCounts {
-	var bestNewlineMatch *matchCounts
+func findBestMatch(matches []matchCounts) *matchCounts {
 	var bestLeafMatch *matchCounts
-	useNewlineMatch := false
 	for _, match := range matches {
-		if bestNewlineMatch == nil || match.newlineCount < bestNewlineMatch.newlineCount {
-			bestNewlineMatch = &match
-		}
-		if match.leafCount == nil {
-			useNewlineMatch = true
-		}
-		if !useNewlineMatch && (bestLeafMatch == nil || (*match.leafCount < *bestLeafMatch.leafCount)) {
+		if bestLeafMatch == nil || match.leafCount < bestLeafMatch.leafCount {
 			bestLeafMatch = &match
 		}
 	}
-	if useNewlineMatch {
-		return *bestNewlineMatch
-	}
-	return *bestLeafMatch
+	return bestLeafMatch
 
 }
 
@@ -598,25 +589,27 @@ func getBestMatchByLines(templates []ReferenceTemplate, cr *unstructured.Unstruc
 			continue
 		}
 		uo, err := CreateMergePatch(temp, diffResult.infoObject, o.overrideReason)
-		var leafCount *int
 		// if user override is ok we can count the leaves in the patches
-		if err == nil {
-			leafCount = countLeaves(uo)
+		if err != nil {
+			errs = append(errs, err)
+			continue
 		}
+
+		count, err := countLeaves(uo)
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+
 		matches = append(matches, matchCounts{
 			diffResult:   diffResult,
 			temp:         temp,
 			userOverride: uo,
-			newlineCount: countNewlines(diffResult.output),
-			leafCount:    leafCount,
+			leafCount:    count,
 		})
 	}
-	if len(matches) > 0 {
-		bestMatch := findBestMatch(matches)
+	return findBestMatch(matches), errors.Join(errs...)
 
-		return &bestMatch, errors.Join(errs...)
-	}
-	return nil, errors.Join(errs...)
 }
 
 type diffResult struct {
