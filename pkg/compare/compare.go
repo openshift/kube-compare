@@ -508,12 +508,23 @@ func extractPath(str string, pathIndex int) string {
 }
 
 type matchCounts struct {
-	diffOutput   *bytes.Buffer
+	diffResult   diffResult
 	userOverride *UserOverride
 	temp         ReferenceTemplate
 
 	leafCount    *int
 	newlineCount int
+}
+
+func (m matchCounts) IsDiff() bool {
+	if m.diffResult.exitError != nil {
+		return m.diffResult.exitError.ExitStatus() == 1
+	}
+	return false
+}
+
+func (m matchCounts) DiffOutput() *bytes.Buffer {
+	return m.diffResult.output
 }
 
 func countNewlines(diffOutput *bytes.Buffer) int {
@@ -568,7 +579,8 @@ func findBestMatch(matches []matchCounts) matchCounts {
 	return *bestLeafMatch
 
 }
-func getBestMatchByLines(templates []ReferenceTemplate, cr *unstructured.Unstructured, userOverrides []*UserOverride, o *Options) (ReferenceTemplate, *bytes.Buffer, *UserOverride, error) {
+
+func getBestMatchByLines(templates []ReferenceTemplate, cr *unstructured.Unstructured, userOverrides []*UserOverride, o *Options) (*matchCounts, error) {
 	matches := make([]matchCounts, 0)
 	errs := make([]error, 0)
 
@@ -580,36 +592,43 @@ func getBestMatchByLines(templates []ReferenceTemplate, cr *unstructured.Unstruc
 			}
 		}
 
-		diffOutput, infoObj, err := diffAgainstTemplate(temp, cr, templateOverrides, o)
+		diffResult, err := diffAgainstTemplate(temp, cr, templateOverrides, o)
 		if err != nil {
 			errs = append(errs, err)
 			continue
 		}
-		uo, err := CreateMergePatch(temp, infoObj, o.overrideReason)
+		uo, err := CreateMergePatch(temp, diffResult.infoObject, o.overrideReason)
 		var leafCount *int
 		// if user override is ok we can count the leaves in the patches
 		if err == nil {
 			leafCount = countLeaves(uo)
 		}
 		matches = append(matches, matchCounts{
-			diffOutput:   diffOutput,
+			diffResult:   diffResult,
 			temp:         temp,
 			userOverride: uo,
-			newlineCount: countNewlines(diffOutput),
+			newlineCount: countNewlines(diffResult.output),
 			leafCount:    leafCount,
 		})
 	}
 	if len(matches) > 0 {
 		bestMatch := findBestMatch(matches)
-		return bestMatch.temp, bestMatch.diffOutput, bestMatch.userOverride, errors.Join(errs...)
+
+		return &bestMatch, errors.Join(errs...)
 	}
-	return ReferenceTemplateV1{}, nil, nil, errors.Join(errs...)
+	return nil, errors.Join(errs...)
 }
 
-func diffAgainstTemplate(temp ReferenceTemplate, clusterCR *unstructured.Unstructured, userOverrides []*UserOverride, o *Options) (*bytes.Buffer, *InfoObject, error) {
+type diffResult struct {
+	output     *bytes.Buffer
+	infoObject *InfoObject
+	exitError  exec.ExitError
+}
+
+func diffAgainstTemplate(temp ReferenceTemplate, clusterCR *unstructured.Unstructured, userOverrides []*UserOverride, o *Options) (diffResult, error) {
 	localRef, err := temp.Exec(clusterCR.Object)
 	if err != nil {
-		return nil, nil, err //nolint: wrapcheck
+		return diffResult{}, err //nolint: wrapcheck
 	}
 	obj := InfoObject{
 		injectedObjFromTemplate: localRef,
@@ -622,27 +641,33 @@ func diffAgainstTemplate(temp ReferenceTemplate, clusterCR *unstructured.Unstruc
 
 	differ, err := diff.NewDiffer("MERGED", "LIVE")
 	diffOutput := new(bytes.Buffer)
+
+	res := diffResult{
+		output:     diffOutput,
+		infoObject: &obj,
+	}
 	if err != nil {
-		return diffOutput, &obj, fmt.Errorf("failed to create diff instance: %w", err)
+		return res, fmt.Errorf("failed to create diff instance: %w", err)
 	}
 	defer differ.TearDown()
 
 	err = differ.Diff(obj, diff.Printer{}, o.ShowManagedFields)
 	if err != nil {
-		return diffOutput, &obj, fmt.Errorf("error occurered during diff: %w", err)
+		return res, fmt.Errorf("error occurered during diff: %w", err)
 	}
 	err = differ.Run(&diff.DiffProgram{Exec: exec.New(), IOStreams: genericiooptions.IOStreams{In: o.IOStreams.In, Out: diffOutput, ErrOut: o.IOStreams.ErrOut}})
 
 	// If the diff tool runs without issues and detects differences at this level of the code, we would like to report that there are no issues
 	var exitErr exec.ExitError
 	if ok := errors.As(err, &exitErr); ok && exitErr.ExitStatus() <= 1 {
-		return diffOutput, &obj, nil
+		res.exitError = exitErr
+		return res, nil
 	}
 	if err != nil {
-		return diffOutput, &obj, fmt.Errorf("diff exited with non-zero code: %w", err)
+		return res, fmt.Errorf("diff exited with non-zero code: %w", err)
 	}
 
-	return diffOutput, &obj, nil
+	return res, nil
 }
 
 // Run uses the factory to parse file arguments (in case of local mode) or gather all cluster resources matching
@@ -696,21 +721,21 @@ func (o *Options) Run() error {
 			return err //nolint: wrapcheck
 		}
 
-		temp, diffOutput, uo, err := getBestMatchByLines(temps, clusterCR, userOverrides, o)
+		bestMatch, err := getBestMatchByLines(temps, clusterCR, userOverrides, o)
 
 		if err != nil {
 			o.metricsTracker.addUNMatch(clusterCR)
 			return err
 		}
 
-		o.metricsTracker.addMatch(temp)
+		o.metricsTracker.addMatch(bestMatch.temp)
 
-		if diffOutput.Len() > 0 {
+		if bestMatch.IsDiff() {
 			numDiffCRs += 1
 		}
 
-		if uo != nil && slices.Contains(o.templatesToGenerateOverridesFor, temp.GetPath()) {
-			o.newUserOverrides = append(o.newUserOverrides, uo)
+		if bestMatch.userOverride != nil && slices.Contains(o.templatesToGenerateOverridesFor, bestMatch.temp.GetPath()) {
+			o.newUserOverrides = append(o.newUserOverrides, bestMatch.userOverride)
 		}
 
 		patched := ""
@@ -727,12 +752,12 @@ func (o *Options) Run() error {
 		}
 
 		diffs = append(diffs, DiffSum{
-			DiffOutput:         diffOutput.String(),
-			CorrelatedTemplate: temp.GetIdentifier(),
+			DiffOutput:         bestMatch.DiffOutput().String(),
+			CorrelatedTemplate: bestMatch.temp.GetIdentifier(),
 			CRName:             apiKindNamespaceName(clusterCR),
 			Patched:            patched,
 			OverrideReasons:    reasons,
-			Description:        temp.GetDescription(),
+			Description:        bestMatch.temp.GetDescription(),
 		})
 		return err
 	})
