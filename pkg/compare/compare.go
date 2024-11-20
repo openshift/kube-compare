@@ -507,33 +507,6 @@ func extractPath(str string, pathIndex int) string {
 	return "Unknown Path"
 }
 
-type matchCounts struct {
-	diffResult   diffResult
-	userOverride *UserOverride
-	temp         ReferenceTemplate
-
-	leafCount int
-}
-
-func (m matchCounts) IsDiff() bool {
-	res := m.leafCount > 0
-	if !res && m.diffResult.exitError != nil && m.diffResult.exitError.ExitStatus() == 1 {
-		klog.Warning("Our internally we found no difference but the external tool responded with an exit code of 1")
-	}
-	if res && m.diffResult.exitError == nil {
-		klog.Warning("Our internally we found a difference but the external tool responded with an exit code of 0")
-	}
-	return res
-}
-
-func (m matchCounts) DiffOutput() *bytes.Buffer {
-	return m.diffResult.output
-}
-
-func countNewlines(diffOutput *bytes.Buffer) int {
-	return bytes.Count(diffOutput.Bytes(), []byte("\n"))
-}
-
 func countLeaf(d any) int {
 	count := 0
 	switch t := d.(type) {
@@ -560,19 +533,19 @@ func countLeaves(uo *UserOverride) (int, error) {
 	return countLeaf(data), nil
 }
 
-func findBestMatch(matches []matchCounts) *matchCounts {
-	var bestLeafMatch *matchCounts
+func findBestMatch(matches []*diffResult) *diffResult {
+	var bestLeafMatch *diffResult
 	for _, match := range matches {
 		if bestLeafMatch == nil || match.leafCount < bestLeafMatch.leafCount {
-			bestLeafMatch = &match
+			bestLeafMatch = match
 		}
 	}
 	return bestLeafMatch
 
 }
 
-func getBestMatchByLines(templates []ReferenceTemplate, cr *unstructured.Unstructured, userOverrides []*UserOverride, o *Options) (*matchCounts, error) {
-	matches := make([]matchCounts, 0)
+func getBestMatchByLines(templates []ReferenceTemplate, cr *unstructured.Unstructured, userOverrides []*UserOverride, o *Options) (*diffResult, error) {
+	matches := make([]*diffResult, 0)
 	errs := make([]error, 0)
 
 	for _, temp := range templates {
@@ -588,40 +561,44 @@ func getBestMatchByLines(templates []ReferenceTemplate, cr *unstructured.Unstruc
 			errs = append(errs, err)
 			continue
 		}
-		uo, err := CreateMergePatch(temp, diffResult.infoObject, o.overrideReason)
-		// if user override is ok we can count the leaves in the patches
-		if err != nil {
-			errs = append(errs, err)
-			continue
-		}
-
-		count, err := countLeaves(uo)
-		if err != nil {
-			errs = append(errs, err)
-			continue
-		}
-
-		matches = append(matches, matchCounts{
-			diffResult:   diffResult,
-			temp:         temp,
-			userOverride: uo,
-			leafCount:    count,
-		})
+		matches = append(matches, diffResult)
 	}
 	return findBestMatch(matches), errors.Join(errs...)
 
 }
 
 type diffResult struct {
-	output     *bytes.Buffer
-	infoObject *InfoObject
-	exitError  exec.ExitError
+	output    *bytes.Buffer
+	exitError exec.ExitError
+
+	userOverride *UserOverride
+	temp         ReferenceTemplate
+	leafCount    int
 }
 
-func diffAgainstTemplate(temp ReferenceTemplate, clusterCR *unstructured.Unstructured, userOverrides []*UserOverride, o *Options) (diffResult, error) {
+func (d diffResult) IsDiff() bool {
+	res := d.leafCount > 0
+	if !res && d.exitError != nil && d.exitError.ExitStatus() == 1 {
+		klog.Warning("Internally we found no difference but the external tool responded with an exit code of 1")
+	}
+	if res && d.exitError == nil {
+		klog.Warning("Internally we found a difference but the external tool responded with an exit code of 0")
+	}
+	return res
+}
+
+func (d diffResult) DiffOutput() *bytes.Buffer {
+	return d.output
+}
+
+func diffAgainstTemplate(temp ReferenceTemplate, clusterCR *unstructured.Unstructured, userOverrides []*UserOverride, o *Options) (*diffResult, error) {
+	res := &diffResult{
+		temp: temp,
+	}
+
 	localRef, err := temp.Exec(clusterCR.Object)
 	if err != nil {
-		return diffResult{}, err //nolint: wrapcheck
+		return res, err //nolint: wrapcheck
 	}
 	obj := InfoObject{
 		injectedObjFromTemplate: localRef,
@@ -635,10 +612,7 @@ func diffAgainstTemplate(temp ReferenceTemplate, clusterCR *unstructured.Unstruc
 	differ, err := diff.NewDiffer("MERGED", "LIVE")
 	diffOutput := new(bytes.Buffer)
 
-	res := diffResult{
-		output:     diffOutput,
-		infoObject: &obj,
-	}
+	res.output = diffOutput
 	if err != nil {
 		return res, fmt.Errorf("failed to create diff instance: %w", err)
 	}
@@ -654,11 +628,23 @@ func diffAgainstTemplate(temp ReferenceTemplate, clusterCR *unstructured.Unstruc
 	var exitErr exec.ExitError
 	if ok := errors.As(err, &exitErr); ok && exitErr.ExitStatus() <= 1 {
 		res.exitError = exitErr
-		return res, nil
-	}
-	if err != nil {
+	} else if err != nil {
 		return res, fmt.Errorf("diff exited with non-zero code: %w", err)
 	}
+
+	// Some extra metadata for deciding if its a good diff
+	uo, err := CreateMergePatch(temp, &obj, o.overrideReason)
+	// if user override is ok we can count the leaves in the patches
+	if err != nil {
+		return res, err
+	}
+	res.userOverride = uo
+
+	count, err := countLeaves(uo)
+	if err != nil {
+		return res, err
+	}
+	res.leafCount = count
 
 	return res, nil
 }
