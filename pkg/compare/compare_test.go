@@ -422,6 +422,11 @@ func TestCompareRun(t *testing.T) {
 		defaultTest("SomeDiffs").
 			withVerboseOutput().
 			withChecks(defaultChecks.withPrefixedSuffix("withVebosityFlag")),
+		defaultTest("Strict Match"),
+		defaultTest("Strict Match").
+			withUserConfig(userConfigFileName).
+			withSubTestSuffix("Strict Mode On").
+			withChecks(defaultChecks.withPrefixedSuffix("strict_mode_on")),
 		defaultTest("Invalid Resources Are Skipped"),
 		defaultTest("Ref Contains Templates With Function Templates In Same File"),
 		defaultTest("User Override").

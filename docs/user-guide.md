@@ -52,30 +52,49 @@ resources and resource templates. The matches can be added to the config as pair
 
 ##### Correlation by group of fields (apiVersion, kind, namespace and name)
 
-When there is no manual match for a CR the command will try to match a template for the resource by looking at the
-4-tuple: apiVersion, kind, namespace and name . The Correlation is based on which fields in the templates that are not
-user-variable. Templates get matched to resources based on all the features from the 4-tuple that are declared fixed (
-not user-variable) in the templates.
+When there is no manual match for a CR the command will try to match a template
+for the resource by looking at the 4-tuple: apiVersion, kind, namespace and
+name.
 
-For example a template with a fixed namespace, kind, name and templated (user-variable) apiVersion will only be a
-potential match by the kind-namespace-name criterion.
-
-For each resource the group correlation will be done by the next logic:
+For each resource the group correlation will be finding a template which
+matches the largest number of fields from this group: apiVersion, kind,
+namespace, name.  This is done in the following order, with the first match
+taken:
 
 1. Exact match of apiVersion-kind-namespace-name
-    1. If there is a result in the reference, comparison will be done
-1. Exact Match in 3/4 fields from apiVersion, kind, namespace, name. ( meaning exact match in: kind-namespace-name or
-   apiVersion-kind-name or apiVersion-kind-namespace)
-    1. If there is a result in the reference, comparison will be done
-1. Exact Match in 2/4 fields from apiVersion, kind, namespace, name. ( meaning exact match in: kind-namespace or
-   kind-name or apiVersion-kind)
-    1. If there is a result in the reference, comparison will be done
+1. Exact Match in 3/4 fields from apiVersion, kind, namespace, name. (meaning
+   one of: kind-namespace-name or apiVersion-kind-name or
+   apiVersion-kind-namespace)
+1. Exact Match in 2/4 fields from apiVersion, kind, namespace, name. (meaning
+   one of: kind-namespace or kind-name or apiVersion-kind)
 1. Match kind
-    1. If there is a result in the reference, comparison will be done
 1. No match – comparison cannot be made and the file is flagged as unmatched.
 
-We can phrase this logic in a more general form. Each CR will be correlated to a template with an exact match in the
-largest number of fields from this group:  apiVersion, kind, namespace, name.
+In the event that a single CR matches multiple templates, the diff logic
+assumes that the template with the smallest number of diffs from the given CR
+is the intended template.  This can be overridden by either specifying manual
+matches (see the prior section), or be enabling strict match mode (see the
+following section).
+
+###### Strict match mode
+
+Strict match correlation is based on which fields in the templates that are not
+user-variable. In this mode, templates get matched to resources based on all
+the features from the 4-tuple that are declared fixed (not user-variable) in
+the templates.
+
+For example a template with a fixed namespace, kind, name and templated
+(user-variable) apiVersion will only be a potential match by the
+kind-namespace-name criterion, but would not match a CR with the same kind and
+namespace if the name is different.
+
+To enable strict matching, add the following user config in your diff-config
+(`-c` flag):
+
+```yaml
+correlationSettings:
+   strictMatch: true
+```
 
 ### How it works
 
