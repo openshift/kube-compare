@@ -115,11 +115,12 @@ type GroupCorrelator[T CorrelationEntry] struct {
 // For fieldsGroups =  {{{"metadata", "namespace"}, {"kind"}}, {{"kind"}}} and the following templates: [fixedKindTemplate, fixedNamespaceKindTemplate]
 // the fixedNamespaceKindTemplate will be added to a mapping where the keys are  in the format of `namespace_kind`. The fixedKindTemplate
 // will be added to a mapping where the keys are  in the format of `kind`.
-func NewGroupCorrelator[T CorrelationEntry](fieldGroups [][][]string, objects []T) (*GroupCorrelator[T], error) {
+func NewGroupCorrelator[T CorrelationEntry](fieldGroups [][][]string, objects []T, strict bool) (*GroupCorrelator[T], error) {
 	sort.Slice(fieldGroups, func(i, j int) bool {
 		return len(fieldGroups[i]) >= len(fieldGroups[j])
 	})
 	core := GroupCorrelator[T]{}
+	first := true
 	for _, group := range fieldGroups {
 		fc := FieldCorrelator[T]{Fields: group, hashFunc: createGroupHashFunc(group)}
 		newObjects := fc.ClaimTemplates(objects)
@@ -129,7 +130,9 @@ func NewGroupCorrelator[T CorrelationEntry](fieldGroups [][][]string, objects []
 			continue
 		}
 
-		objects = newObjects
+		// Only warn if we find duplicate templates matching on the most-specific FieldCorrelator, or in strict mode
+		fc.warnDupe = first || strict
+		first = false
 		core.fieldCorrelators = append(core.fieldCorrelators, &fc)
 
 		err := fc.ValidateTemplates()
@@ -137,8 +140,12 @@ func NewGroupCorrelator[T CorrelationEntry](fieldGroups [][][]string, objects []
 			klog.Warning(err)
 		}
 
-		if len(objects) == 0 {
-			break
+		if strict {
+			// In strict mode, only continue to process the objects that we haven't yet matched to a FieldCorrelator
+			objects = newObjects
+			if len(objects) == 0 {
+				break
+			}
 		}
 	}
 
@@ -259,6 +266,7 @@ type FieldCorrelator[T CorrelationEntry] struct {
 	Fields   [][]string
 	hashFunc templateHashFunc
 	objects  map[string][]T
+	warnDupe bool
 }
 
 func (f *FieldCorrelator[T]) ClaimTemplates(templates []T) []T {
@@ -281,6 +289,10 @@ func (f *FieldCorrelator[T]) ClaimTemplates(templates []T) []T {
 }
 
 func (f *FieldCorrelator[T]) ValidateTemplates() error {
+	if !f.warnDupe {
+		return nil
+	}
+
 	errs := make([]error, 0)
 	for _, values := range f.objects {
 		if len(values) > 1 {
