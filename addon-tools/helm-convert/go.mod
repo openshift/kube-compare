@@ -3,7 +3,7 @@ module github.com/openshift/kube-compare/addon-tools/helm-convert
 go 1.22.0
 
 require (
-	github.com/openshift/kube-compare v0.3.0
+	github.com/openshift/kube-compare v0.5.0
 	github.com/spf13/cobra v1.8.1
 	github.com/stretchr/testify v1.9.0
 	helm.sh/helm/v3 v3.16.2
