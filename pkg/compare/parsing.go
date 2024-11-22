@@ -96,7 +96,6 @@ type UserConfig struct {
 
 type CorrelationSettings struct {
 	ManualCorrelation ManualCorrelation `json:"manualCorrelation"`
-	StrictMatch       bool              `json:"strictMatch,omitempty"`
 }
 
 type ManualCorrelation struct {
