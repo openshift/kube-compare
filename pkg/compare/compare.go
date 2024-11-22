@@ -358,7 +358,7 @@ func (o *Options) setupCorrelators() error {
 		correlators = append(correlators, manualCorrelator)
 	}
 
-	groupCorrelator, err := NewGroupCorrelator(defaultFieldGroups, o.templates, o.userConfig.CorrelationSettings.StrictMatch)
+	groupCorrelator, err := NewGroupCorrelator(defaultFieldGroups, o.templates)
 	if err != nil {
 		return err
 	}
@@ -387,8 +387,7 @@ func (o *Options) setupOverrideCorrelators() error {
 		correlators = append(correlators, manualOverrideCorrelator)
 	}
 
-	// UserOverrides are never lenient; must match as exactly as possible
-	groupCorrelator, err := NewGroupCorrelator(defaultFieldGroups, o.userOverrides, true)
+	groupCorrelator, err := NewGroupCorrelator(defaultFieldGroups, o.userOverrides)
 	if err != nil {
 		return err
 	}
