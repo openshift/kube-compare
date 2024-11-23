@@ -177,7 +177,7 @@ github.com/munnerz/goautoneg
 # github.com/mxk/go-flowrate v0.0.0-20140419014527-cca7078d478f
 ## explicit
 github.com/mxk/go-flowrate/flowrate
-# github.com/openshift/kube-compare v0.3.0
+# github.com/openshift/kube-compare v0.6.0
 ## explicit; go 1.22.0
 # github.com/peterbourgon/diskv v2.0.1+incompatible
 ## explicit
