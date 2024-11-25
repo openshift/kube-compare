@@ -5,7 +5,7 @@ go 1.22.0
 require (
 	github.com/openshift/kube-compare v0.3.0
 	github.com/spf13/cobra v1.8.1
-	github.com/stretchr/testify v1.9.0
+	github.com/stretchr/testify v1.10.0
 	k8s.io/cli-runtime v0.31.2
 	k8s.io/kubectl v0.31.2
 )
