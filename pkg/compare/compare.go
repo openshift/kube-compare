@@ -151,7 +151,7 @@ func NewCmd(f kcmdutil.Factory, streams genericiooptions.IOStreams) *cobra.Comma
 	}
 
 	cmd := &cobra.Command{
-		Use:                   "compare -r <Reference File>",
+		Use:                   "cluster-compare -r <Reference File>",
 		DisableFlagsInUseLine: true,
 		Short:                 i18n.T("Compare a reference configuration and a set of cluster configuration CRs."),
 		Long:                  compareLong,
