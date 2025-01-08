@@ -13,6 +13,20 @@ GO_BUILD_FLAGS_DARWIN :=-tags 'include_gcs include_oss containers_image_openpgp'
 GO_BUILD_FLAGS_WINDOWS :=-tags 'include_gcs include_oss containers_image_openpgp'
 GO_BUILD_FLAGS_LINUX_CROSS :=-tags 'include_gcs include_oss containers_image_openpgp'
 
+# Inject a version and date via ldflags for the '--version' flag
+# Upstream builds get their ldflags set via goreleaser automatically
+ifneq ($(strip $(OS_GIT_VERSION)),)
+	# Downstream builds should have this set:
+	#   OS_GIT_VERSION=4.19.0-202412190006.p0.ga217c8d.assembly.stream.el9
+	# So use it verbatim for the version string
+	BUILD_VERSION ?= $(OS_GIT_VERSION)
+else
+	# For manual builds, use 'git describe' based on the latest tag
+	BUILD_VERSION ?= $(shell git describe --tag | sed -e 's/^v//')
+endif
+BUILD_DATE ?= $(shell date --rfc-3339=seconds)
+GO_LDFLAGS := -ldflags="-X 'main.version=$(BUILD_VERSION)' -X 'main.date=$(BUILD_DATE)'"
+
 OUTPUT_DIR :=_output
 GO_BUILD_BINDIR ?=$(OUTPUT_DIR)/bin
 CROSS_BUILD_BINDIR ?=$(OUTPUT_DIR)/bin
@@ -42,7 +56,7 @@ endif
 .PHONY: build
 build:
 	mkdir -p $(GO_BUILD_BINDIR)
-	GOOS=$(GOOS) GOARCH=$(GOARCH) go build -mod=vendor $(GO_BUILD_FLAGS) -o $(GO_BUILD_BINDIR)/kubectl-cluster_compare ./cmd/kubectl-cluster_compare.go
+	GOOS=$(GOOS) GOARCH=$(GOARCH) go build -mod=vendor $(GO_BUILD_FLAGS) $(GO_LDFLAGS) -o $(GO_BUILD_BINDIR)/kubectl-cluster_compare ./cmd/kubectl-cluster_compare.go
 
 # Install the plugin and completion script in /usr/local/bin
 .PHONY: install
@@ -63,11 +77,11 @@ test-report-creator:
 
 .PHONY: build-report-creator
 build-report-creator:
-	go build ./addon-tools/report-creator/report-creator.go
+	go build $(GO_LDFLAGS) ./addon-tools/report-creator/report-creator.go
 
 .PHONY: build-helm-convert
 build-helm-convert:
-	go build ./addon-tools/helm-convert/helm-convert.go
+	go build $(GO_LDFLAGS) ./addon-tools/helm-convert/helm-convert.go
 
 .PHONY: test-helm-convert
 test-helm-convert:
