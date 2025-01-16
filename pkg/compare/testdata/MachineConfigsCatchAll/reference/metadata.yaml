@@ -1,0 +1,9 @@
+Parts:
+  - name: ExamplePart
+    Components:
+      - name: machine-config
+        type: Required
+        requiredTemplates:
+          - path: 01-container-mount-ns-and-kubelet-conf-master.yaml
+          - path: 01-container-mount-ns-and-kubelet-conf-worker.yaml
+          - path: other_mcs.yaml

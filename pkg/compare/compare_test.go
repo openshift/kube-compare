@@ -613,8 +613,8 @@ func TestCompareRun(t *testing.T) {
 		defaultTest("Some Diffs").
 			withEnvVar("KUBECTL_EXTERNAL_DIFF", "diff -y -W 150").
 			withChecks(defaultChecks.withPrefixedSuffix("with_diff_y")),
+		defaultTest("Machine Configs Catch All"),
 	}
-	startWithCleanEnv()
 
 	tf := cmdtesting.NewTestFactory()
 	testFlags := flag.NewFlagSet("test", flag.ContinueOnError)
@@ -623,6 +623,7 @@ func TestCompareRun(t *testing.T) {
 	_ = testFlags.Parse([]string{"--skip_headers"})
 
 	for _, test := range tests {
+		startWithCleanEnv()
 		for evName, evValue := range test.envVar {
 			t.Setenv(evName, evValue)
 		}

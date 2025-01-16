@@ -508,3 +508,11 @@ parts:
         - pathToKey: data.bigTextBlock
           inlineDiffFunc: capturegroups
 ```
+
+## Catch all templates
+
+It is possible to create catch all templates to manifests not corrilated by others.
+This is becuase the more specific templates are prefered of less specific ones.
+So by adding wildcards of the corrilated fields such as name or namespace,
+you can have templates that will match manifests not caught more specific templates.
+In our test data we have an example of using [`MachineConfigs`](../pkg/compare/testdata/MachineConfigsCatchAll/reference/)

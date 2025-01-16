@@ -1,0 +1,5 @@
+apiVersion: machineconfiguration.openshift.io/v1
+kind: MachineConfig
+metadata:
+    name: {{ .metadata.name }}
+spec: {{ if ne .spec nil  }} THIS MC IS NOT EXPECTED {{ else }} {} {{ end }}
