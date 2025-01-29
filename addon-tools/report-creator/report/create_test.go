@@ -92,8 +92,8 @@ func checkCompatibilityWithCompareOutput(t *testing.T, test Test, update bool) {
 	require.NoError(t, cmpCmd.Flags().Set("recursive", "true"))
 	require.NoError(t, cmpCmd.Flags().Set("output", compare.Json))
 	cmpCmd.Run(cmpCmd, []string{})
-	result := testutils.GetFile(t, test.getJSONPath(), testutils.RemoveInconsistentInfo(t, out.String()), update)
-	require.Equal(t, result, testutils.RemoveInconsistentInfo(t, out.String()))
+	result := testutils.GetFile(t, test.getJSONPath(), testutils.RemoveInconsistentInfo(t, out.String(), testutils.FixupOptions{}), update)
+	require.Equal(t, result, testutils.RemoveInconsistentInfo(t, out.String(), testutils.FixupOptions{}))
 }
 
 func removeInconsistentInfoFromReport(text []byte) string {

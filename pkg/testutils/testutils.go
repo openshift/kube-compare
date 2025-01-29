@@ -36,13 +36,22 @@ func getTempRegex(t *testing.T) *regexp.Regexp {
 	return tempRegex
 }
 
-func RemoveInconsistentInfo(t *testing.T, text string) string {
+type FixupOptions struct {
+	UseRealHash bool
+}
+
+func RemoveInconsistentInfo(t *testing.T, text string, opt FixupOptions) string {
 	// remove diff tool generated temp directory path
 	re := getTempRegex(t)
 	text = re.ReplaceAllString(text, "TEMP")
 	// remove diff datetime
 	re = regexp.MustCompile(`(\d{4}-\d{2}-\d{2}\s*\d{2}:\d{2}:\d{2}(:?\.\d{9} [+-]\d{4})?)`)
 	text = re.ReplaceAllString(text, "DATE")
+	// Remove unique metadata hash (optionally; some tests require it be untouched
+	if !opt.UseRealHash {
+		re = regexp.MustCompile(`Metadata Hash: [a-z0-9]{64}`)
+		text = re.ReplaceAllString(text, "Metadata Hash: $$METADATA_HASH$$")
+	}
 	pwd, err := os.Getwd()
 	require.NoError(t, err)
 	return strings.ReplaceAll(text, pwd, ".")

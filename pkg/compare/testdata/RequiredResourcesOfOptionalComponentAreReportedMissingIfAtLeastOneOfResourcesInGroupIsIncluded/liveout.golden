@@ -7,5 +7,5 @@ ExamplePart1:
     Missing CRs:
     - cm.yaml
 No CRs are unmatched to reference CRs
-Metadata Hash: d050e3182f5aa23fb2082c4f5642e1f5d32a8870cc151178ebd8ce95b4297783
+Metadata Hash: $METADATA_HASH$
 No patched CRs
