@@ -1,0 +1,14 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  labels:
+    k8s-app: kubernetes-dashboard
+  name: configmap-with-multiple-values
+  namespace: kubernetes-dashboard
+spec:
+  first: "This short group establishes exampleuser"
+  list:
+    - bigTextBlock: |-
+        This is a big text block with some static content, like this line.
+        It also has a place where exampleuser would put in their own name. exampleuser would put in their own name.
+        More complicated [capture groups] are also allowed.

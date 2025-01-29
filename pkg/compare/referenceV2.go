@@ -289,7 +289,7 @@ var InlineDiffs = map[inlineDiffType]InlineDiff{
 }
 
 type InlineDiff interface {
-	Diff(templateValue, crValue string) string
+	Diff(templateValue, crValue string, sharedCapturedValues CapturedValues) (string, CapturedValues)
 	Validate(templateValue string) error
 }
 

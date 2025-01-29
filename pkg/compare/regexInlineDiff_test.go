@@ -7,9 +7,11 @@ import (
 )
 
 type RegexTestDiff struct {
-	regex    string
-	input    string
-	expected string
+	regex      string
+	input      string
+	expected   string
+	initialCg  CapturedValues
+	expectedCg CapturedValues
 }
 
 func TestInlineRegexDiff(t *testing.T) {
@@ -43,6 +45,11 @@ func TestInlineRegexDiff(t *testing.T) {
 			regex:    "He(?<simple>llo)",
 			input:    "Hello",
 			expected: "Hello",
+			expectedCg: CapturedValues{
+				caps: map[string][]string{
+					"simple": []string{"llo"},
+				},
+			},
 		},
 		{
 			regex:    "He(?<simple>llo)",
@@ -53,12 +60,38 @@ func TestInlineRegexDiff(t *testing.T) {
 			regex:    "He(?<simple>llo), World",
 			input:    "Hello, World",
 			expected: "Hello, World",
+			expectedCg: CapturedValues{
+				caps: map[string][]string{
+					"simple": []string{"llo"},
+				},
+			},
+		},
+		{
+			regex: "He(?<simple>llo), World",
+			input: "Hello, World",
+			expected: "He(?<simple>=othermatch), World\n" +
+				"WARNING: Capturegroup (?<simple>…) matched multiple values: « othermatch | llo »",
+			initialCg: CapturedValues{
+				caps: map[string][]string{
+					"simple": []string{"othermatch"},
+				},
+			},
+			expectedCg: CapturedValues{
+				caps: map[string][]string{
+					"simple": []string{"othermatch", "llo"},
+				},
+			},
 		},
 		{
 			regex: "(?<simple>Hello), (?<simple>World)",
 			input: "Hello, World",
 			expected: "(?<simple>=Hello), (?<simple>=Hello)\n" +
 				"WARNING: Capturegroup (?<simple>…) matched multiple values: « Hello | World »",
+			expectedCg: CapturedValues{
+				caps: map[string][]string{
+					"simple": []string{"Hello", "World"},
+				},
+			},
 		},
 		{
 			regex:    "Hello, (World)",
@@ -85,14 +118,22 @@ func TestInlineRegexDiff(t *testing.T) {
 			input: "Hello World",
 			expected: "Hello World\n" +
 				"WARNING: Capturegroup (?<nested>…) matched multiple values: « ello | orld »",
+			expectedCg: CapturedValues{
+				caps: map[string][]string{
+					"hello":  []string{"Hello"},
+					"world":  []string{"World"},
+					"nested": []string{"ello", "orld"},
+				},
+			},
 		},
 	}
 
 	inlineFunc := InlineDiffs["regex"]
 	for _, test := range tests {
 		t.Run(test.regex, func(t *testing.T) {
-			actual := inlineFunc.Diff(test.regex, test.input)
+			actual, resultingCg := inlineFunc.Diff(test.regex, test.input, test.initialCg)
 			require.Equal(t, test.expected, actual)
+			require.Equal(t, test.expectedCg, resultingCg)
 		})
 	}
 }

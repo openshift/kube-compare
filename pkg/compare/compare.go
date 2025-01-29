@@ -821,6 +821,7 @@ func (e InlineDiffError) Error() string {
 
 func (obj InfoObject) runInlineDiffFuncs() error {
 	var errs []error
+	sharedCapturegroups := CapturedValues{}
 	for pathToKey, inlineDiffFunc := range obj.templateFieldConf {
 		listedPath, err := pathToList(pathToKey)
 		if err != nil {
@@ -850,7 +851,9 @@ func (obj InfoObject) runInlineDiffFuncs() error {
 			errs = append(errs, fmt.Errorf("failed to validate the inline diff for field %s, %w", pathToKey, err))
 			continue
 		}
-		err = SetNestedString(obj.injectedObjFromTemplate.Object, diffFn.Diff(value, clusterValue), listedPath...)
+		patchedString, updatedCapturegroups := diffFn.Diff(value, clusterValue, sharedCapturegroups)
+		sharedCapturegroups = updatedCapturegroups
+		err = SetNestedString(obj.injectedObjFromTemplate.Object, patchedString, listedPath...)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("failed to update value of inline diff func result for field %s, %w", pathToKey, err))
 			continue
