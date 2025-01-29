@@ -142,7 +142,7 @@ func TestCapturegroupsDiff(t *testing.T) {
 					expected: []string{"one", "two", "three"},
 					expectedCg: CapturedValues{
 						caps: map[string][]string{
-							"g1": []string{"two"},
+							"g1": {"two"},
 						},
 					},
 				},
@@ -167,7 +167,7 @@ func TestCapturegroupsDiff(t *testing.T) {
 					expected: []string{"one", "two point five", "three"},
 					expectedCg: CapturedValues{
 						caps: map[string][]string{
-							"g1": []string{"two point five"},
+							"g1": {"two point five"},
 						},
 					},
 				},
@@ -203,8 +203,8 @@ func TestCapturegroupsDiff(t *testing.T) {
 					expected: []string{"Line one", "Line a two b", "Line three"},
 					expectedCg: CapturedValues{
 						caps: map[string][]string{
-							"g1": []string{"a"},
-							"g2": []string{"b"},
+							"g1": {"a"},
+							"g2": {"b"},
 						},
 					},
 				},
@@ -214,8 +214,8 @@ func TestCapturegroupsDiff(t *testing.T) {
 					expected: []string{"Line one", "Line a a a two b", "Line three"},
 					expectedCg: CapturedValues{
 						caps: map[string][]string{
-							"g1": []string{"a a a"},
-							"g2": []string{"b"},
+							"g1": {"a a a"},
+							"g2": {"b"},
 						},
 					},
 				},
@@ -231,7 +231,7 @@ func TestCapturegroupsDiff(t *testing.T) {
 					expected: []string{"Line one", "Line a a two a a", "Line a a"},
 					expectedCg: CapturedValues{
 						caps: map[string][]string{
-							"g1": []string{"a a"},
+							"g1": {"a a"},
 						},
 					},
 				},
@@ -243,7 +243,7 @@ func TestCapturegroupsDiff(t *testing.T) {
 					},
 					expectedCg: CapturedValues{
 						caps: map[string][]string{
-							"g1": []string{"a a", "b", "three"},
+							"g1": {"a a", "b", "three"},
 						},
 					},
 				},
@@ -255,12 +255,12 @@ func TestCapturegroupsDiff(t *testing.T) {
 					},
 					initialCg: CapturedValues{
 						caps: map[string][]string{
-							"g1": []string{"previous"},
+							"g1": {"previous"},
 						},
 					},
 					expectedCg: CapturedValues{
 						caps: map[string][]string{
-							"g1": []string{"previous", "a a"},
+							"g1": {"previous", "a a"},
 						},
 					},
 				},
@@ -276,9 +276,9 @@ func TestCapturegroupsDiff(t *testing.T) {
 					expected: []string{"Hello Wello"},
 					expectedCg: CapturedValues{
 						caps: map[string][]string{
-							"hello":  []string{"Hello"},
-							"world":  []string{"Wello"},
-							"nested": []string{"ello"},
+							"hello":  {"Hello"},
+							"world":  {"Wello"},
+							"nested": {"ello"},
 						},
 					},
 				},
@@ -288,9 +288,9 @@ func TestCapturegroupsDiff(t *testing.T) {
 					expected: []string{"Hello World", "WARNING: Capturegroup (?<nested>…) matched multiple values: « ello | orld »"},
 					expectedCg: CapturedValues{
 						caps: map[string][]string{
-							"hello":  []string{"Hello"},
-							"world":  []string{"World"},
-							"nested": []string{"ello", "orld"},
+							"hello":  {"Hello"},
+							"world":  {"World"},
+							"nested": {"ello", "orld"},
 						},
 					},
 				},

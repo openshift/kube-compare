@@ -47,7 +47,7 @@ func TestInlineRegexDiff(t *testing.T) {
 			expected: "Hello",
 			expectedCg: CapturedValues{
 				caps: map[string][]string{
-					"simple": []string{"llo"},
+					"simple": {"llo"},
 				},
 			},
 		},
@@ -62,7 +62,7 @@ func TestInlineRegexDiff(t *testing.T) {
 			expected: "Hello, World",
 			expectedCg: CapturedValues{
 				caps: map[string][]string{
-					"simple": []string{"llo"},
+					"simple": {"llo"},
 				},
 			},
 		},
@@ -73,12 +73,12 @@ func TestInlineRegexDiff(t *testing.T) {
 				"WARNING: Capturegroup (?<simple>…) matched multiple values: « othermatch | llo »",
 			initialCg: CapturedValues{
 				caps: map[string][]string{
-					"simple": []string{"othermatch"},
+					"simple": {"othermatch"},
 				},
 			},
 			expectedCg: CapturedValues{
 				caps: map[string][]string{
-					"simple": []string{"othermatch", "llo"},
+					"simple": {"othermatch", "llo"},
 				},
 			},
 		},
@@ -89,7 +89,7 @@ func TestInlineRegexDiff(t *testing.T) {
 				"WARNING: Capturegroup (?<simple>…) matched multiple values: « Hello | World »",
 			expectedCg: CapturedValues{
 				caps: map[string][]string{
-					"simple": []string{"Hello", "World"},
+					"simple": {"Hello", "World"},
 				},
 			},
 		},
@@ -120,9 +120,9 @@ func TestInlineRegexDiff(t *testing.T) {
 				"WARNING: Capturegroup (?<nested>…) matched multiple values: « ello | orld »",
 			expectedCg: CapturedValues{
 				caps: map[string][]string{
-					"hello":  []string{"Hello"},
-					"world":  []string{"World"},
-					"nested": []string{"ello", "orld"},
+					"hello":  {"Hello"},
+					"world":  {"World"},
+					"nested": {"ello", "orld"},
 				},
 			},
 		},

@@ -821,8 +821,26 @@ func (e InlineDiffError) Error() string {
 
 func (obj InfoObject) runInlineDiffFuncs() error {
 	var errs []error
+
+	// Sort the configured paths for reproducibility
+	sortedPaths := make([]string, 0, len(obj.templateFieldConf))
+	for pathToKey := range obj.templateFieldConf {
+		sortedPaths = append(sortedPaths, pathToKey)
+	}
+	slices.Sort(sortedPaths)
+
+	// Pass 1: Verify the DiffFn and record any capturegroup matches
+	type DiffValues struct {
+		value        string
+		clusterValue string
+		listedPath   []string
+		pathToKey    string
+		diffFn       InlineDiff
+	}
+	preprocessedValues := make([]DiffValues, 0, len(obj.templateFieldConf))
 	sharedCapturegroups := CapturedValues{}
-	for pathToKey, inlineDiffFunc := range obj.templateFieldConf {
+	for _, pathToKey := range sortedPaths {
+		inlineDiffFunc := obj.templateFieldConf[pathToKey]
 		listedPath, err := pathToList(pathToKey)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("failed to parse path of field %s that uses inline diff func: %w", pathToKey, err))
@@ -851,11 +869,24 @@ func (obj InfoObject) runInlineDiffFuncs() error {
 			errs = append(errs, fmt.Errorf("failed to validate the inline diff for field %s, %w", pathToKey, err))
 			continue
 		}
-		patchedString, updatedCapturegroups := diffFn.Diff(value, clusterValue, sharedCapturegroups)
+		_, updatedCapturegroups := diffFn.Diff(value, clusterValue, sharedCapturegroups)
 		sharedCapturegroups = updatedCapturegroups
-		err = SetNestedString(obj.injectedObjFromTemplate.Object, patchedString, listedPath...)
+		preprocessedValues = append(preprocessedValues, DiffValues{
+			value:        value,
+			clusterValue: clusterValue,
+			listedPath:   listedPath,
+			pathToKey:    pathToKey,
+			diffFn:       diffFn,
+		})
+	}
+
+	// Pass 2: Actually do the diff and substitute in any matching results
+	for _, v := range preprocessedValues {
+		patchedString, updatedCapturegroups := v.diffFn.Diff(v.value, v.clusterValue, sharedCapturegroups)
+		sharedCapturegroups = updatedCapturegroups
+		err := SetNestedString(obj.injectedObjFromTemplate.Object, patchedString, v.listedPath...)
 		if err != nil {
-			errs = append(errs, fmt.Errorf("failed to update value of inline diff func result for field %s, %w", pathToKey, err))
+			errs = append(errs, fmt.Errorf("failed to update value of inline diff func result for field %s, %w", v.pathToKey, err))
 			continue
 		}
 	}
