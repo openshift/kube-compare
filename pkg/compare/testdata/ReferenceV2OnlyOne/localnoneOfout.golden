@@ -6,5 +6,5 @@ ExamplePart:
     These should not have been matched:
     - cm.yaml
 No CRs are unmatched to reference CRs
-Metadata Hash: a79de4c2e84902b9f04017776932b7ef60cde50465b67f8ad29771f6e2910a3f
+Metadata Hash: $METADATA_HASH$
 No patched CRs

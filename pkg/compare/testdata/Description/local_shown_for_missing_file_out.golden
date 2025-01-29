@@ -10,5 +10,5 @@ ExamplePart:
         particular CR is required, or add an URL that points at more
         documentation.  It is only shown when a difference is detected.
 No CRs are unmatched to reference CRs
-Metadata Hash: 0fd0aab7eefa0457e1b889b1ba49e12872406547092c5e5ae2b085c916881f35
+Metadata Hash: $METADATA_HASH$
 No patched CRs

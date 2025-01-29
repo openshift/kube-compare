@@ -9,5 +9,5 @@ ExamplePart:
     - cm-invalid-capturegroups-late-detection.yaml
 Cluster CRs unmatched to reference CRs: 1
 - v1_ConfigMap_kubernetes-dashboard_kubernetes-dashboard-settings
-Metadata Hash: 7c1ce6a7980e19c76ccdeb0103b98b0c36d66b43b13de79d6a669dd1ee8af0e1
+Metadata Hash: $METADATA_HASH$
 No patched CRs

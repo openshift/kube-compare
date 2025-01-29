@@ -78,5 +78,5 @@ Cluster CRs unmatched to reference CRs: 27
 - apps/v1_Deployment_kubernetes-dashboard_kubernetes-dashboard
 - v1_Service_kubernetes-dashboard_dashboard-metrics-scraper
 - apps/v1_Deployment_kubernetes-dashboard_dashboard-metrics-scraper
-Metadata Hash: 81242360f43a42c4b0568cf57a43706bcd8cb4a0b20203f8d36cc31282c2417d
+Metadata Hash: $METADATA_HASH$
 No patched CRs

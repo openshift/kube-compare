@@ -37,5 +37,5 @@ Summary
 CRs with diffs: 1/3
 No validation issues with the cluster
 No CRs are unmatched to reference CRs
-Metadata Hash: ec21daa539ad95e16532a1af08688befe0226f615e27d80399edc6854aec812d
+Metadata Hash: $METADATA_HASH$
 No patched CRs

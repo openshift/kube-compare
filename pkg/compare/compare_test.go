@@ -187,6 +187,7 @@ type Test struct {
 	verboseOutput         bool
 	badAPIResources       bool
 	envVar                map[string]string
+	fixupOpts             testutils.FixupOptions
 
 	userOverridePath   string
 	templToGenPatchFor []string
@@ -216,6 +217,7 @@ func (test Test) Clone() Test {
 		referenceFileName:     test.referenceFileName,
 		badAPIResources:       test.badAPIResources,
 		envVar:                maps.Clone(test.envVar),
+		fixupOpts:             test.fixupOpts,
 	}
 }
 
@@ -308,6 +310,12 @@ func (test Test) withEnvVar(name, value string) Test {
 	newTest := test.Clone()
 	newTest.envVar[name] = value
 	envVarKeys[name] = true
+	return newTest
+}
+
+func (test Test) withRealHash() Test {
+	newTest := test.Clone()
+	newTest.fixupOpts.UseRealHash = true
 	return newTest
 }
 
@@ -406,16 +414,19 @@ func TestCompareRun(t *testing.T) {
 		defaultTest("Ref With Template Functions Renders As Expected").
 			withModes([]Mode{{Live, LocalRef}, {Local, LocalRef}, {Local, URL}}),
 		defaultTest("YAML Output").
+			withRealHash().
 			withOutputFormat(Yaml).
 			withChecks(Checks{Err: defaultCheckErr,
 				Out: Check{checkType: matchYaml, suffix: defaultOutSuffix},
 			}),
 		defaultTest("JSON Output").
+			withRealHash().
 			withOutputFormat(Json),
 		defaultTest("Check Ignore Unspecified Fields Config"),
 		defaultTest("Check Merging Does Not Overwrite Template Config"),
 		defaultTest("NoDiffs"),
-		defaultTest("SomeDiffs"),
+		defaultTest("SomeDiffs").
+			withRealHash(),
 		defaultTest("NoDiffs").
 			withVerboseOutput().
 			withChecks(defaultChecks.withPrefixedSuffix("withVebosityFlag")),
@@ -635,7 +646,7 @@ func TestCompareRun(t *testing.T) {
 
 				hasCheckedError := false
 				cmdutil.BehaviorOnFatal(func(str string, code int) {
-					errorStr := fmt.Sprintf("%s\nerror code:%d\n", testutils.RemoveInconsistentInfo(t, str), code)
+					errorStr := fmt.Sprintf("%s\nerror code:%d\n", testutils.RemoveInconsistentInfo(t, str, test.fixupOpts), code)
 					test.checks.Err.check(t, test, mode, errorStr)
 					hasCheckedError = true
 					panic(ExpectedPanic)
@@ -649,7 +660,7 @@ func TestCompareRun(t *testing.T) {
 					if !hasCheckedError && test.checks.Err.hasErrorFile(test, mode) {
 						t.Fatalf("Unchecked error file %s", test.checks.Err.getPath(test, mode))
 					}
-					test.checks.Out.check(t, test, mode, testutils.RemoveInconsistentInfo(t, out.String()))
+					test.checks.Out.check(t, test, mode, testutils.RemoveInconsistentInfo(t, out.String(), test.fixupOpts))
 				}()
 				cmd.Run(cmd, []string{})
 			})
