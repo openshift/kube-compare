@@ -28,7 +28,7 @@ type Test struct {
 	name           string
 	passDefaultDir bool
 	passValuesFile bool
-	version        string
+	helmVersion    string
 	description    string
 }
 
@@ -61,12 +61,12 @@ func TestConvert(t *testing.T) {
 		},
 		{
 			name:        "Templates Are Created As Expected",
-			version:     "2",
+			helmVersion: "2",
 			description: "Templates Are Created As Expected Test",
 		},
 		{
 			name:        "Odd Filenames",
-			version:     "2",
+			helmVersion: "2",
 			description: "Test escaping of odd or unexpected characters in reference filenames",
 		},
 		{
@@ -98,8 +98,8 @@ func TestConvert(t *testing.T) {
 			if test.passValuesFile {
 				require.NoError(t, cmd.Flags().Set("values", test.getValuesPath()))
 			}
-			if test.version != "" {
-				require.NoError(t, cmd.Flags().Set("version", test.version))
+			if test.helmVersion != "" {
+				require.NoError(t, cmd.Flags().Set("helm-version", test.helmVersion))
 			}
 			if test.description != "" {
 				require.NoError(t, cmd.Flags().Set("description", test.description))

@@ -23,7 +23,7 @@ const helmTemplatesDir = "templates"
 func NewCmd() *cobra.Command {
 	options := Options{}
 	cmd := &cobra.Command{
-		Use:   "helm-convert -r <REFERENCE_PATH> -n <CHART_DIRECTORY> [-d <EXISTING_CRS_DIR>] [-v <PREVIOUS_VALUES_PATH>] [--description <DESCRIPTION>] [--version <VERSION>]",
+		Use:   "helm-convert -r <REFERENCE_PATH> -n <CHART_DIRECTORY> [-d <EXISTING_CRS_DIR>] [-v <PREVIOUS_VALUES_PATH>] [--description <DESCRIPTION>] [--helm-version <VERSION>]",
 		Short: "Convert kube-compare reference configs into a Helm chart.",
 		Long: `The 'helm-convert' command generates a Helm chart from kube-compare reference configurations and creates a values.yaml file based on the values used in the templates included in the reference. 
 You need to provide the path to the reference YAML file using the -r flag and the directory where the Helm chart should be created using the -n flag. 
@@ -43,7 +43,7 @@ The tool helps automate the creation of values.yaml and supports default values 
 	cmd.Flags().StringVarP(&options.defaultPath, "defaults", "d", "", "Path to directory with the CRs that the tool will extract default values from")
 	cmd.Flags().StringVarP(&options.valuesPath, "values", "v", "", "Path to existing values.yaml file")
 	cmd.Flags().StringVar(&options.chartDescription, "description", "This Helm Chart was generated from a kube-compare reference", "Description for generated Helm Chart")
-	cmd.Flags().StringVar(&options.chartVersion, "version", "1", "Version of generated Helm Chart")
+	cmd.Flags().StringVar(&options.chartVersion, "helm-version", "1", "Version of generated Helm Chart")
 	return cmd
 }
 
