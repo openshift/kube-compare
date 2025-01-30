@@ -1,0 +1,12 @@
+apiVersion: v2
+parts:
+  - name: ExamplePart
+    components:
+      - name: DemonSets
+        allOf:
+          - path: sa.yaml
+            config:
+              perField:
+              - pathToKey: spec.value
+                inlineDiffFunc: capturegroups
+          - path: secret.yaml

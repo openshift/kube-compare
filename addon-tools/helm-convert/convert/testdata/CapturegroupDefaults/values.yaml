@@ -1,0 +1,6 @@
+sa:
+- apiVersion: v1
+  metadata:
+    name: kubernetes-dashboard
+  captureGroup_defaults:
+    one: 100

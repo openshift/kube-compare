@@ -81,6 +81,10 @@ func TestConvert(t *testing.T) {
 			name:           "Values Contain Keys With Dots",
 			passDefaultDir: true,
 		},
+		{
+			name:           "Capturegroup Defaults",
+			passValuesFile: true,
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

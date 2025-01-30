@@ -100,6 +100,46 @@ service:
       k8s-app: {}
 ```
 
+### Capturegroup default substitution
+
+The helm-convert tool supports a mechanism to substitute capturegroup default
+values if required.  If the defaults.yaml contains a section called
+`captureGroup_defaults`, and the YAML in question contains one or more
+captureGroups using either the `regex` or `capturegroup` inlineDiff mechanism,
+all capturegroups with a default in the `captureGroup_defaults` section will be
+replaced by the default value when converting the reference template to helm
+chart template.
+
+For example, if you have a CR like this:
+
+```yaml
+apiVersion: v1
+Kind: Foo
+spec:
+  value: |-
+    Something with (?<blee>.*) in it,
+    And another capturegroup (?<bar>.*) with no default.
+```
+
+With this in the values.yaml:
+
+```yaml
+Foo:
+- captureGroup_defaults:
+    blee: 42
+```
+
+The resulting Helm template will look like this:
+
+```yaml
+apiVersion: v1
+Kind: Foo
+spec:
+  value: |-
+    Something with 42 in it,
+    And another capturegroup (?<bar>.*) with no default.
+```
+
 ## Auto Extracting of default values from Existing CRs
 
 another feature that can help in initial building of values.yaml files is extracting default values from existing CRs,
