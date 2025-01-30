@@ -270,12 +270,12 @@ func (id *diffInfo) comparableDiffPair(i int) (*diffmatchpatch.Diff, *diffmatchp
 }
 
 // Main entrypoint called by compare.go
-func (id CapturegroupsInlineDiff) Diff(pattern, value string) string {
+func (id CapturegroupsInlineDiff) Diff(pattern, value string, sharedCapturedValues CapturedValues) (string, CapturedValues) {
 	// General approach:
 	//  - Match all relevant capturegroups
 	//  - Substitute in the values for all matched capturegroups to the pattern
 
-	cgDiff := diffInfo{CapturedValues: CapturedValues{caps: make(map[string][]string)}}
+	cgDiff := diffInfo{CapturedValues: sharedCapturedValues}
 
 	// Doing a word-wise diff shrinks the probleset by avoiding any text that
 	// is identical or an obvious plain deletion or addition.
@@ -328,7 +328,7 @@ func (id CapturegroupsInlineDiff) Diff(pattern, value string) string {
 	// matched at different points
 	reconciledString += cgDiff.getWarnings()
 
-	return reconciledString
+	return reconciledString, cgDiff.CapturedValues
 }
 
 // Validation entrypoint called by referenceV2.go

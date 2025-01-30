@@ -564,6 +564,22 @@ func TestCompareRun(t *testing.T) {
 			withSubTestSuffix("With Mismatched Capturegroups").
 			withMetadataFile("metadata-with-mismatched-capturegroups.yaml").
 			withChecks(defaultChecks.withPrefixedSuffix("WithMismatchedCapturegroups")),
+		defaultTest("ReferenceV2InlineCapturegroups").
+			withSubTestSuffix("With Consistency Across Capturegroups").
+			withMetadataFile("metadata-with-diff-across-capture-groups.yaml").
+			withChecks(defaultChecks.withPrefixedSuffix("WithDiffAcrossCapturegroups")),
+		defaultTest("ReferenceV2InlineCapturegroups").
+			withSubTestSuffix("With Diff Across Capturegroups").
+			withMetadataFile("metadata-with-diff-across-capture-groups-mismatch.yaml").
+			withChecks(defaultChecks.withPrefixedSuffix("WithDiffAcrossCapturegroupsMismatch")),
+		defaultTest("ReferenceV2InlineCapturegroups").
+			withSubTestSuffix("With Consistency Across Capturegroups and Regex").
+			withMetadataFile("metadata-with-diff-across-capture-groups-and-regex.yaml").
+			withChecks(defaultChecks.withPrefixedSuffix("WithDiffAcrossCapturegroupsAndRegex")),
+		defaultTest("ReferenceV2InlineCapturegroups").
+			withSubTestSuffix("With Diff Across Capturegroups and Regex").
+			withMetadataFile("metadata-with-diff-across-capture-groups-and-regex-mismatch.yaml").
+			withChecks(defaultChecks.withPrefixedSuffix("WithDiffAcrossCapturegroupsAndRegexMismatch")),
 		defaultTest("ReferenceV2PerFieldMatcherValidation").
 			withSubTestSuffix("Matcher Does Not exist").
 			withMetadataFile("metadata-does-not-exist.yaml").

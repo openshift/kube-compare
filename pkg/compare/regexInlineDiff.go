@@ -54,14 +54,16 @@ func (c *capturedValueIndices) getTopLevelIndices() []capturedGroupIndex {
 	return c.topLevelCaputuredGroups
 }
 
-func (id RegexInlineDiff) Diff(regex, crValue string) string {
+func (id RegexInlineDiff) Diff(regex, crValue string, sharedCapturedValues CapturedValues) (string, CapturedValues) {
 	re, _ := regexp.Compile(regex)
 	matchedIndices := re.FindStringSubmatchIndex(crValue)
 	if matchedIndices == nil {
-		return regex
+		return regex, sharedCapturedValues
 	}
 
-	capturedValues := capturedValueIndices{}
+	capturedValues := capturedValueIndices{
+		CapturedValues: sharedCapturedValues,
+	}
 	for n, name := range re.SubexpNames() {
 		if name == "" {
 			continue
@@ -77,7 +79,7 @@ func (id RegexInlineDiff) Diff(regex, crValue string) string {
 		result = result[:tl.start] + capturedValues.groupValues(tl.name) + result[tl.end:]
 	}
 	result += capturedValues.getWarnings()
-	return result
+	return result, capturedValues.CapturedValues
 }
 
 func (id RegexInlineDiff) Validate(regex string) error {

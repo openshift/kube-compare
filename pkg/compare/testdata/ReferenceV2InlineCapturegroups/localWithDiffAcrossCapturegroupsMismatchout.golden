@@ -1,0 +1,31 @@
+**********************************
+
+Cluster CR: v1_ConfigMap_kubernetes-dashboard_configmap-with-multiple-values-mismatch
+Reference File: cm-with-diff-across-capturegroups-mismatch.yaml
+Diff Output: diff -u -N TEMP/v1_configmap_kubernetes-dashboard_configmap-with-multiple-values-mismatch TEMP/v1_configmap_kubernetes-dashboard_configmap-with-multiple-values-mismatch
+--- TEMP/v1_configmap_kubernetes-dashboard_configmap-with-multiple-values-mismatch	DATE
++++ TEMP/v1_configmap_kubernetes-dashboard_configmap-with-multiple-values-mismatch	DATE
+@@ -6,12 +6,9 @@
+   name: configmap-with-multiple-values-mismatch
+   namespace: kubernetes-dashboard
+ spec:
+-  first: |-
+-    This short group establishes (?<username>=mismatchuser)
+-    WARNING: Capturegroup (?<username>…) matched multiple values: « mismatchuser | exampleuser »
++  first: This short group establishes mismatchuser
+   list:
+   - bigTextBlock: |-
+       This is a big text block with some static content, like this line.
+-      It also has a place where (?<username>=mismatchuser) would put in their own name. (?<username>=mismatchuser) would put in their own name.
++      It also has a place where exampleuser would put in their own name. exampleuser would put in their own name.
+       More complicated [capture groups] are also allowed.
+-      WARNING: Capturegroup (?<username>…) matched multiple values: « mismatchuser | exampleuser »
+
+**********************************
+
+Summary
+CRs with diffs: 1/1
+No validation issues with the cluster
+No CRs are unmatched to reference CRs
+Metadata Hash: $METADATA_HASH$
+No patched CRs

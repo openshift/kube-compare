@@ -423,12 +423,17 @@ Supported inline diff functions:
 
 ##### Regex Inline Diff Function
 
-The `regex` inline diff function allows validating fields in CRs based on a regex. When using the function the command will
-show no diffs in case the cluster CR will match the regex, if it does not match the regex a diff will be shown between the
-cluster CR and the regex expression.
-To use the regex inline diff function you need to enable the regexInline function for the specific field and template in
-the metadata.yaml and also specify the regex inside the template.
-For example:
+The `regex` inline diff function allows validating fields in CRs based on a
+regex. When using the function the command will show no diffs in case the
+cluster CR will match the regex, if it does not match the regex a diff will be
+shown between the cluster CR and the regex expression. To use the regex inline
+diff function you need to enable the regexInline function for the specific
+field and template in the metadata.yaml and also specify the regex inside the
+template.
+
+Additionally, we validate that all identically-named capturegroups in the regx
+match the same values.  See "Enforcing named capturegroup values" below for
+details and how these intersect with the `capturegroup` inline diff function.
 
 For a template named cm.yaml where spec.bigTextBlock should be validated by regex:
 
@@ -476,8 +481,8 @@ corresponding text in the object being compared.  This is inexact, but does a
 better job than the plain `regex` especially for larger multi-line text blocks.
 
 Additionally, we validate that all identically-named capturegroups match the
-same values.  For example, it will ensure that both instances of
-`(?<username>[a-z0-9]+)` in the example below match the same username.
+same values.  See "Enforcing named capturegroup values" below for details and how
+these intersect with the `regex` inline diff function.
 
 For a template named cm.yaml where spec.bigTextBlock should be validated by
 capturegroups:
@@ -508,6 +513,48 @@ parts:
         - pathToKey: data.bigTextBlock
           inlineDiffFunc: capturegroups
 ```
+
+##### Enforcing named capturegroup values
+
+Within a single object template, we additionally validate that all
+identically-named capturegroups match the same values across multiple fields,
+and this is checked regardless of whether they use the `regex` or
+`capturegroups` inline diff functionality.
+
+For example, an object as follows:
+
+```yaml
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  namespace: kubernetes-dashboard
+data:
+  username: "(?<username>[a-z0-9]+)"
+  bigTextBlock: |-
+    This is a big text block with some static content, like this line.
+    It also has a place where (?<username>[a-z0-9]+) would put in their own name. (?<username>[a-z0-9]+) would put in their own name.
+```
+
+With a metadata.yaml:
+
+```yaml
+apiVersion: v2
+parts:
+- name: ExamplePart
+  components:
+  - name: Example
+    allOf:
+    - path: cm.yaml
+      config:
+        perField:
+        - pathToKey: data.username
+          inlineDiffFunc: regex
+        - pathToKey: data.bigTextBlock
+          inlineDiffFunc: capturegroups
+```
+
+The inlineDiff functionality will enforce that the same username value is used
+in both the `username` and `bigTextBlock` fields.
 
 ## Catch all templates
 

@@ -77,9 +77,11 @@ func mlString(lines []string) string {
 
 func TestCapturegroupsDiff(t *testing.T) {
 	type Case struct {
-		message  string
-		value    []string
-		expected []string
+		message    string
+		value      []string
+		expected   []string
+		initialCg  CapturedValues
+		expectedCg CapturedValues
 	}
 	suites := []struct {
 		message string
@@ -138,6 +140,11 @@ func TestCapturegroupsDiff(t *testing.T) {
 					message:  "matching pattern",
 					value:    []string{"one", "two", "three"},
 					expected: []string{"one", "two", "three"},
+					expectedCg: CapturedValues{
+						caps: map[string][]string{
+							"g1": {"two"},
+						},
+					},
 				},
 			},
 		},
@@ -158,6 +165,11 @@ func TestCapturegroupsDiff(t *testing.T) {
 					message:  "matching pattern",
 					value:    []string{"one", "two point five", "three"},
 					expected: []string{"one", "two point five", "three"},
+					expectedCg: CapturedValues{
+						caps: map[string][]string{
+							"g1": {"two point five"},
+						},
+					},
 				},
 			},
 		},
@@ -189,11 +201,23 @@ func TestCapturegroupsDiff(t *testing.T) {
 					message:  "matching pattern",
 					value:    []string{"Line one", "Line a two b", "Line three"},
 					expected: []string{"Line one", "Line a two b", "Line three"},
+					expectedCg: CapturedValues{
+						caps: map[string][]string{
+							"g1": {"a"},
+							"g2": {"b"},
+						},
+					},
 				},
 				{
 					message:  "matching pattern with spaces",
 					value:    []string{"Line one", "Line a a a two b", "Line three"},
 					expected: []string{"Line one", "Line a a a two b", "Line three"},
+					expectedCg: CapturedValues{
+						caps: map[string][]string{
+							"g1": {"a a a"},
+							"g2": {"b"},
+						},
+					},
 				},
 			},
 		},
@@ -205,12 +229,39 @@ func TestCapturegroupsDiff(t *testing.T) {
 					message:  "matching pattern identically",
 					value:    []string{"Line one", "Line a a two a a", "Line a a"},
 					expected: []string{"Line one", "Line a a two a a", "Line a a"},
+					expectedCg: CapturedValues{
+						caps: map[string][]string{
+							"g1": {"a a"},
+						},
+					},
 				},
 				{
 					message: "matching pattern differently each time",
 					value:   []string{"Line one", "Line a a two b", "Line three"},
 					expected: []string{"Line one", "Line (?<g1>=a a) two (?<g1>=a a)", "Line (?<g1>=a a)",
 						"WARNING: Capturegroup (?<g1>…) matched multiple values: « a a | b | three »",
+					},
+					expectedCg: CapturedValues{
+						caps: map[string][]string{
+							"g1": {"a a", "b", "three"},
+						},
+					},
+				},
+				{
+					message: "mismatched capturegroups from incoming shared captures",
+					value:   []string{"Line one", "Line a a two a a", "Line a a"},
+					expected: []string{"Line one", "Line (?<g1>=previous) two (?<g1>=previous)", "Line (?<g1>=previous)",
+						"WARNING: Capturegroup (?<g1>…) matched multiple values: « previous | a a »",
+					},
+					initialCg: CapturedValues{
+						caps: map[string][]string{
+							"g1": {"previous"},
+						},
+					},
+					expectedCg: CapturedValues{
+						caps: map[string][]string{
+							"g1": {"previous", "a a"},
+						},
 					},
 				},
 			},
@@ -223,11 +274,25 @@ func TestCapturegroupsDiff(t *testing.T) {
 					message:  "matching sub pattern",
 					value:    []string{"Hello Wello"},
 					expected: []string{"Hello Wello"},
+					expectedCg: CapturedValues{
+						caps: map[string][]string{
+							"hello":  {"Hello"},
+							"world":  {"Wello"},
+							"nested": {"ello"},
+						},
+					},
 				},
 				{
 					message:  "different sub pattern",
 					value:    []string{"Hello World"},
 					expected: []string{"Hello World", "WARNING: Capturegroup (?<nested>…) matched multiple values: « ello | orld »"},
+					expectedCg: CapturedValues{
+						caps: map[string][]string{
+							"hello":  {"Hello"},
+							"world":  {"World"},
+							"nested": {"ello", "orld"},
+						},
+					},
 				},
 			},
 		},
@@ -237,8 +302,9 @@ func TestCapturegroupsDiff(t *testing.T) {
 			for _, c := range s.cases {
 				t.Run(c.message, func(t *testing.T) {
 					cg := CapturegroupsInlineDiff{}
-					actual := cg.Diff(mlString(s.pattern), mlString(c.value))
+					actual, resultingCg := cg.Diff(mlString(s.pattern), mlString(c.value), c.initialCg)
 					assert.Equal(t, mlString(c.expected), actual)
+					assert.Equal(t, c.expectedCg, resultingCg)
 				})
 			}
 		})
