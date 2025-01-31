@@ -1,0 +1,19 @@
+{{- $values := list (dict)}}
+{{- if .Values.sa}}
+{{- $values = .Values.sa }}
+{{- end }}
+{{- range $values -}}
+---
+apiVersion: {{ .apiVersion }}
+kind: ServiceAccount
+metadata:
+  labels:
+    k8s-app: kubernetes-dashboard
+  name: {{ .metadata.name }}
+  namespace: kubernetes-dashboard
+spec:
+  value: |-
+    Long string with 100 capturegroup
+    And another (?<two>[a-z0-9]*) capturegorup
+ 
+{{ end -}}

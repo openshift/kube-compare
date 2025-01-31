@@ -23,7 +23,7 @@ const helmTemplatesDir = "templates"
 func NewCmd() *cobra.Command {
 	options := Options{}
 	cmd := &cobra.Command{
-		Use:   "helm-convert -r <REFERENCE_PATH> -n <CHART_DIRECTORY> [-d <EXISTING_CRS_DIR>] [-v <PREVIOUS_VALUES_PATH>] [--description <DESCRIPTION>] [--version <VERSION>]",
+		Use:   "helm-convert -r <REFERENCE_PATH> -n <CHART_DIRECTORY> [-d <EXISTING_CRS_DIR>] [-v <PREVIOUS_VALUES_PATH>] [--description <DESCRIPTION>] [--helm-version <VERSION>]",
 		Short: "Convert kube-compare reference configs into a Helm chart.",
 		Long: `The 'helm-convert' command generates a Helm chart from kube-compare reference configurations and creates a values.yaml file based on the values used in the templates included in the reference. 
 You need to provide the path to the reference YAML file using the -r flag and the directory where the Helm chart should be created using the -n flag. 
@@ -43,7 +43,7 @@ The tool helps automate the creation of values.yaml and supports default values 
 	cmd.Flags().StringVarP(&options.defaultPath, "defaults", "d", "", "Path to directory with the CRs that the tool will extract default values from")
 	cmd.Flags().StringVarP(&options.valuesPath, "values", "v", "", "Path to existing values.yaml file")
 	cmd.Flags().StringVar(&options.chartDescription, "description", "This Helm Chart was generated from a kube-compare reference", "Description for generated Helm Chart")
-	cmd.Flags().StringVar(&options.chartVersion, "version", "1", "Version of generated Helm Chart")
+	cmd.Flags().StringVar(&options.chartVersion, "helm-version", "1", "Version of generated Helm Chart")
 	return cmd
 }
 
@@ -59,6 +59,7 @@ type Options struct {
 func convertToHelm(o *Options) error {
 	helmTemplates := make(map[string]string)
 	helmValues := make(map[string]any)
+	var preValues map[string]any
 	crsWithDefaults := make(map[string]map[string]interface{})
 
 	cfs, err := compare.GetRefFS(o.refPath)
@@ -79,12 +80,19 @@ func convertToHelm(o *Options) error {
 		}
 	}
 
+	if o.valuesPath != "" {
+		preValues, err = loadValues(o.valuesPath)
+		if err != nil {
+			return err
+		}
+	}
+
 	for _, t := range templates {
 
 		visitor := ExpectedValuesFinder{}
 		Inspect(t.GetTemplateTree().Root, visitor.Visit())
 
-		helmTemplate, err := convertToHelmTemplate(cfs, t)
+		helmTemplate, err := convertToHelmTemplate(cfs, t, preValues)
 		if err != nil {
 			return err
 		}
@@ -107,11 +115,7 @@ func convertToHelm(o *Options) error {
 		}
 	}
 
-	if o.valuesPath != "" {
-		preValues, err := loadValues(o.valuesPath)
-		if err != nil {
-			return err
-		}
+	if preValues != nil {
 		merged, err := compare.MergeManifests(&unstructured.Unstructured{Object: preValues}, &unstructured.Unstructured{Object: helmValues})
 		if err != nil {
 			return fmt.Errorf("failed to merge given values with generated values %w", err)
@@ -177,7 +181,26 @@ func loadYAMLFiles(root string) (map[string]map[string]interface{}, error) {
 	return filesMapping, nil
 }
 
-func convertToHelmTemplate(cfs fs.FS, t compare.ReferenceTemplate) (string, error) {
+func cgDefaultsFor(compName string, helmValues map[string]any) (map[string]any, error) {
+	if values, ok := helmValues[compName].([]any); ok && len(values) > 0 {
+		if section, ok := values[0].(map[string]any); ok && len(section) > 0 {
+			if dflts, ok := section["captureGroup_defaults"].(map[string]any); ok && len(dflts) > 0 {
+				return dflts, nil
+			}
+		}
+	}
+	return nil, fmt.Errorf("no captureGroup_defaults found for %s", compName)
+}
+
+func removeCgDefaults(compName string, helmValues map[string]any) {
+	if values, ok := helmValues[compName].([]any); ok && len(values) > 0 {
+		if section, ok := values[0].(map[string]any); ok && len(section) > 0 {
+			delete(section, "captureGroup_defaults")
+		}
+	}
+}
+
+func convertToHelmTemplate(cfs fs.FS, t compare.ReferenceTemplate, helmValues map[string]any) (string, error) {
 	var templateStructure = `{{- $values := list (dict)}}
 {{- if .Values.%v}}
 {{- $values = .Values.%v }}
@@ -187,12 +210,43 @@ func convertToHelmTemplate(cfs fs.FS, t compare.ReferenceTemplate) (string, erro
 %v 
 {{ end -}}
 `
-	content, err := fs.ReadFile(cfs, t.GetIdentifier())
+	data, err := fs.ReadFile(cfs, t.GetIdentifier())
 	if err != nil {
 		return "", fmt.Errorf("failed to read template named: %s %w", t.GetIdentifier(), err)
 	}
+
 	compName := getCompName(t.GetIdentifier())
-	helmTemplate := fmt.Sprintf(templateStructure, compName, compName, string(content))
+
+	content := string(data)
+
+	if len(t.GetConfig().GetInlineDiffFuncs()) > 0 {
+		if dflts, err := cgDefaultsFor(compName, helmValues); err == nil {
+			cgs := compare.CapturegroupIndex(content)
+			contentBuilder := strings.Builder{}
+			idx := 0
+			for _, group := range cgs {
+				if idx < group.Start {
+					contentBuilder.WriteString(content[idx:group.Start])
+				}
+				if dflt, ok := dflts[group.Name]; ok {
+					fmt.Fprintf(os.Stderr, "  %s replacing CaptureGroup (?<%s>...) at [%d:%d] with default: %v\n", compName, group.Name, group.Start, group.End, dflt)
+					contentBuilder.WriteString(fmt.Sprintf("%v", dflt))
+				} else {
+					contentBuilder.WriteString(content[group.Start:group.End])
+				}
+				idx = group.End
+			}
+			if idx < len(content) {
+				contentBuilder.WriteString(content[idx:])
+			}
+			content = contentBuilder.String()
+			// Now that we've fully consumed the defaults, strip them so they don't appear in the Helm chart...
+			removeCgDefaults(compName, helmValues)
+		}
+	}
+
+	helmTemplate := fmt.Sprintf(templateStructure, compName, compName, content)
+
 	return helmTemplate, nil
 }
 
