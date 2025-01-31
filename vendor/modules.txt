@@ -109,7 +109,7 @@ github.com/google/uuid
 # github.com/gorilla/websocket v1.5.0
 ## explicit; go 1.12
 github.com/gorilla/websocket
-# github.com/gosimple/slug v1.14.0
+# github.com/gosimple/slug v1.15.0
 ## explicit; go 1.11
 github.com/gosimple/slug
 # github.com/gosimple/unidecode v1.0.1
