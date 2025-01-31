@@ -6,7 +6,7 @@ require (
 	github.com/BurntSushi/toml v1.4.0
 	github.com/Masterminds/sprig/v3 v3.3.0
 	github.com/evanphx/json-patch v5.9.0+incompatible
-	github.com/gosimple/slug v1.14.0
+	github.com/gosimple/slug v1.15.0
 	github.com/samber/lo v1.49.1
 	github.com/sergi/go-diff v1.3.1
 	github.com/spf13/cobra v1.8.1
