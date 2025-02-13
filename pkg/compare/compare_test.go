@@ -368,7 +368,13 @@ func TestCompareRun(t *testing.T) {
 		defaultTest("Template Has No Kind").
 			withModes([]Mode{{Live, LocalRef}}),
 		defaultTest("Two Templates With Same apiVersion Kind Name Namespace"),
+		defaultTest("Two Templates With Same apiVersion Kind Name Namespace").
+			withVerboseOutput().
+			withChecks(defaultChecks.withPrefixedSuffix("Verbose")),
 		defaultTest("Two Templates With Same Kind Namespace"),
+		defaultTest("Two Templates With Same Kind Namespace").
+			withVerboseOutput().
+			withChecks(defaultChecks.withPrefixedSuffix("Verbose")),
 		defaultTest("User Config Doesnt Exist").
 			withUserConfig(userConfigFileName).
 			withChecks(Checks{Out: defaultCheckOut,
