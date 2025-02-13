@@ -9,4 +9,4 @@ fi
 export GOCACHE=/tmp/
 export GOLANGCI_LINT_CACHE=/tmp/.cache
 "${golangci_lint}" version
-"${golangci_lint}" run --verbose --print-resources-usage $(go work edit --json | grep DiskPath | awk '{print $2"/..."}' | tr -d '"' | tr '\n' ' ')
+"${golangci_lint}" run --verbose --print-resources-usage ./...
