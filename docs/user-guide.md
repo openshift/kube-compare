@@ -216,15 +216,23 @@ In such scenarios take these steps:
 
 #### There can be more than one Reference Design CR of the same Kind
 
-In this case you will have a warning presented before the diff output, formatted similar to this:
-`More then one template with same apiVersion, metadata_namespace, kind. By Default for each Cluster CR that is correlated
-to one of these templates the template with the least number of diffs will be used. To use a different template for a
-specific CR specify it in the diff-config (-c flag) Template names are:`
+In this case you will have a warning presented before the diff output,
+formatted similar to this: `The reference contains overlapping object
+definitions which may result in unexpected correlation results. Re-run with
+'--verbose' output enabled to view a detailed description of the issues`
 
-This means the template contains two CRs with the same apiversion-kind-name-namespace but different spec. In such cases
-For each cluster CR the template that contains the least diffs will be used, to choose a different template for the CR
-pass a user config (-c) and specify in the user config file the template that should be matched to the CR. For info about
-the exact syntax view the user config section.
+This means the template contains two CRs with the same
+apiversion-kind-name-namespace but different spec. In such cases for each
+cluster CR the template that contains the least diffs will be used, to choose a
+different template for the CR pass a user config (-c) and specify in the user
+config file the template that should be matched to the CR. For info about the
+exact syntax view the user config section.  As the warning text suggests,
+running again with `--verbose` will list all the name collisions and which
+templates are contributing to the issue.
+
+This may also be intentional, in the case of 'OneOf' metadata directives, but
+it is best practice to either have hard-coded names, or leave the names
+templated so any CRs can match, if possible.
 
 ## Patching the reference
 
