@@ -54,5 +54,5 @@ commits focussed (`git add -p` will help with this).
 
 We use go module vendoring to ensure all required modules are available for
 build.  If a change you are adding requires adding a new go module, add the go
-module and the result of running `go work vendor` to add the new module and its
+module and the result of running `go mod vendor` to add the new module and its
 code in an initial commit, with the related code changes in a following commit.
