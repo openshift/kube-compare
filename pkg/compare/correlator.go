@@ -115,7 +115,7 @@ type GroupCorrelator[T CorrelationEntry] struct {
 // For fieldsGroups =  {{{"metadata", "namespace"}, {"kind"}}, {{"kind"}}} and the following templates: [fixedKindTemplate, fixedNamespaceKindTemplate]
 // the fixedNamespaceKindTemplate will be added to a mapping where the keys are  in the format of `namespace_kind`. The fixedKindTemplate
 // will be added to a mapping where the keys are  in the format of `kind`.
-func NewGroupCorrelator[T CorrelationEntry](fieldGroups [][][]string, objects []T) (*GroupCorrelator[T], error) {
+func NewGroupCorrelator[T CorrelationEntry](fieldGroups [][][]string, objects []T, verboseOutput bool) (*GroupCorrelator[T], error) {
 	sort.Slice(fieldGroups, func(i, j int) bool {
 		return len(fieldGroups[i]) >= len(fieldGroups[j])
 	})
@@ -134,7 +134,11 @@ func NewGroupCorrelator[T CorrelationEntry](fieldGroups [][][]string, objects []
 
 		err := fc.ValidateTemplates()
 		if err != nil {
-			klog.Warning(err)
+			if verboseOutput {
+				klog.Warning(err)
+			} else {
+				klog.Warning("The reference contains overlapping object definitions which may result in unexpected correlation results. Re-run with '--verbose' output enabled to view a detailed description of the issues")
+			}
 		}
 
 		if len(objects) == 0 {
@@ -285,7 +289,7 @@ func (f *FieldCorrelator[T]) ValidateTemplates() error {
 	for _, values := range f.objects {
 		if len(values) > 1 {
 			errs = append(errs, fmt.Errorf(
-				"More then one template with same %s. By Default for each Cluster CR that is correlated "+
+				"More than one template with same %s. By Default for each Cluster CR that is correlated "+
 					"to one of these templates the template with the least number of diffs will be used. "+
 					"To use a different template for a specific CR specify it in the diff-config (-c flag) "+
 					"Template names are: %s",
