@@ -179,7 +179,7 @@ func NewCmd(f kcmdutil.Factory, streams genericiooptions.IOStreams) *cobra.Comma
 	// command it means changes were found.
 	// Thus, it should return status code greater than 1.
 	cmd.SetFlagErrorFunc(func(command *cobra.Command, err error) error {
-		kcmdutil.CheckDiffErr(kcmdutil.UsageErrorf(cmd, err.Error()))
+		kcmdutil.CheckDiffErr(kcmdutil.UsageErrorf(cmd, "%s", err.Error()))
 		return nil
 	})
 	cmd.Flags().IntVar(&options.Concurrency, "concurrency", 4,
@@ -266,7 +266,7 @@ func (o *Options) Complete(f kcmdutil.Factory, cmd *cobra.Command, args []string
 		return kcmdutil.UsageErrorf(cmd, noRefFileWasPassed)
 	}
 	if _, err := os.Stat(o.referenceConfig); os.IsNotExist(err) && !isURL(o.referenceConfig) {
-		return fmt.Errorf(refFileNotExistsError)
+		return errors.New(refFileNotExistsError)
 	}
 
 	cfs, err := GetRefFS(o.referenceConfig)
