@@ -370,14 +370,6 @@ func (id CapturegroupsInlineDiff) Validate(pattern string) error {
 			errs = errors.Join(errs, fmt.Errorf("line %d %w", i+1, err))
 			continue
 		}
-		// Furthermore, ensure each capturegroup has no spaces or linebreaks
-		// inside (because otherwise the DiffCleanupSemantic() above may split
-		// it and render it useless)
-		for _, group := range groups {
-			if strings.ContainsAny(line[group.Start:group.End], " \n") {
-				errs = errors.Join(errs, fmt.Errorf("line %d:%d capturegroup contains spaces or linebreaks", i+1, group.Start))
-			}
-		}
 	}
 	return errs
 }

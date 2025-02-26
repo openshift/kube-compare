@@ -688,6 +688,7 @@ func (o *Options) Run() error {
 			return true
 		}
 		if strings.Contains(err.Error(), "error parsing") {
+			// TODO: Fix this error message truncation
 			klog.Warningf(skipInvalidResources, extractPath(err.Error(), 2), err.Error()[strings.LastIndex(err.Error(), ":"):])
 			return true
 		}
