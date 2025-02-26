@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"flag"
 	"fmt"
 	"io/fs"
 	"os"
@@ -668,6 +669,16 @@ func (o *Options) Run() error {
 		ContinueOnError().
 		Flatten().
 		Do()
+
+	// Adjust klog to match '--verbose' flag
+	klogVerbosity := "0"
+	if o.verboseOutput {
+		klogVerbosity = "1"
+	}
+	flagSet := flag.NewFlagSet("test", flag.ExitOnError)
+	klog.InitFlags(flagSet)
+	_ = flagSet.Parse([]string{"--v", klogVerbosity})
+
 	if err := r.Err(); err != nil {
 		return fmt.Errorf("failed to collect resources: %w", err)
 	}
@@ -677,6 +688,7 @@ func (o *Options) Run() error {
 			return true
 		}
 		if strings.Contains(err.Error(), "error parsing") {
+			// TODO: Fix this error message truncation
 			klog.Warningf(skipInvalidResources, extractPath(err.Error(), 2), err.Error()[strings.LastIndex(err.Error(), ":"):])
 			return true
 		}
