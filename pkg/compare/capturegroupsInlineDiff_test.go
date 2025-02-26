@@ -31,6 +31,7 @@ func TestCapturegroupIndex(t *testing.T) {
 		{"(?<group_with_groups>(?<inner1>.*(?<inner2>.*))?)", []string{"(?<group_with_groups>(?<inner1>.*(?<inner2>.*))?)"}},
 		{"(?<one>.*)(?<two>.*)", []string{"(?<one>.*)", "(?<two>.*)"}},
 		{"Two groups (?<first>.*) in a (?<second>.*) string", []string{"(?<first>.*)", "(?<second>.*)"}},
+		{"Space in a (?<cg>[a-zA-Z ]+ etc) group", []string{"(?<cg>[a-zA-Z ]+ etc)"}},
 	}
 	for _, c := range tests {
 		t.Run(fmt.Sprintf("Pattern %q", c.pattern), func(t *testing.T) {
@@ -295,5 +296,42 @@ func TestCapturegroupsDiff(t *testing.T) {
 				})
 			}
 		})
+	}
+}
+
+func TestCapturegroupsValidate(t *testing.T) {
+	suites := []struct {
+		pattern     string
+		expectError bool
+	}{
+		{
+			pattern:     "",
+			expectError: false,
+		},
+		{
+			pattern:     "No regex",
+			expectError: false,
+		},
+		{
+			pattern:     "No capturegroups (.*) but some regex",
+			expectError: false,
+		},
+		{
+			pattern:     "Simple capturegroup (?<named>.*)",
+			expectError: false,
+		},
+		{
+			pattern:     "Broken capturegroup (?<named>[[:_broken_character_class_name_:]])",
+			expectError: true,
+		},
+	}
+	for _, s := range suites {
+		cg := CapturegroupsInlineDiff{}
+		err := cg.Validate(s.pattern)
+		if s.expectError {
+			assert.Error(t, err, s.pattern)
+		} else {
+			assert.NoError(t, err, s.pattern)
+		}
 	}
 }
