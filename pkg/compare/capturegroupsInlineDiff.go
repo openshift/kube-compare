@@ -60,6 +60,7 @@ type diffInfo struct {
 
 type CgInfo struct {
 	Name  string
+	Full  string
 	Start int
 	End   int
 }
@@ -132,6 +133,7 @@ func CapturegroupIndex(pattern string) []CgInfo {
 			if pDepth < 0 {
 				// Exited this capture group; record it
 				cg.End = i + 1
+				cg.Full = pattern[cg.Start:cg.End]
 				result = append(result, cg)
 				break
 			}

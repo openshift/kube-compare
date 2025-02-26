@@ -43,6 +43,7 @@ func TestCapturegroupIndex(t *testing.T) {
 					nameEnd := strings.Index(expected, ">")
 					expectedName := expected[3:nameEnd]
 					assert.Equal(t, expectedName, m.Name, fmt.Sprintf("Expected capture group %d name match", i))
+					assert.Equal(t, expected, m.Full, fmt.Sprintf("Expected full capturegroup %d", i))
 				})
 			}
 		})
