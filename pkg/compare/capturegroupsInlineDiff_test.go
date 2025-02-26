@@ -193,10 +193,14 @@ func TestCapturegroupsDiff(t *testing.T) {
 					expected: []string{"Line one", "Line (?<g1>[a-z\\s]+) two (?<g2>[a-z]+)", "Line three"},
 				},
 				{
-					message: "mismatches 1/2 pattern",
-					value:   []string{"Line one", "Line a two 42", "Line three"},
-					// TODO: Perhaps we could engineer a way to match the first 'a'?
-					expected: []string{"Line one", "Line (?<g1>[a-z\\s]+) two (?<g2>[a-z]+)", "Line three"},
+					message:  "mismatches 1/2 pattern",
+					value:    []string{"Line one", "Line a two 42", "Line three"},
+					expected: []string{"Line one", "Line a two (?<g2>[a-z]+)", "Line three"},
+					expectedCg: CapturedValues{
+						caps: map[string][]string{
+							"g1": {"a"},
+						},
+					},
 				},
 				{
 					message:  "matching pattern",
@@ -292,6 +296,89 @@ func TestCapturegroupsDiff(t *testing.T) {
 							"hello":  {"Hello"},
 							"world":  {"World"},
 							"nested": {"ello", "orld"},
+						},
+					},
+				},
+			},
+		},
+		{
+			message: "Problematic source text",
+			pattern: []string{"start (?<simple>[a-z()]+) end"},
+			cases: []Case{
+				{
+					message:  "Trailing ')'",
+					value:    []string{"start match) end"},
+					expected: []string{"start match) end"},
+					expectedCg: CapturedValues{
+						caps: map[string][]string{
+							"simple": {"match)"},
+						},
+					},
+				},
+				{
+					message:  "Leading ')'",
+					value:    []string{"start )match end"},
+					expected: []string{"start )match end"},
+					expectedCg: CapturedValues{
+						caps: map[string][]string{
+							"simple": {")match"},
+						},
+					},
+				},
+				{
+					message:  "Trailing '('",
+					value:    []string{"start match( end"},
+					expected: []string{"start match( end"},
+					expectedCg: CapturedValues{
+						caps: map[string][]string{
+							"simple": {"match("},
+						},
+					},
+				},
+				{
+					message:  "Leading '('",
+					value:    []string{"start (match end"},
+					expected: []string{"start (match end"},
+					expectedCg: CapturedValues{
+						caps: map[string][]string{
+							"simple": {"(match"},
+						},
+					},
+				},
+				{
+					message:  "Literal capturegroup (does not match regex)",
+					value:    []string{"start (?<simple>[a-z()]+) end"},
+					expected: []string{"start (?<simple>[a-z()]+) end"},
+				},
+			},
+		},
+		{
+			message: "Overly-broad regex",
+			pattern: []string{"start (?<any>.*) end"},
+			cases: []Case{
+				{
+					message: "Capturegroup tries to match zero-length string",
+					value:   []string{"start  end"},
+					// TODO: Find out why this doesn't match?
+					expected: []string{"start (?<any>.*) end"},
+				},
+				{
+					message:  "Literal capturegroup (does match regex)",
+					value:    []string{"start (?<any>.*) end"},
+					expected: []string{"start (?<any>.*) end"},
+					expectedCg: CapturedValues{
+						caps: map[string][]string{
+							"any": {"(?<any>.*)"},
+						},
+					},
+				},
+				{
+					message:  "Slightly different capturegroup (does match regex)",
+					value:    []string{"start (?<simple>[a-z()]+) end"},
+					expected: []string{"start (?<simple>[a-z()]+) end"},
+					expectedCg: CapturedValues{
+						caps: map[string][]string{
+							"any": {"(?<simple>[a-z()]+)"},
 						},
 					},
 				},
