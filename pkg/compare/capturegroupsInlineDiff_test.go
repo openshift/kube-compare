@@ -31,6 +31,7 @@ func TestCapturegroupIndex(t *testing.T) {
 		{"(?<group_with_groups>(?<inner1>.*(?<inner2>.*))?)", []string{"(?<group_with_groups>(?<inner1>.*(?<inner2>.*))?)"}},
 		{"(?<one>.*)(?<two>.*)", []string{"(?<one>.*)", "(?<two>.*)"}},
 		{"Two groups (?<first>.*) in a (?<second>.*) string", []string{"(?<first>.*)", "(?<second>.*)"}},
+		{"Space in a (?<cg>[a-zA-Z ]+ etc) group", []string{"(?<cg>[a-zA-Z ]+ etc)"}},
 	}
 	for _, c := range tests {
 		t.Run(fmt.Sprintf("Pattern %q", c.pattern), func(t *testing.T) {
@@ -43,6 +44,7 @@ func TestCapturegroupIndex(t *testing.T) {
 					nameEnd := strings.Index(expected, ">")
 					expectedName := expected[3:nameEnd]
 					assert.Equal(t, expectedName, m.Name, fmt.Sprintf("Expected capture group %d name match", i))
+					assert.Equal(t, expected, m.Full, fmt.Sprintf("Expected full capturegroup %d", i))
 				})
 			}
 		})
@@ -180,10 +182,9 @@ func TestCapturegroupsDiff(t *testing.T) {
 					expected: []string{"Line one", "Line (?<g1>[a-z\\s]+) two (?<g2>[a-z]+)", "Line three"},
 				},
 				{
-					message: "mismatches 1/2 pattern",
-					value:   []string{"Line one", "Line a two 42", "Line three"},
-					// TODO: Perhaps we could engineer a way to match the first 'a'?
-					expected: []string{"Line one", "Line (?<g1>[a-z\\s]+) two (?<g2>[a-z]+)", "Line three"},
+					message:  "mismatches 1/2 pattern",
+					value:    []string{"Line one", "Line a two 42", "Line three"},
+					expected: []string{"Line one", "Line a two (?<g2>[a-z]+)", "Line three"},
 				},
 				{
 					message:  "matching pattern",
@@ -231,6 +232,59 @@ func TestCapturegroupsDiff(t *testing.T) {
 				},
 			},
 		},
+		{
+			message: "Problematic source text",
+			pattern: []string{"start (?<simple>[a-z()]+) end"},
+			cases: []Case{
+				{
+					message:  "Trailing ')'",
+					value:    []string{"start match) end"},
+					expected: []string{"start match) end"},
+				},
+				{
+					message:  "Leading ')'",
+					value:    []string{"start )match end"},
+					expected: []string{"start )match end"},
+				},
+				{
+					message:  "Trailing '('",
+					value:    []string{"start match( end"},
+					expected: []string{"start match( end"},
+				},
+				{
+					message:  "Leading '('",
+					value:    []string{"start (match end"},
+					expected: []string{"start (match end"},
+				},
+				{
+					message:  "Literal capturegroup (does not match regex)",
+					value:    []string{"start (?<simple>[a-z()]+) end"},
+					expected: []string{"start (?<simple>[a-z()]+) end"},
+				},
+			},
+		},
+		{
+			message: "Overly-broad regex",
+			pattern: []string{"start (?<any>.*) end"},
+			cases: []Case{
+				{
+					message: "Capturegroup tries to match zero-length string",
+					value:   []string{"start  end"},
+					// TODO: Find out why this doesn't match?
+					expected: []string{"start (?<any>.*) end"},
+				},
+				{
+					message:  "Literal capturegroup (does match regex)",
+					value:    []string{"start (?<any>.*) end"},
+					expected: []string{"start (?<any>.*) end"},
+				},
+				{
+					message:  "Slightly different capturegroup (does match regex)",
+					value:    []string{"start (?<simple>[a-z()]+) end"},
+					expected: []string{"start (?<simple>[a-z()]+) end"},
+				},
+			},
+		},
 	}
 	for _, s := range suites {
 		t.Run(s.message, func(t *testing.T) {
@@ -242,5 +296,42 @@ func TestCapturegroupsDiff(t *testing.T) {
 				})
 			}
 		})
+	}
+}
+
+func TestCapturegroupsValidate(t *testing.T) {
+	suites := []struct {
+		pattern     string
+		expectError bool
+	}{
+		{
+			pattern:     "",
+			expectError: false,
+		},
+		{
+			pattern:     "No regex",
+			expectError: false,
+		},
+		{
+			pattern:     "No capturegroups (.*) but some regex",
+			expectError: false,
+		},
+		{
+			pattern:     "Simple capturegroup (?<named>.*)",
+			expectError: false,
+		},
+		{
+			pattern:     "Broken capturegroup (?<named>[[:_broken_character_class_name_:]])",
+			expectError: true,
+		},
+	}
+	for _, s := range suites {
+		cg := CapturegroupsInlineDiff{}
+		err := cg.Validate(s.pattern)
+		if s.expectError {
+			assert.Error(t, err, s.pattern)
+		} else {
+			assert.NoError(t, err, s.pattern)
+		}
 	}
 }
