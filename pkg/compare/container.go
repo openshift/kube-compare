@@ -37,7 +37,7 @@ func parsePath(path string) (string, string, error) {
 		referencePath := sections[2]
 		return image, referencePath, nil
 	}
-	return "", "", fmt.Errorf("incorrect path passed into -r, it should follow this format: container://<IMAGE>:<TAG>:/path_to_metadata.yaml")
+	return "", "", fmt.Errorf("incorrect path passed to -r, it must follow this format: container://<IMAGE>:<TAG>:/path/to/metadata.yaml")
 }
 
 // Use var's so that we can mock functions in tests.

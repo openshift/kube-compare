@@ -88,7 +88,7 @@ var (
 		# Run a known valid reference configuration with a must-gather output:
 		kubectl cluster-compare -r ./reference/metadata.yaml -f "must-gather*/*/cluster-scoped-resources","must-gather*/*/namespaces" -R
 
-		# Retrieve a known valid reference configuration from a container and compare with a local set of CRs:
+		# Extract a known valid reference configuration from a container image and compare with a local set of CRs:
 		kubectl cluster-compare -r container://<IMAGE>:<TAG>:/home/ztp/reference/metadata.yaml -f ./crsdir -R
 	`)
 )
