@@ -62,7 +62,7 @@ func convertToHelm(o *Options) error {
 	var preValues map[string]any
 	crsWithDefaults := make(map[string]map[string]interface{})
 
-	cfs, err := compare.GetRefFS(o.refPath)
+	cfs, err := compare.GetRefFS(o.refPath, "")
 	if err != nil {
 		return fmt.Errorf("failed to get filesystem of cluster-compare reference %w", err)
 	}

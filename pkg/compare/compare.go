@@ -88,6 +88,9 @@ var (
 
 		# Run a known valid reference configuration with a must-gather output:
 		kubectl cluster-compare -r ./reference/metadata.yaml -f "must-gather*/*/cluster-scoped-resources","must-gather*/*/namespaces" -R
+
+		# Extract a known valid reference configuration from a container image and compare with a local set of CRs:
+		kubectl cluster-compare -r container://<IMAGE>:<TAG>:/home/ztp/reference/metadata.yaml -f ./crsdir -R
 	`)
 )
 
@@ -137,6 +140,8 @@ type Options struct {
 	newUserOverrides                []*UserOverride
 	templatesToGenerateOverridesFor []string
 	overrideReason                  string
+
+	tempContainerRefDir string
 
 	diff *diff.DiffProgram
 	genericiooptions.IOStreams
@@ -235,12 +240,22 @@ func diffError(err error) exec.ExitError {
 	return nil
 }
 
-func GetRefFS(refConfig string) (fs.FS, error) {
+func GetRefFS(refConfig string, tempContainerRefDir string) (fs.FS, error) {
 	referenceDir := filepath.Dir(refConfig)
 	if isURL(refConfig) {
 		// filepath.Dir removes one / from http://
 		referenceDir = strings.Replace(referenceDir, "/", "//", 1)
 		return HTTPFS{baseURL: referenceDir, httpGet: httpgetImpl}, nil
+	}
+	if isContainer(refConfig) {
+		// filepath.Dir removes one / from container://
+		referenceDir = strings.Replace(referenceDir, "/", "//", 1)
+
+		containerPath, err := getReferencesFromContainer(referenceDir, tempContainerRefDir)
+		if err != nil {
+			return nil, err
+		}
+		return os.DirFS(containerPath), nil
 	}
 	rootPath, err := filepath.Abs(referenceDir)
 	if err != nil {
@@ -265,11 +280,20 @@ func (o *Options) Complete(f kcmdutil.Factory, cmd *cobra.Command, args []string
 	if o.referenceConfig == "" {
 		return kcmdutil.UsageErrorf(cmd, noRefFileWasPassed)
 	}
-	if _, err := os.Stat(o.referenceConfig); os.IsNotExist(err) && !isURL(o.referenceConfig) {
+	if _, err := os.Stat(o.referenceConfig); os.IsNotExist(err) && !isURL(o.referenceConfig) && !isContainer(o.referenceConfig) {
 		return errors.New(refFileNotExistsError)
 	}
 
-	cfs, err := GetRefFS(o.referenceConfig)
+	var tempContainerRefDir = ""
+	if isContainer(o.referenceConfig) {
+		tempContainerRefDir, err = os.MkdirTemp("", "kube-compare")
+		if err != nil {
+			return err
+		}
+		o.tempContainerRefDir = tempContainerRefDir
+	}
+
+	cfs, err := GetRefFS(o.referenceConfig, tempContainerRefDir)
 	if err != nil {
 		return err
 	}
@@ -657,6 +681,10 @@ func (o *Options) Run() error {
 	diffs := make([]DiffSum, 0)
 	numDiffCRs := 0
 	numPatched := 0
+
+	if o.tempContainerRefDir != "" {
+		defer os.RemoveAll(o.tempContainerRefDir)
+	}
 
 	r := o.builder.
 		Unstructured().
