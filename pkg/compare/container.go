@@ -2,7 +2,6 @@ package compare
 
 import (
 	"fmt"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -11,6 +10,8 @@ import (
 type engine struct {
 	name         string
 	requiresSudo bool
+	containerID  string
+	tempDir      string
 }
 
 // isContainer reports whether the given path is a reference to a file in a container by verifying if it starts with "container://".
@@ -39,82 +40,81 @@ func parsePath(path string) (string, string, error) {
 	return "", "", fmt.Errorf("Incorrect path passed into -r, it should follow this format: container://<IMAGE>:<TAG>:/path_to_metadata.yaml")
 }
 
-// runEngineCommand sets up the podman/docker command with sudo if necessary.
+// Use var's so that we can mock functions in tests.
+var execCommand = exec.Command
+var lookPath = exec.LookPath
+
+// runEngineCommand runs a podman/docker command with sudo if necessary.
 // Returns the stdout (out) and stderr (err) of the command.
-func runEngineCommand(engine engine, args ...string) ([]byte, error) {
+func (engine *engine) runEngineCommand(args ...string) ([]byte, error) {
 	var out []byte
 	var err error
 	if engine.requiresSudo {
 		args = append([]string{engine.name}, args...) // Prepend engine name to args
-		out, err = exec.Command("sudo", args...).Output()
+		out, err = execCommand("sudo", args...).CombinedOutput()
 	} else {
-		out, err = exec.Command(engine.name, args...).Output()
+		out, err = execCommand(engine.name, args...).CombinedOutput()
 	}
 
 	return out, err
 }
 
-// hasPodmanOrDocker checks if Podman or Docker are in the system's PATH,
-// and returns the name of the engine it finds, with a preference for Podman, and a boolean
-// that indicates if sudo is needed for future commands. Returns an error if neither engine is found.
-func hasPodmanOrDocker() (engine, error) {
-	if _, err := exec.LookPath("podman"); err == nil {
-		return engine{name: "podman", requiresSudo: false}, nil
+// newEngine checks if Podman or Docker are in the system's PATH, and returns an engine with a name and a boolean
+// that indicates if sudo is needed for future commands. Prefers Podman. Returns an error if neither engine is found.
+var newEngine = func() (*engine, error) {
+	if _, err := lookPath("podman"); err == nil {
+		return &engine{name: "podman", requiresSudo: false}, nil
 	}
 
-	if _, err := exec.LookPath("docker"); err == nil {
-		_, err = exec.Command("docker", "images").Output() // If this errors out, we need to use sudo, return true.
-		return engine{name: "docker", requiresSudo: err != nil}, nil
+	if _, err := lookPath("docker"); err == nil {
+		_, err = execCommand("docker", "images").Output() // If this errors out, we need to use sudo, return true.
+		return &engine{name: "docker", requiresSudo: err != nil}, nil
 	}
-	return engine{name: "", requiresSudo: false}, fmt.Errorf("You do not have Podman or Docker on your PATH")
+	return &engine{name: "", requiresSudo: false}, fmt.Errorf("You do not have Podman or Docker on your PATH")
 }
 
-// pullContainer pulls an image and runs it using the provided engine, and returns the corresponding containerID
-func pullAndRunContainer(engine engine, image string) (string, error) {
+// pullContainer pulls an image, runs it using the provided engine, and stores the corresponding containerID in the engine struct
+func (engine *engine) pullAndRunContainer(image string) error {
 	// run because copy requires a running or stopped container
 	// -d to output container ID
-	out, err := runEngineCommand(engine, "run", "-d", image)
+	out, err := engine.runEngineCommand("run", "-d", image)
 	if err != nil {
-		return "", fmt.Errorf("Could not pull/run container: %s", err)
+		return fmt.Errorf("Could not pull/run container: %s", out)
 	}
-	containerID := strings.TrimSpace(string(out)) // Convert bytes to string and trim new line
-	return containerID, nil
+	engine.containerID = strings.TrimSpace(string(out)) // Convert bytes to string and trim new line
+	return nil
 }
 
 // extractReferences copies the directory in the container that contains the reference configs into a temporary directory,
-// and returns the path to the new directory.
-func extractReferences(engine engine, containerID string, pathToMetadata string, dname string) (string, error) {
+// and stores the path to the new directory in the engine struct.
+func (engine *engine) extractReferences(pathToMetadata string, dname string) error {
 
-	_, err := runEngineCommand(engine, "cp", containerID+":"+pathToMetadata, dname)
+	out, err := engine.runEngineCommand("cp", engine.containerID+":"+pathToMetadata, dname)
 	if err != nil {
-		return "", fmt.Errorf("Could not copy templates from container: %s", err)
+		return fmt.Errorf("Could not copy templates from container: %s", out)
 	}
-	return filepath.Join(dname, filepath.Base(pathToMetadata)), nil
+	engine.tempDir = filepath.Join(dname, filepath.Base(pathToMetadata))
+	return nil
 }
 
 // cleanup stops and removes the container used to extract the reference configs.
-func cleanup(engine engine, containerID string) error {
-	_, err := runEngineCommand(engine, "stop", containerID)
+func (engine *engine) cleanup() error {
+	out, err := engine.runEngineCommand("stop", engine.containerID)
 	if err != nil {
-		// Print errors rather than returning, since stopping and removing the container is not vital.
-		fmt.Printf("Warning: Could not stop container: %s", err)
+		// Print errors as warnings rather than returning, since stopping and removing the container is not vital.
+		fmt.Printf("Warning: Could not stop container: %s", out)
 	}
-	_, err = runEngineCommand(engine, "rm", containerID)
+	out, err = engine.runEngineCommand("rm", engine.containerID)
 	if err != nil {
-		fmt.Printf("Warning: Could not remove container: %s", err)
+		fmt.Printf("Warning: Could not remove container: %s", out)
 	}
 	return nil
 }
 
 // getReferencesFromContainer uses a path to an image and a metadata.yaml within that image, and extracts the reference configs
-// to a local temporary directory. Returns the path (referencesPath) to this directory.
-func getReferencesFromContainer(path string) (string, error) {
-	engine, err := hasPodmanOrDocker()
-	if err != nil {
-		return "", err
-	}
-
-	dname, err := os.MkdirTemp("", "kube-compare")
+// to a local temporary directory. Returns the path to this directory.
+func getReferencesFromContainer(path string, tempContainerRefDir string) (string, error) {
+	engine, err := newEngine()
 	if err != nil {
 		return "", err
 	}
@@ -124,16 +124,17 @@ func getReferencesFromContainer(path string) (string, error) {
 		return "", err
 	}
 
-	containerID, err := pullAndRunContainer(engine, image)
+	err = engine.pullAndRunContainer(image)
 	if err != nil {
 		return "", err
 	}
 
-	defer cleanup(engine, containerID)
+	defer engine.cleanup()
 
-	referencesPath, err := extractReferences(engine, containerID, metadataPath, dname)
+	err = engine.extractReferences(metadataPath, tempContainerRefDir)
 	if err != nil {
 		return "", err
 	}
-	return referencesPath, nil
+
+	return engine.tempDir, nil
 }

@@ -140,6 +140,8 @@ type Options struct {
 	templatesToGenerateOverridesFor []string
 	overrideReason                  string
 
+	tempContainerRefDir string
+
 	diff *diff.DiffProgram
 	genericiooptions.IOStreams
 }
@@ -237,7 +239,7 @@ func diffError(err error) exec.ExitError {
 	return nil
 }
 
-func GetRefFS(refConfig string) (fs.FS, error) {
+func GetRefFS(refConfig string, tempContainerRefDir string) (fs.FS, error) {
 	referenceDir := filepath.Dir(refConfig)
 	if isURL(refConfig) {
 		// filepath.Dir removes one / from http://
@@ -248,7 +250,7 @@ func GetRefFS(refConfig string) (fs.FS, error) {
 		// filepath.Dir removes one / from container://
 		referenceDir = strings.Replace(referenceDir, "/", "//", 1)
 
-		containerPath, err := getReferencesFromContainer(referenceDir)
+		containerPath, err := getReferencesFromContainer(referenceDir, tempContainerRefDir)
 		if err != nil {
 			return nil, err
 		}
@@ -281,7 +283,16 @@ func (o *Options) Complete(f kcmdutil.Factory, cmd *cobra.Command, args []string
 		return fmt.Errorf(refFileNotExistsError)
 	}
 
-	cfs, err := GetRefFS(o.referenceConfig)
+	var tempContainerRefDir = ""
+	if isContainer(o.referenceConfig) {
+		tempContainerRefDir, err = os.MkdirTemp("", "kube-compare")
+		if err != nil {
+			return err
+		}
+		o.tempContainerRefDir = tempContainerRefDir
+	}
+
+	cfs, err := GetRefFS(o.referenceConfig, tempContainerRefDir)
 	if err != nil {
 		return err
 	}
@@ -669,6 +680,10 @@ func (o *Options) Run() error {
 	diffs := make([]DiffSum, 0)
 	numDiffCRs := 0
 	numPatched := 0
+
+	if o.tempContainerRefDir != "" {
+		defer os.RemoveAll(o.tempContainerRefDir)
+	}
 
 	r := o.builder.
 		Unstructured().
