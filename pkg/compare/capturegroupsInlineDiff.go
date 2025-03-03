@@ -55,20 +55,18 @@ type CapturegroupsInlineDiff struct{}
 type diffInfo struct {
 	dmp   *diffmatchpatch.DiffMatchPatch
 	diffs []diffmatchpatch.Diff
+	cg    []CgInfo
 	CapturedValues
 }
 
 type CgInfo struct {
 	Name  string
+	Full  string
 	Start int
 	End   int
 }
 
 // Options for development purposes to test alternative implementations
-
-// If true, use a line-granular diff.
-// Otherwise, do a word-granular diff.
-var diffByLines = false
 
 // If true, add string-end anchors to the entire pattern when quoted.
 // Otherwise only do so when a capture group begins or ends the string.
@@ -132,6 +130,7 @@ func CapturegroupIndex(pattern string) []CgInfo {
 			if pDepth < 0 {
 				// Exited this capture group; record it
 				cg.End = i + 1
+				cg.Full = pattern[cg.Start:cg.End]
 				result = append(result, cg)
 				break
 			}
@@ -185,6 +184,13 @@ func CapturegroupQuoteMeta(pattern string, groups []CgInfo) string {
 	return strings.Join(results, "")
 }
 
+func NewDiffInfo(pattern string, sharedCapturedValues CapturedValues) *diffInfo {
+	o := diffInfo{CapturedValues: sharedCapturedValues}
+	o.dmp = diffmatchpatch.New()
+	o.cg = CapturegroupIndex(pattern)
+	return &o
+}
+
 // Using the 'deletion' side as the pattern, record all matching capturegroups
 func (id *diffInfo) captureAllGroups(deletion, insertion diffmatchpatch.Diff) error {
 	// Quick sanity check
@@ -196,6 +202,8 @@ func (id *diffInfo) captureAllGroups(deletion, insertion diffmatchpatch.Diff) er
 	pattern := deletion.Text
 	// The insert side is the value we're matching against
 	value := insertion.Text
+
+	klog.V(1).Infof("Comparing Pattern '%s' to value '%s'", pattern, value)
 
 	// Find all capturegroups in the pattern
 	groups := CapturegroupIndex(pattern)
@@ -228,27 +236,9 @@ func (id *diffInfo) captureAllGroups(deletion, insertion diffmatchpatch.Diff) er
 	return nil
 }
 
-// Perform the diff, ensuring the diff parts are on word-boundaries, and
-// recording the parts in id.diffs
-func (id *diffInfo) doWordDiff(pattern, value string) {
-	id.dmp = diffmatchpatch.New()
-	diffs := id.dmp.DiffMain(pattern, value, false)
-	// Note: This DiffCleanupSemantic() helper will ensure we don't split any
-	// capture groups into peices provided there is no space in any of them
-	// (which is why we enforce this in 'Validate' below)
-	// TODO: If we implemented an alternative to this that respected full
-	// capture groups and not just word boundaries, that would allow spaces in
-	// capture groups.
-	id.diffs = id.dmp.DiffCleanupSemantic(diffs)
-}
-
-// Perform the diff, ensuring the diff parts are on line-boundaries, and
-// recording the parts in id.diffs
-func (id *diffInfo) doLineDiff(pattern, value string) {
-	id.dmp = diffmatchpatch.New()
-	patternLines, valueLines, lineStrings := id.dmp.DiffLinesToChars(pattern, value)
-	diffs := id.dmp.DiffMain(patternLines, valueLines, true)
-	id.diffs = id.dmp.DiffCharsToLines(diffs, lineStrings)
+// Perform the diff or a per-character basis, recording the parts in id.diffs
+func (id *diffInfo) doDiff(pattern, value string) {
+	id.diffs = id.dmp.DiffMain(pattern, value, false)
 }
 
 // Return the potentially-comparable diff pair to id.diffs[i] (ie, if
@@ -269,22 +259,57 @@ func (id *diffInfo) comparableDiffPair(i int) (*diffmatchpatch.Diff, *diffmatchp
 	return nil, nil
 }
 
+func (id *diffInfo) escapeCaptureGroups(pattern string) (string, map[rune]string) {
+	escapes := make(map[rune]string)
+	replacedPatternBuilder := strings.Builder{}
+	idx := 0
+	replacementRune := '\U000F0000' // Private Use Area-A starting point
+	for _, group := range id.cg {
+		if idx < group.Start {
+			replacedPatternBuilder.WriteString(pattern[idx:group.Start])
+		}
+		escapes[replacementRune] = group.Full
+		replacedPatternBuilder.WriteRune(replacementRune)
+		replacementRune++
+		idx = group.End
+	}
+	if idx < len(pattern) {
+		replacedPatternBuilder.WriteString(pattern[idx:])
+	}
+	return replacedPatternBuilder.String(), escapes
+}
+
+func (id *diffInfo) unescapeCaptureGroupDiffs(escapes map[rune]string) {
+	// With the main diff complete, replace the placeholder runes with the real capturegroups
+	fixedDiffs := make([]diffmatchpatch.Diff, len(id.diffs))
+	for i, diff := range id.diffs {
+		fixedBuilder := strings.Builder{}
+		for _, r := range diff.Text {
+			if v, ok := escapes[r]; ok {
+				fixedBuilder.WriteString(v)
+			} else {
+				fixedBuilder.WriteRune(r)
+			}
+		}
+		diff.Text = fixedBuilder.String()
+		fixedDiffs[i] = diff
+	}
+	id.diffs = fixedDiffs
+}
+
 // Main entrypoint called by compare.go
 func (id CapturegroupsInlineDiff) Diff(pattern, value string, sharedCapturedValues CapturedValues) (string, CapturedValues) {
 	// General approach:
 	//  - Match all relevant capturegroups
 	//  - Substitute in the values for all matched capturegroups to the pattern
 
-	cgDiff := diffInfo{CapturedValues: sharedCapturedValues}
+	cgDiff := NewDiffInfo(pattern, sharedCapturedValues)
 
-	// Doing a word-wise diff shrinks the probleset by avoiding any text that
-	// is identical or an obvious plain deletion or addition.
-	if diffByLines {
-		cgDiff.doLineDiff(pattern, value)
-	} else {
-		// First do a word-wise diff to isolate only those whole words that differ
-		cgDiff.doWordDiff(pattern, value)
-	}
+	// In order to not have capturegroups partially consumed by the diff algorithm, replace all capturegroups with placeholders in the Unicode Private Use Area (\uF0000)
+	replacedPattern, escapes := cgDiff.escapeCaptureGroups(pattern)
+	cgDiff.doDiff(replacedPattern, value)
+	// With the main diff complete, replace the placeholder runes with the real capturegroups
+	cgDiff.unescapeCaptureGroupDiffs(escapes)
 
 	// Next, look for any interesting insert-then-delete or delete-then-insert
 	// adjacent sections, and try to match any capturegroups we find.
@@ -309,7 +334,7 @@ func (id CapturegroupsInlineDiff) Diff(pattern, value string, sharedCapturedValu
 	// - any different values matched to the same-named capturegroups as different
 	reconciledString := ""
 	idx := 0
-	for _, group := range CapturegroupIndex(pattern) {
+	for _, group := range cgDiff.cg {
 		if idx < group.Start {
 			reconciledString += pattern[idx:group.Start]
 		}
@@ -344,14 +369,6 @@ func (id CapturegroupsInlineDiff) Validate(pattern string) error {
 		if err != nil {
 			errs = errors.Join(errs, fmt.Errorf("line %d %w", i+1, err))
 			continue
-		}
-		// Furthermore, ensure each capturegroup has no spaces or linebreaks
-		// inside (because otherwise the DiffCleanupSemantic() above may split
-		// it and render it useless)
-		for _, group := range groups {
-			if strings.ContainsAny(line[group.Start:group.End], " \n") {
-				errs = errors.Join(errs, fmt.Errorf("line %d:%d capturegroup contains spaces or linebreaks", i+1, group.Start))
-			}
 		}
 	}
 	return errs

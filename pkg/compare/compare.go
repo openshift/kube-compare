@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"flag"
 	"fmt"
 	"io/fs"
 	"os"
@@ -183,7 +184,7 @@ func NewCmd(f kcmdutil.Factory, streams genericiooptions.IOStreams) *cobra.Comma
 	// command it means changes were found.
 	// Thus, it should return status code greater than 1.
 	cmd.SetFlagErrorFunc(func(command *cobra.Command, err error) error {
-		kcmdutil.CheckDiffErr(kcmdutil.UsageErrorf(cmd, err.Error()))
+		kcmdutil.CheckDiffErr(kcmdutil.UsageErrorf(cmd, "%s", err.Error()))
 		return nil
 	})
 	cmd.Flags().IntVar(&options.Concurrency, "concurrency", 4,
@@ -280,7 +281,7 @@ func (o *Options) Complete(f kcmdutil.Factory, cmd *cobra.Command, args []string
 		return kcmdutil.UsageErrorf(cmd, noRefFileWasPassed)
 	}
 	if _, err := os.Stat(o.referenceConfig); os.IsNotExist(err) && !isURL(o.referenceConfig) && !isContainer(o.referenceConfig) {
-		return fmt.Errorf(refFileNotExistsError)
+		return errors.New(refFileNotExistsError)
 	}
 
 	var tempContainerRefDir = ""
@@ -382,7 +383,7 @@ func (o *Options) setupCorrelators() error {
 		correlators = append(correlators, manualCorrelator)
 	}
 
-	groupCorrelator, err := NewGroupCorrelator(defaultFieldGroups, o.templates)
+	groupCorrelator, err := NewGroupCorrelator(defaultFieldGroups, o.templates, o.verboseOutput)
 	if err != nil {
 		return err
 	}
@@ -411,7 +412,7 @@ func (o *Options) setupOverrideCorrelators() error {
 		correlators = append(correlators, manualOverrideCorrelator)
 	}
 
-	groupCorrelator, err := NewGroupCorrelator(defaultFieldGroups, o.userOverrides)
+	groupCorrelator, err := NewGroupCorrelator(defaultFieldGroups, o.userOverrides, o.verboseOutput)
 	if err != nil {
 		return err
 	}
@@ -696,6 +697,16 @@ func (o *Options) Run() error {
 		ContinueOnError().
 		Flatten().
 		Do()
+
+	// Adjust klog to match '--verbose' flag
+	klogVerbosity := "0"
+	if o.verboseOutput {
+		klogVerbosity = "1"
+	}
+	flagSet := flag.NewFlagSet("test", flag.ExitOnError)
+	klog.InitFlags(flagSet)
+	_ = flagSet.Parse([]string{"--v", klogVerbosity})
+
 	if err := r.Err(); err != nil {
 		return fmt.Errorf("failed to collect resources: %w", err)
 	}
@@ -705,6 +716,7 @@ func (o *Options) Run() error {
 			return true
 		}
 		if strings.Contains(err.Error(), "error parsing") {
+			// TODO: Fix this error message truncation
 			klog.Warningf(skipInvalidResources, extractPath(err.Error(), 2), err.Error()[strings.LastIndex(err.Error(), ":"):])
 			return true
 		}

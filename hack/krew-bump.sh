@@ -26,7 +26,7 @@ done <<<"$checksums"
 # Commit and push
 git commit -asm "Version bump cluster-compare to $TAG"
 git push -u origin "$BRANCH"
-gh pr create --fill --web
+gh pr create --fill 
 
 # Cleanup
 popd && popd && rm -rf _release_tmp

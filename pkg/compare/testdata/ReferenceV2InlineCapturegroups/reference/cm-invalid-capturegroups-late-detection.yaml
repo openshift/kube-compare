@@ -11,5 +11,5 @@ spec:
     - bigTextBlock: |-
         This is a big text block with some static content, like this line.
         It also has a place where (?<username[a-z0-9]+) would put in their own name. (?<username>[a-z0-9]+) would put in their own name.
-        More complicated [(?<group>[^a-z A-Z]+)] are also allowed.
+        More complicated [(?<group>[[:_broken_capturegroup_:]]+)] are also allowed.
     {{- end }}
