@@ -37,7 +37,7 @@ func parsePath(path string) (string, string, error) {
 		referencePath := sections[2]
 		return image, referencePath, nil
 	}
-	return "", "", fmt.Errorf("Incorrect path passed into -r, it should follow this format: container://<IMAGE>:<TAG>:/path_to_metadata.yaml")
+	return "", "", fmt.Errorf("incorrect path passed into -r, it should follow this format: container://<IMAGE>:<TAG>:/path_to_metadata.yaml")
 }
 
 // Use var's so that we can mock functions in tests.
@@ -70,7 +70,7 @@ var newEngine = func() (*engine, error) {
 		_, err = execCommand("docker", "images").Output() // If this errors out, we need to use sudo, return true.
 		return &engine{name: "docker", requiresSudo: err != nil}, nil
 	}
-	return &engine{name: "", requiresSudo: false}, fmt.Errorf("You do not have Podman or Docker on your PATH")
+	return &engine{name: "", requiresSudo: false}, fmt.Errorf("you do not have Podman or Docker on your PATH")
 }
 
 // pullContainer pulls an image, runs it using the provided engine, and stores the corresponding containerID in the engine struct
@@ -79,7 +79,7 @@ func (engine *engine) pullAndRunContainer(image string) error {
 	// -d to output container ID
 	out, err := engine.runEngineCommand("run", "-d", image)
 	if err != nil {
-		return fmt.Errorf("Could not pull/run container: %s", out)
+		return fmt.Errorf("could not pull/run container: %s", out)
 	}
 	engine.containerID = strings.TrimSpace(string(out)) // Convert bytes to string and trim new line
 	return nil
@@ -91,7 +91,7 @@ func (engine *engine) extractReferences(pathToMetadata string, dname string) err
 
 	out, err := engine.runEngineCommand("cp", engine.containerID+":"+pathToMetadata, dname)
 	if err != nil {
-		return fmt.Errorf("Could not copy templates from container: %s", out)
+		return fmt.Errorf("could not copy templates from container: %s", out)
 	}
 	engine.tempDir = filepath.Join(dname, filepath.Base(pathToMetadata))
 	return nil
