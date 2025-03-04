@@ -4,6 +4,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
+	"time"
 )
 
 // TestSuites is a collection of JUnit test suites.
@@ -17,6 +18,25 @@ type TestSuites struct {
 	Suites   []TestSuite
 }
 
+func NewTestSuites(name string) *TestSuites {
+	testSuites := TestSuites{
+		Name: name,
+		Time: time.Now().Format(time.RFC3339),
+	}
+	return &testSuites
+}
+
+func (id *TestSuites) AddSuite(suite TestSuite) {
+	id.Suites = append(id.Suites, suite)
+	id.Tests += suite.Tests
+	id.Failures += suite.Failures
+}
+
+func (id *TestSuites) WithSuite(suite TestSuite) *TestSuites {
+	id.AddSuite(suite)
+	return id
+}
+
 // TestSuite is a single JUnit test suite which may contain many
 // testcases.
 type TestSuite struct {
@@ -28,6 +48,14 @@ type TestSuite struct {
 	Properties []Property `xml:"properties>property,omitempty"`
 	TestCases  []TestCase
 	Timestamp  string `xml:"timestamp,attr"`
+}
+
+func (id *TestSuite) AddCase(tcase TestCase) {
+	id.TestCases = append(id.TestCases, tcase)
+	id.Tests += 1
+	if tcase.Failure != nil {
+		id.Failures += 1
+	}
 }
 
 // TestCase is a single test case with its result.
@@ -57,6 +85,15 @@ type Failure struct {
 	Message  string `xml:"message,attr"`
 	Type     string `xml:"type,attr"`
 	Contents string `xml:",chardata"`
+}
+
+func NewTestSuite(name string) TestSuite {
+	timestamp := time.Now().Format(time.RFC3339)
+	return TestSuite{
+		Name:      name,
+		Timestamp: timestamp,
+		Time:      timestamp,
+	}
 }
 
 func Marshal(suites TestSuites) ([]byte, error) {

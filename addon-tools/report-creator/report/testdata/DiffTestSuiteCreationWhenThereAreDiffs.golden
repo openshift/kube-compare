@@ -7,9 +7,9 @@
 			<failure message="Differences found in CR: v1_ConfigMap_kubernetes-dashboard_kubernetes-dashboard-settings, Compared To Reference CR: cm.yaml" type="Difference">diff -u -N TEMP/v1_configmap_kubernetes-dashboard_kubernetes-dashboard-settings TEMP/v1_configmap_kubernetes-dashboard_kubernetes-dashboard-settings&#xA;--- TEMP/v1_configmap_kubernetes-dashboard_kubernetes-dashboard-settings&#x9;DATE&#xA;+++ TEMP/v1_configmap_kubernetes-dashboard_kubernetes-dashboard-settings&#x9;DATE&#xA;@@ -2,6 +2,6 @@&#xA; kind: ConfigMap&#xA; metadata:&#xA;   labels:&#xA;-    k8s-app: kubernetes-dashboardfunction was called successfully from different file&#xA;+    k8s-app: kubernetes-dashboard&#xA;   name: kubernetes-dashboard-settings&#xA;   namespace: kubernetes-dashboard&#xA;</failure>
 		</testcase>
 	</testsuite>
-	<testsuite tests="1" failures="0" TIME name="Missing Cluster Resources" TIME>
+	<testsuite tests="1" failures="0" TIME name="Reference validation" TIME>
 		<properties></properties>
-		<testcase classname="" name="All expected CRs exist in the cluster" TIME>
+		<testcase classname="" name="No reference validation issues: All expected CRs exist in the cluster" TIME>
 			<properties></properties>
 		</testcase>
 	</testsuite>

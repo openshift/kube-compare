@@ -3,7 +3,7 @@
 	<testsuite tests="0" failures="0" TIME name="Detected Differences Between Cluster CRs and Expected CRs" TIME>
 		<properties></properties>
 	</testsuite>
-	<testsuite tests="1" failures="1" TIME name="Missing Cluster Resources" TIME>
+	<testsuite tests="1" failures="1" TIME name="Reference validation" TIME>
 		<properties></properties>
 		<testcase classname="Part:ExamplePart Component: DemonSets" name="Missing CR: apps.v1.DaemonSet.kube-system.kindnet.yaml" TIME>
 			<properties></properties>

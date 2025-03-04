@@ -84,9 +84,9 @@
 			<properties></properties>
 		</testcase>
 	</testsuite>
-	<testsuite tests="1" failures="0" TIME name="Missing Cluster Resources" TIME>
+	<testsuite tests="1" failures="0" TIME name="Reference validation" TIME>
 		<properties></properties>
-		<testcase classname="" name="All expected CRs exist in the cluster" TIME>
+		<testcase classname="" name="No reference validation issues: All expected CRs exist in the cluster" TIME>
 			<properties></properties>
 		</testcase>
 	</testsuite>

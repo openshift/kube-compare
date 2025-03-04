@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuites name="Comparison results of known valid reference configuration and a set of specific cluster CRs" tests="7" failures="5" errors="0" TIME>
+<testsuites name="Comparison results of known valid reference configuration and a set of specific cluster CRs" tests="6" failures="4" errors="0" TIME>
 	<testsuite tests="1" failures="0" TIME name="Detected Differences Between Cluster CRs and Expected CRs" TIME>
 		<properties></properties>
 		<testcase classname="Matching Reference CR: ns.yaml" name="CR: v1_Namespace_kubernetes-dashboard" TIME>
 			<properties></properties>
 		</testcase>
 	</testsuite>
-	<testsuite tests="5" failures="5" TIME name="Missing Cluster Resources" TIME>
+	<testsuite tests="4" failures="4" TIME name="Reference validation" TIME>
 		<properties></properties>
 		<testcase classname="Part:ExamplePart1 Component: Dashboard1" name="Reference validation failure" TIME>
 			<properties></properties>
