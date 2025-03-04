@@ -9,8 +9,10 @@ import (
 	"sort"
 	"strings"
 	"text/template"
+	"time"
 
 	"github.com/Masterminds/sprig/v3"
+	"github.com/openshift/kube-compare/pkg/junit"
 	"github.com/samber/lo"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -204,4 +206,123 @@ func (o Output) Print(format string, out io.Writer, showEmptyDiffs bool) (int, e
 		return n, fmt.Errorf("error occurred when writing output: %w", err)
 	}
 	return n, nil
+}
+
+// junitDiffSuite generates a JUnit test suite representing all differences found between cluster resources
+// and expected reference CRs.
+// The suite includes individual test cases for each cluster resource (CR) that exhibits differences.
+// If differences are detected in a CR, a failure message is included in the test case including the full diff output.
+func (o Output) junitDiffSuite() junit.TestSuite {
+	diffSuite := junit.TestSuite{
+		Name:      "Detected Differences Between Cluster CRs and Expected CRs",
+		Timestamp: time.Now().Format(time.RFC3339),
+		Time:      time.Now().Format(time.RFC3339),
+		Tests:     len(*o.Diffs),
+		Failures:  o.Summary.NumDiffCRs,
+	}
+
+	for _, diff := range *o.Diffs {
+		testCase := junit.TestCase{
+			Name:      fmt.Sprintf("CR: %s", diff.CRName),
+			Classname: fmt.Sprintf("Matching Reference CR: %s", diff.CorrelatedTemplate),
+		}
+
+		if diff.DiffOutput != "" {
+			testCase.Failure = &junit.Failure{
+				Type:     "Difference",
+				Message:  fmt.Sprintf("Differences found in CR: %s, Compared To Reference CR: %s", diff.CRName, diff.CorrelatedTemplate),
+				Contents: diff.DiffOutput,
+			}
+		}
+
+		diffSuite.TestCases = append(diffSuite.TestCases, testCase)
+	}
+
+	return diffSuite
+}
+
+// createMissingCRsSuite generates a JUnit test suite that ensures that all the expected CRs appear in the cluster.
+// The suite includes test cases for each missing CR, categorized by their respective components and namespaces.
+// If no CRs are missing, a single test case indicating that all expected CRs exist in the cluster is included.
+func (o Output) junitMissingCRsSuite() junit.TestSuite {
+	suite := junit.TestSuite{
+		Name:      "Missing Cluster Resources",
+		Timestamp: time.Now().Format(time.RFC3339),
+		Time:      time.Now().Format(time.RFC3339),
+	}
+
+	// Iterate over parts and components to add missing CRs as test cases
+	for partName, partCRs := range o.Summary.ValidationIssues {
+		for componentName, validationIssue := range partCRs {
+			suite.TestCases = append(suite.TestCases, junit.TestCase{
+				Name:      "Reference validation failure",
+				Classname: fmt.Sprintf("Part:%s Component: %s", partName, componentName),
+				Failure: &junit.Failure{
+					Type:    "Validation Issue",
+					Message: fmt.Sprintf("%s: %s", validationIssue.Msg, strings.Join(validationIssue.CRs, ",")),
+				},
+			})
+
+		}
+	}
+	sort.Slice(suite.TestCases, func(i, j int) bool {
+		return suite.TestCases[i].Classname < suite.TestCases[j].Classname
+	})
+
+	// If no missing CRs are found, include a single test case indicating all expected CRs exist in the cluster
+	if o.Summary.NumMissing == 0 {
+		suite.TestCases = append(suite.TestCases, junit.TestCase{
+			Name: "All expected CRs exist in the cluster"})
+		suite.Tests = 1
+		return suite
+	}
+	suite.Tests = o.Summary.NumMissing
+	suite.Failures = o.Summary.NumMissing
+
+	return suite
+}
+
+// createUnmatchedSuite generates a JUnit test suite for representing unmatched cluster resources.
+// The suite includes individual test cases for each unmatched CR.
+// If no CRs are unmatched, a single test case indicating that all CRs are matched is included.
+func (o Output) junitUnmatchedSuite() junit.TestSuite {
+	unmatchedSuite := junit.TestSuite{
+		Name:      "Unmatched Cluster Resources",
+		Timestamp: time.Now().Format(time.RFC3339),
+		Time:      time.Now().Format(time.RFC3339),
+	}
+
+	// Iterate over unmatched CRs to add them as test cases
+	for _, cr := range o.Summary.UnmatchedCRS {
+		unmatchedSuite.TestCases = append(unmatchedSuite.TestCases, junit.TestCase{
+			Name: cr,
+			Failure: &junit.Failure{
+				Type:    "Unmatched CR",
+				Message: fmt.Sprintf("Cluster resource '%s' is unmatched.", cr),
+			},
+		})
+	}
+
+	// If no unmatched CRs are found, include a single test case indicating all CRs are matched
+	if len(o.Summary.UnmatchedCRS) == 0 {
+		unmatchedSuite.TestCases = append(unmatchedSuite.TestCases, junit.TestCase{
+			Name: "All Cluster CRs are matched to reference CRs ",
+		})
+		unmatchedSuite.Tests = 1
+		return unmatchedSuite
+	}
+	unmatchedSuite.Tests = len(o.Summary.UnmatchedCRS)
+	unmatchedSuite.Failures = len(o.Summary.UnmatchedCRS)
+
+	return unmatchedSuite
+}
+
+func (o Output) JunitReport() *junit.TestSuites {
+	suites := junit.TestSuites{Name: "Comparison results of known valid reference configuration and a set of specific cluster CRs", Time: time.Now().Format(time.RFC3339), Suites: []junit.TestSuite{
+		o.junitDiffSuite(), o.junitMissingCRsSuite(), o.junitUnmatchedSuite()}}
+	for _, suite := range suites.Suites {
+		suites.Tests += suite.Tests
+		suites.Failures += suite.Failures
+	}
+	return &suites
 }
