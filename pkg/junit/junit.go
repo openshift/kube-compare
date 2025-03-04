@@ -59,16 +59,20 @@ type Failure struct {
 	Contents string `xml:",chardata"`
 }
 
-func Write(out io.Writer, suites TestSuites) error {
+func Marshal(suites TestSuites) ([]byte, error) {
 	doc, err := xml.MarshalIndent(suites, "", "\t")
 	if err != nil {
-		return fmt.Errorf("failed to marshal junit xml: %w", err)
+		return nil, fmt.Errorf("failed to marshal junit xml: %w", err)
 	}
-	_, err = out.Write([]byte(xml.Header))
+	return append([]byte(xml.Header), doc...), nil
+}
+
+func Write(out io.Writer, suites TestSuites) error {
+	content, err := Marshal(suites)
 	if err != nil {
-		return fmt.Errorf("failed to write header: %w", err)
+		return err
 	}
-	_, err = out.Write(doc)
+	_, err = out.Write(content)
 	if err != nil {
 		return fmt.Errorf("failed to write junit report: %w", err)
 	}

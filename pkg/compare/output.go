@@ -193,11 +193,19 @@ func (o Output) Print(format string, out io.Writer, showEmptyDiffs bool) (int, e
 		if err != nil {
 			return 0, fmt.Errorf("failed to marshal output to yaml: %w", err)
 		}
+
 	case PatchYaml:
 		content, err = yaml.Marshal(o.patches)
 		if err != nil {
 			return 0, fmt.Errorf("failed to marshal patches to yaml: %w", err)
 		}
+
+	case Junit:
+		content, err = junit.Marshal(*o.JunitReport())
+		if err != nil {
+			return 0, fmt.Errorf("failed to marshal output to junit: %w", err)
+		}
+
 	default:
 		content = []byte(o.String(showEmptyDiffs))
 	}
