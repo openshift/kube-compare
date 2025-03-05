@@ -287,10 +287,7 @@ func TestCleanup(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		err := test.engine.cleanup()
-		if err != nil {
-			t.Errorf("Expected nil error, got %#v", err)
-		}
+		test.engine.cleanup()
 	}
 }
 

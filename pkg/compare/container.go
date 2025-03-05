@@ -103,7 +103,7 @@ func (engine *engine) extractReferences(pathToMetadata string, dname string) err
 }
 
 // cleanup stops and removes the container used to extract the reference configs.
-func (engine *engine) cleanup() error {
+func (engine *engine) cleanup() {
 	out, err := engine.runEngineCommand("stop", engine.containerID)
 	if err != nil {
 		// Print errors as warnings rather than returning, since stopping and removing the container is not vital.
@@ -113,7 +113,6 @@ func (engine *engine) cleanup() error {
 	if err != nil {
 		fmt.Printf("Warning: Could not remove container: %s", out)
 	}
-	return nil
 }
 
 // getReferencesFromContainer uses a path to an image and a metadata.yaml within that image, and extracts the reference configs
