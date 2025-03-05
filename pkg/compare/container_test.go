@@ -19,6 +19,13 @@ func TestIsContainer(t *testing.T) {
 		{"file://local/path/to/file.yaml", false},
 		{"http://example.com/data.yaml", false},
 		{"randomstringwithoutprefix", false},
+		{"container:/only-one-slash:tag:/metadata.yaml", false},
+		{"container/with/no/colon/metadata.yaml", false},
+		{"container://name:tag", true},
+		{"container://name", true},
+		{"container://", true},
+		{"container", false},
+		{"", false},
 	}
 
 	for _, test := range tests {
@@ -42,6 +49,11 @@ func TestParsePath(t *testing.T) {
 		{"container://wrongformat", "", "", true},
 		{":missingprefix:/file.yaml", "", "", true},
 		{"container://only:two", "", "", true},
+		{"container://", "", "", true},
+		{"container:/", "", "", true},
+		{"container:", "", "", true},
+		{"container", "", "", true},
+		{"", "", "", true},
 	}
 
 	for _, test := range tests {
@@ -135,7 +147,7 @@ func TestRunEngineCommand(t *testing.T) {
 	}
 }
 
-func TestHasPodmanOrDocker(t *testing.T) {
+func TestNewEngine(t *testing.T) {
 	// Override execCommand and LookPath with fakes
 	execCommand = fakeExecCommand
 	lookPath = fakeLookPath
@@ -153,14 +165,18 @@ func TestHasPodmanOrDocker(t *testing.T) {
 		{"podman", "podman", false, false},     // Podman is available
 		{"docker", "docker", false, false},     // Docker available, no sudo needed
 		{"docker-sudo", "docker", true, false}, // Docker requires sudo
+		{"both", "podman", false, false},		// Both available, podman should be chosen
 		{"none", "", false, true},              // Neither Podman nor Docker is available
 	}
 
 	for _, test := range tests {
 		// Customize behavior based on test case
 		lookPath = func(cmd string) (string, error) {
-			if (test.available == "podman" && cmd == "podman") || (test.available == "docker" || test.available == "docker-sudo") && cmd == "docker" {
-				return "/usr/bin/" + cmd, nil
+			if (test.available == "podman" || test.available == "both") && cmd == "podman" {
+				return "/usr/bin/podman", nil
+			}
+			if (test.available == "docker" || test.available == "docker-sudo" || test.available == "both") && cmd == "docker" {
+				return "/usr/bin/docker", nil
 			}
 			return "", errors.New("not found")
 		}
@@ -254,6 +270,7 @@ func TestExtractReferences(t *testing.T) {
 		{engine{"podman", false, "container123", ""}, "/etc/configs", "/tmp/extracted", false},
 		{engine{"docker", true, "container456", ""}, "/var/lib/data", "/tmp/extracted", false},
 		{engine{"docker", true, "container456", ""}, "/invalid_path", "/tmp/extracted", true},
+		{engine{"podman", true, "container456", ""}, "/etc/configs", "/invalid/path", true},
 	}
 
 	for _, test := range tests {
