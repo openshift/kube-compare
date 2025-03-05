@@ -1,7 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <testsuites name="Comparison results of known valid reference configuration and a set of specific cluster CRs" tests="29" failures="0" errors="0" skipped="0" TIME>
 	<testsuite tests="27" failures="0" skipped="0" TIME name="Detected Differences Between Cluster CRs and Expected CRs" TIME>
-		<properties></properties>
+		<properties>
+			<property name="MetadataHash" value="933892b7ae8a4f5232734acc34f6c93fc223844d836b37af390cfeaecf0b7a99"></property>
+			<property name="TotalCRs" value="27"></property>
+		</properties>
 		<testcase classname="Matching Reference CR: cm.yaml" name="CR: v1_ConfigMap_kubernetes-dashboard_kubernetes-dashboard-settings" TIME>
 			<properties></properties>
 		</testcase>
@@ -85,13 +88,19 @@
 		</testcase>
 	</testsuite>
 	<testsuite tests="1" failures="0" skipped="0" TIME name="Reference validation" TIME>
-		<properties></properties>
+		<properties>
+			<property name="MetadataHash" value="933892b7ae8a4f5232734acc34f6c93fc223844d836b37af390cfeaecf0b7a99"></property>
+			<property name="TotalCRs" value="27"></property>
+		</properties>
 		<testcase classname="" name="No reference validation issues: All expected CRs exist in the cluster" TIME>
 			<properties></properties>
 		</testcase>
 	</testsuite>
 	<testsuite tests="1" failures="0" skipped="0" TIME name="Unmatched Cluster Resources" TIME>
-		<properties></properties>
+		<properties>
+			<property name="MetadataHash" value="933892b7ae8a4f5232734acc34f6c93fc223844d836b37af390cfeaecf0b7a99"></property>
+			<property name="TotalCRs" value="27"></property>
+		</properties>
 		<testcase classname="" name="All Cluster CRs are matched to reference CRs " TIME>
 			<properties></properties>
 		</testcase>

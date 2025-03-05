@@ -44,7 +44,8 @@ func TestJunitDiffSuite(t *testing.T) {
 		{
 			name: "Empty Output",
 			output: Output{
-				Diffs: &[]DiffSum{},
+				Summary: &Summary{},
+				Diffs:   &[]DiffSum{},
 			},
 			expected: testExpectation{
 				tests:    0,
@@ -54,6 +55,7 @@ func TestJunitDiffSuite(t *testing.T) {
 		{
 			name: "No differences",
 			output: Output{
+				Summary: &Summary{},
 				Diffs: &[]DiffSum{
 					{
 						CRName:             "crname",
@@ -70,6 +72,7 @@ func TestJunitDiffSuite(t *testing.T) {
 		{
 			name: "Patched difference",
 			output: Output{
+				Summary: &Summary{},
 				Diffs: &[]DiffSum{
 					{
 						CRName:             "crname",
@@ -89,6 +92,7 @@ func TestJunitDiffSuite(t *testing.T) {
 		{
 			name: "One difference",
 			output: Output{
+				Summary: &Summary{},
 				Diffs: &[]DiffSum{
 					{
 						CRName:             "crname",
@@ -105,6 +109,7 @@ func TestJunitDiffSuite(t *testing.T) {
 		{
 			name: "One of each",
 			output: Output{
+				Summary: &Summary{},
 				Diffs: &[]DiffSum{
 					{
 						CRName:             "crname",

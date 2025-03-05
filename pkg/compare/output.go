@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"sort"
+	"strconv"
 	"strings"
 	"text/template"
 
@@ -215,12 +216,24 @@ func (o Output) Print(format string, out io.Writer, showEmptyDiffs bool) (int, e
 	return n, nil
 }
 
+func (o Output) addParametersTo(suite *junit.TestSuite) {
+	suite.Properties = append(suite.Properties, junit.Property{
+		Name:  "MetadataHash",
+		Value: o.Summary.MetadataHash,
+	},
+		junit.Property{
+			Name:  "TotalCRs",
+			Value: strconv.Itoa(o.Summary.TotalCRs),
+		})
+}
+
 // junitDiffSuite generates a JUnit test suite representing all differences found between cluster resources
 // and expected reference CRs.
 // The suite includes individual test cases for each cluster resource (CR) that exhibits differences.
 // If differences are detected in a CR, a failure message is included in the test case including the full diff output.
 func (o Output) junitDiffSuite() junit.TestSuite {
 	diffSuite := junit.NewTestSuite("Detected Differences Between Cluster CRs and Expected CRs")
+	o.addParametersTo(&diffSuite)
 
 	for _, diff := range *o.Diffs {
 		testCase := junit.TestCase{
@@ -251,6 +264,7 @@ func (o Output) junitDiffSuite() junit.TestSuite {
 // If no CRs are missing, a single test case indicating that all expected CRs exist in the cluster is included.
 func (o Output) junitValidationIssueSuite() junit.TestSuite {
 	suite := junit.NewTestSuite("Reference validation")
+	o.addParametersTo(&suite)
 
 	// Iterate over parts and components to add missing CRs as test cases
 	for partName, partCRs := range o.Summary.ValidationIssues {
@@ -284,6 +298,7 @@ func (o Output) junitValidationIssueSuite() junit.TestSuite {
 // If no CRs are unmatched, a single test case indicating that all CRs are matched is included.
 func (o Output) junitUnmatchedCRsSuite() junit.TestSuite {
 	suite := junit.NewTestSuite("Unmatched Cluster Resources")
+	o.addParametersTo(&suite)
 
 	// Iterate over unmatched CRs to add them as test cases
 	for _, cr := range o.Summary.UnmatchedCRS {

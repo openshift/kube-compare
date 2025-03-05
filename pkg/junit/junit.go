@@ -106,7 +106,7 @@ func Marshal(suites TestSuites) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal junit xml: %w", err)
 	}
-	return append([]byte(xml.Header), doc...), nil
+	return append([]byte(xml.Header), append(doc, "\n"...)...), nil
 }
 
 func Write(out io.Writer, suites TestSuites) error {
