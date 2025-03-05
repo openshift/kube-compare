@@ -5,6 +5,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"k8s.io/klog/v2"
 )
 
 type engine struct {
@@ -107,11 +109,11 @@ func (engine *engine) cleanup() {
 	out, err := engine.runEngineCommand("stop", engine.containerID)
 	if err != nil {
 		// Print errors as warnings rather than returning, since stopping and removing the container is not vital.
-		fmt.Printf("Warning: Could not stop container: %s", out)
+		klog.Warningf("Warning: Could not stop container: %s", out)
 	}
 	out, err = engine.runEngineCommand("rm", engine.containerID)
 	if err != nil {
-		fmt.Printf("Warning: Could not remove container: %s", out)
+		klog.Warningf("Warning: Could not remove container: %s", out)
 	}
 }
 
