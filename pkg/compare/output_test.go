@@ -9,6 +9,7 @@ import (
 
 type testExpectation struct {
 	tests    int
+	skips    int
 	failures []string
 }
 
@@ -24,6 +25,14 @@ func (expected testExpectation) matches(t *testing.T, actual junit.TestSuite) {
 		}
 	}
 	assert.Equal(t, len(expected.failures), actualFailCount)
+	assert.Equal(t, expected.skips, actual.Skipped)
+	actualSkipCount := 0
+	for _, s := range actual.TestCases {
+		if s.SkipMessage != nil {
+			actualSkipCount += 1
+		}
+	}
+	assert.Equal(t, expected.skips, actualSkipCount)
 }
 
 func TestJunitDiffSuite(t *testing.T) {
@@ -73,6 +82,7 @@ func TestJunitDiffSuite(t *testing.T) {
 			},
 			expected: testExpectation{
 				tests:    1,
+				skips:    1,
 				failures: []string{},
 			},
 		},
@@ -117,6 +127,7 @@ func TestJunitDiffSuite(t *testing.T) {
 			},
 			expected: testExpectation{
 				tests:    3,
+				skips:    1,
 				failures: []string{"difference"},
 			},
 		},

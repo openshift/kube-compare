@@ -234,6 +234,10 @@ func (o Output) junitDiffSuite() junit.TestSuite {
 				Message:  fmt.Sprintf("Differences found in CR: %s, Compared To Reference CR: %s", diff.CRName, diff.CorrelatedTemplate),
 				Contents: diff.DiffOutput,
 			}
+		} else if diff.Patched != "" {
+			testCase.SkipMessage = &junit.SkipMessage{
+				Message: fmt.Sprintf("Patched with %s; Reasons given: %s", diff.Patched, strings.Join(diff.OverrideReasons, ", ")),
+			}
 		}
 
 		diffSuite.AddCase(testCase)

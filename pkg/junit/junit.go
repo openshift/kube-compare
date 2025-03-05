@@ -14,6 +14,7 @@ type TestSuites struct {
 	Tests    int      `xml:"tests,attr"`
 	Failures int      `xml:"failures,attr"`
 	Errors   int      `xml:"errors,attr"`
+	Skipped  int      `xml:"skipped,attr"`
 	Time     string   `xml:"time,attr"`
 	Suites   []TestSuite
 }
@@ -43,6 +44,7 @@ type TestSuite struct {
 	XMLName    xml.Name   `xml:"testsuite"`
 	Tests      int        `xml:"tests,attr"`
 	Failures   int        `xml:"failures,attr"`
+	Skipped    int        `xml:"skipped,attr"`
 	Time       string     `xml:"time,attr"`
 	Name       string     `xml:"name,attr"`
 	Properties []Property `xml:"properties>property,omitempty"`
@@ -55,6 +57,9 @@ func (id *TestSuite) AddCase(tcase TestCase) {
 	id.Tests += 1
 	if tcase.Failure != nil {
 		id.Failures += 1
+	}
+	if tcase.SkipMessage != nil {
+		id.Skipped += 1
 	}
 }
 

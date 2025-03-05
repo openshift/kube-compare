@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuites name="Comparison results of known valid reference configuration and a set of specific cluster CRs" tests="6" failures="4" errors="0" TIME>
-	<testsuite tests="1" failures="0" TIME name="Detected Differences Between Cluster CRs and Expected CRs" TIME>
+<testsuites name="Comparison results of known valid reference configuration and a set of specific cluster CRs" tests="6" failures="4" errors="0" skipped="0" TIME>
+	<testsuite tests="1" failures="0" skipped="0" TIME name="Detected Differences Between Cluster CRs and Expected CRs" TIME>
 		<properties></properties>
 		<testcase classname="Matching Reference CR: ns.yaml" name="CR: v1_Namespace_kubernetes-dashboard" TIME>
 			<properties></properties>
 		</testcase>
 	</testsuite>
-	<testsuite tests="4" failures="4" TIME name="Reference validation" TIME>
+	<testsuite tests="4" failures="4" skipped="0" TIME name="Reference validation" TIME>
 		<properties></properties>
 		<testcase classname="Part:ExamplePart1 Component: Dashboard1" name="Reference validation failure" TIME>
 			<properties></properties>
@@ -25,7 +25,7 @@
 			<failure message="Missing CRs: crb.yaml" type="Validation Issue"></failure>
 		</testcase>
 	</testsuite>
-	<testsuite tests="1" failures="0" TIME name="Unmatched Cluster Resources" TIME>
+	<testsuite tests="1" failures="0" skipped="0" TIME name="Unmatched Cluster Resources" TIME>
 		<properties></properties>
 		<testcase classname="" name="All Cluster CRs are matched to reference CRs " TIME>
 			<properties></properties>
