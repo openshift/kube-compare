@@ -163,6 +163,64 @@ For more available options do diff --help
 side-by-side comparison (total width 150 characters) with:
 `KUBECTL_EXTERNAL_DIFF="diff -y -W 150"`
 
+### Alternative output formats
+
+## JSON
+
+Adding `-o json` to the command line produces json output that can be more
+easily parsed by other software.
+
+For example:
+
+```json
+{
+  "Summary": {
+    "ValidationIssuses": {
+      "ExamplePart": {
+        "Dashboard": {
+          "Msg": "Missing CRs",
+          "CRs": [
+            "deploymentDashboard.yaml"
+          ]
+        }
+      }
+    },
+    "NumMissing": 1,
+    "UnmatchedCRS": [],
+    "NumDiffCRs": 1,
+    "TotalCRs": 1,
+    "MetadataHash": "aa4c94f1307788e1da81f57718a9f1364d35d4ff6099fc633724bcf9d051a094",
+    "patchedCRs": 0
+  },
+  "Diffs": [
+    {
+      "DiffOutput": "diff -u -N TEMP/apps-v1_deployment_kubernetes-dashboard_dashboard-metrics-scraper TEMP/apps-v1_deployment_kubernetes-dashboard_dashboard-metrics-scraper\n--- TEMP/apps-v1_deployment_kubernetes-dashboard_dashboard-metrics-scraper\tDATE\n+++ TEMP/apps-v1_deployment_kubernetes-dashboard_dashboard-metrics-scraper\tDATE\n@@ -10,7 +10,7 @@\n   revisionHistoryLimit: 10\n   selector:\n     matchLabels:\n-      k8s-app: dashboard-metrics-scraper\n+      k8s-app: dashboard-metrics-scraper-diff\n   template:\n     metadata:\n       labels:\n",
+      "CorrelatedTemplate": "deploymentMetrics.yaml",
+      "CRName": "apps/v1_Deployment_kubernetes-dashboard_dashboard-metrics-scraper"
+    }
+  ]
+}
+```
+
+## Junit.xml
+
+Adding `-o junit` to the command line produces junit.xml output for easier
+integration into CI pipelines.
+
+The output consists of 3 testsuites:
+
+- "Detected Differences" which shows every compared CR as a separate test case.
+  These will be "pass" if there were no differences, "failed" if differences
+  were detected, or "skipped" if differences were patched by a user override.
+- "Reference validation" which shows every missing CR or violation of
+  metadata.yaml cardinality rules (`OneOf`, `None`, `allOf`) with each
+  problematic group and part of the metadata appearing as a separate testcase.
+- "Unmatched Cluster Resources" which shows any cluster resources that could
+  not be correlated with template CRs.
+
+For each section, if no testcases are produced by the cluster-compare plugin, a
+single passing testcase will be added.
+
 ## Troubleshooting
 
 ### False Positives
