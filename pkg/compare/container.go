@@ -19,9 +19,14 @@ func isContainer(path string) bool {
 	return strings.HasPrefix(path, "container://")
 }
 
+type parsedPath struct {
+	image string
+	path string
+}
+
 // parsePath returns the image and referencePath (path to the directory for metadata.yaml), given a path
 // of the form container://<IMAGE>:<TAG>:/path_to_metadata.yaml
-func parsePath(path string) (string, string, error) {
+func parsePath(path string) (parsedPath, error) {
 	path = strings.TrimPrefix(path, "container://")
 
 	// Split on ':', removing empty strings from slice. Removes errant colons from string,
@@ -35,9 +40,9 @@ func parsePath(path string) (string, string, error) {
 	if len(sections) == 3 {
 		image := sections[0] + ":" + sections[1]
 		referencePath := sections[2]
-		return image, referencePath, nil
+		return parsedPath{image: image, path: referencePath}, nil
 	}
-	return "", "", fmt.Errorf("incorrect path passed to -r, it must follow this format: container://<IMAGE>:<TAG>:/path/to/metadata.yaml")
+	return parsedPath{image: "", path: ""}, fmt.Errorf("incorrect path passed to -r, it must follow this format: container://<IMAGE>:<TAG>:/path/to/metadata.yaml")
 }
 
 // Use var's so that we can mock functions in tests.
@@ -119,19 +124,19 @@ func getReferencesFromContainer(path string, tempContainerRefDir string) (string
 		return "", err
 	}
 
-	image, metadataPath, err := parsePath(path)
+	parsedPath, err := parsePath(path)
 	if err != nil {
 		return "", err
 	}
 
-	err = engine.pullAndRunContainer(image)
+	err = engine.pullAndRunContainer(parsedPath.image)
 	if err != nil {
 		return "", err
 	}
 
 	defer engine.cleanup()
 
-	err = engine.extractReferences(metadataPath, tempContainerRefDir)
+	err = engine.extractReferences(parsedPath.path, tempContainerRefDir)
 	if err != nil {
 		return "", err
 	}

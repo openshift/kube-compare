@@ -45,7 +45,7 @@ func TestParsePath(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		image, path, err := parsePath(test.input)
+		parsedPath, err := parsePath(test.input)
 		if test.expectError {
 			if err == nil {
 				t.Errorf("Expected error for input '%s', but got none", test.input)
@@ -54,8 +54,8 @@ func TestParsePath(t *testing.T) {
 			if err != nil {
 				t.Errorf("Unexpected error for input '%s': %v", test.input, err)
 			}
-			if image != test.expectedImage || path != test.expectedPath {
-				t.Errorf("For input '%s', expected ('%s', '%s'), got ('%s', '%s')", test.input, test.expectedImage, test.expectedPath, image, path)
+			if parsedPath.image != test.expectedImage || parsedPath.path != test.expectedPath {
+				t.Errorf("For input '%s', expected ('%s', '%s'), got ('%s', '%s')", test.input, test.expectedImage, test.expectedPath, parsedPath.image, parsedPath.path)
 			}
 		}
 	}
