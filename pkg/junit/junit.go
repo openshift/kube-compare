@@ -4,6 +4,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
+	"time"
 )
 
 // TestSuites is a collection of JUnit test suites.
@@ -13,8 +14,28 @@ type TestSuites struct {
 	Tests    int      `xml:"tests,attr"`
 	Failures int      `xml:"failures,attr"`
 	Errors   int      `xml:"errors,attr"`
+	Skipped  int      `xml:"skipped,attr"`
 	Time     string   `xml:"time,attr"`
 	Suites   []TestSuite
+}
+
+func NewTestSuites(name string) *TestSuites {
+	testSuites := TestSuites{
+		Name: name,
+		Time: time.Now().Format(time.RFC3339),
+	}
+	return &testSuites
+}
+
+func (id *TestSuites) AddSuite(suite TestSuite) {
+	id.Suites = append(id.Suites, suite)
+	id.Tests += suite.Tests
+	id.Failures += suite.Failures
+}
+
+func (id *TestSuites) WithSuite(suite TestSuite) *TestSuites {
+	id.AddSuite(suite)
+	return id
 }
 
 // TestSuite is a single JUnit test suite which may contain many
@@ -23,11 +44,23 @@ type TestSuite struct {
 	XMLName    xml.Name   `xml:"testsuite"`
 	Tests      int        `xml:"tests,attr"`
 	Failures   int        `xml:"failures,attr"`
+	Skipped    int        `xml:"skipped,attr"`
 	Time       string     `xml:"time,attr"`
 	Name       string     `xml:"name,attr"`
 	Properties []Property `xml:"properties>property,omitempty"`
 	TestCases  []TestCase
 	Timestamp  string `xml:"timestamp,attr"`
+}
+
+func (id *TestSuite) AddCase(tcase TestCase) {
+	id.TestCases = append(id.TestCases, tcase)
+	id.Tests += 1
+	if tcase.Failure != nil {
+		id.Failures += 1
+	}
+	if tcase.SkipMessage != nil {
+		id.Skipped += 1
+	}
 }
 
 // TestCase is a single test case with its result.
@@ -59,16 +92,29 @@ type Failure struct {
 	Contents string `xml:",chardata"`
 }
 
-func Write(out io.Writer, suites TestSuites) error {
+func NewTestSuite(name string) TestSuite {
+	timestamp := time.Now().Format(time.RFC3339)
+	return TestSuite{
+		Name:      name,
+		Timestamp: timestamp,
+		Time:      timestamp,
+	}
+}
+
+func Marshal(suites TestSuites) ([]byte, error) {
 	doc, err := xml.MarshalIndent(suites, "", "\t")
 	if err != nil {
-		return fmt.Errorf("failed to marshal junit xml: %w", err)
+		return nil, fmt.Errorf("failed to marshal junit xml: %w", err)
 	}
-	_, err = out.Write([]byte(xml.Header))
+	return append([]byte(xml.Header), append(doc, "\n"...)...), nil
+}
+
+func Write(out io.Writer, suites TestSuites) error {
+	content, err := Marshal(suites)
 	if err != nil {
-		return fmt.Errorf("failed to write header: %w", err)
+		return err
 	}
-	_, err = out.Write(doc)
+	_, err = out.Write(content)
 	if err != nil {
 		return fmt.Errorf("failed to write junit report: %w", err)
 	}

@@ -428,6 +428,9 @@ func TestCompareRun(t *testing.T) {
 		defaultTest("JSON Output").
 			withRealHash().
 			withOutputFormat(Json),
+		defaultTest("Junit Output").
+			withRealHash().
+			withOutputFormat(Junit),
 		defaultTest("Check Ignore Unspecified Fields Config"),
 		defaultTest("Check Merging Does Not Overwrite Template Config"),
 		defaultTest("NoDiffs"),

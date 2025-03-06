@@ -1,13 +1,19 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuites name="Comparison results of known valid reference configuration and a set of specific cluster CRs" tests="7" failures="5" errors="0" TIME>
-	<testsuite tests="1" failures="0" TIME name="Detected Differences Between Cluster CRs and Expected CRs" TIME>
-		<properties></properties>
+<testsuites name="Comparison results of known valid reference configuration and a set of specific cluster CRs" tests="6" failures="4" errors="0" skipped="0" TIME>
+	<testsuite tests="1" failures="0" skipped="0" TIME name="Detected Differences Between Cluster CRs and Expected CRs" TIME>
+		<properties>
+			<property name="MetadataHash" value="98dca024e0509f46f0a228da2ad61b98804a3f4b5a7ad1ac31d41b46812c32ea"></property>
+			<property name="TotalCRs" value="1"></property>
+		</properties>
 		<testcase classname="Matching Reference CR: ns.yaml" name="CR: v1_Namespace_kubernetes-dashboard" TIME>
 			<properties></properties>
 		</testcase>
 	</testsuite>
-	<testsuite tests="5" failures="5" TIME name="Missing Cluster Resources" TIME>
-		<properties></properties>
+	<testsuite tests="4" failures="4" skipped="0" TIME name="Reference validation" TIME>
+		<properties>
+			<property name="MetadataHash" value="98dca024e0509f46f0a228da2ad61b98804a3f4b5a7ad1ac31d41b46812c32ea"></property>
+			<property name="TotalCRs" value="1"></property>
+		</properties>
 		<testcase classname="Part:ExamplePart1 Component: Dashboard1" name="Reference validation failure" TIME>
 			<properties></properties>
 			<failure message="Missing CRs: cm.yaml" type="Validation Issue"></failure>
@@ -25,8 +31,11 @@
 			<failure message="Missing CRs: crb.yaml" type="Validation Issue"></failure>
 		</testcase>
 	</testsuite>
-	<testsuite tests="1" failures="0" TIME name="Unmatched Cluster Resources" TIME>
-		<properties></properties>
+	<testsuite tests="1" failures="0" skipped="0" TIME name="Unmatched Cluster Resources" TIME>
+		<properties>
+			<property name="MetadataHash" value="98dca024e0509f46f0a228da2ad61b98804a3f4b5a7ad1ac31d41b46812c32ea"></property>
+			<property name="TotalCRs" value="1"></property>
+		</properties>
 		<testcase classname="" name="All Cluster CRs are matched to reference CRs " TIME>
 			<properties></properties>
 		</testcase>

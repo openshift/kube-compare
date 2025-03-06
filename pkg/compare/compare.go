@@ -108,9 +108,10 @@ const (
 	Json      string = "json"
 	Yaml      string = "yaml"
 	PatchYaml string = "generate-patches"
+	Junit     string = "junit"
 )
 
-var OutputFormats = []string{Json, Yaml, PatchYaml}
+var OutputFormats = []string{Json, Yaml, PatchYaml, Junit}
 
 type Options struct {
 	CRs                resource.FilenameOptions

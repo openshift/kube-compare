@@ -12,7 +12,7 @@ Diff Output: diff -u -N TEMP/config-openshift-io-v1_clusterversion_version TEMP/
 -    version: 4.19.*
 +    version: 4.18.0-ec.1
    history:
-   - completionTime: "2024-10-21T20:33:23Z"
+   - completionTime: "TIME"
      image: registry.redhat.com/openshift-release-dev/ocp-release@sha256:e87292db8d5790f7059d90a449feab27aaa3299ac22f05f12b9bc9609468f67d
 
 **********************************

@@ -47,6 +47,9 @@ func RemoveInconsistentInfo(t *testing.T, text string, opt FixupOptions) string 
 	// remove diff datetime
 	re = regexp.MustCompile(`(\d{4}-\d{2}-\d{2}\s*\d{2}:\d{2}:\d{2}(:?\.\d{9} [+-]\d{4})?)`)
 	text = re.ReplaceAllString(text, "DATE")
+	// remove Junit timestamps
+	re = regexp.MustCompile(`\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}([+-]\d{2}:\d{2}|Z)`)
+	text = re.ReplaceAllString(text, "TIME")
 	// Remove unique metadata hash (optionally; some tests require it be untouched
 	if !opt.UseRealHash {
 		re = regexp.MustCompile(`Metadata Hash: [a-z0-9]{64}`)
