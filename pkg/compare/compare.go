@@ -164,6 +164,9 @@ func NewCmd(f kcmdutil.Factory, streams genericiooptions.IOStreams) *cobra.Comma
 		Example:               example,
 		Run: func(cmd *cobra.Command, args []string) {
 
+			// FIXME: Handle creation of temporary directory more gracefully. Right now,
+			// kcmdutil.CheckDiffErr calls os.exit(), which does not run defer statements.
+			// Maybe we can create an error handler of some kind, and run os.exit() in a PostRun() block.
 			tmpDir, err := os.MkdirTemp("", "kube-compare")
 			if err != nil {
 				klog.Warningf("temporary directory could not be created %s", err)
@@ -179,7 +182,9 @@ func NewCmd(f kcmdutil.Factory, streams genericiooptions.IOStreams) *cobra.Comma
 			// were found. We also don't want kubectl to
 			// return 1 if there was a problem.
 			if err := options.Run(); err != nil {
-				os.RemoveAll(options.TmpDir) 
+				 // FIXME: Handle clean up of temporary directory more gracefully.
+				 // See above FIXME for details
+				os.RemoveAll(options.TmpDir)
 				if exitErr := diffError(err); exitErr != nil {
 					kcmdutil.CheckErr(kcmdutil.ErrExit)
 				}
