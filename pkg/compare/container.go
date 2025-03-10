@@ -23,7 +23,7 @@ func isContainer(path string) bool {
 
 type parsedPath struct {
 	image string
-	path string
+	path  string
 }
 
 // parsePath returns the image and referencePath (path to the directory for metadata.yaml), given a path
@@ -63,7 +63,7 @@ func (engine *engine) runEngineCommand(args ...string) ([]byte, error) {
 		out, err = execCommand(engine.name, args...).CombinedOutput()
 	}
 
-	return out, err
+	return out, err //nolint:wrapcheck  // We want to return unaltered errors, this is a wrapper around exec.Command()
 }
 
 // newEngine checks if Podman or Docker are in the system's PATH, and returns an engine with a name and a boolean
@@ -94,7 +94,7 @@ func (engine *engine) pullAndRunContainer(image string) error {
 
 // extractReferences copies the directory in the container that contains the reference configs into a temporary directory,
 // and stores the path to the new directory in the engine struct.
-func (engine *engine) extractReferences(pathToMetadata string, dname string) error {
+func (engine *engine) extractReferences(pathToMetadata, dname string) error {
 
 	out, err := engine.runEngineCommand("cp", engine.containerID+":"+pathToMetadata, dname)
 	if err != nil {
@@ -119,7 +119,7 @@ func (engine *engine) cleanup() {
 
 // getReferencesFromContainer uses a path to an image and a metadata.yaml within that image, and extracts the reference configs
 // to a local temporary directory. Returns the path to this directory.
-func getReferencesFromContainer(path string, tempContainerRefDir string) (string, error) {
+func getReferencesFromContainer(path, tempContainerRefDir string) (string, error) {
 	engine, err := newEngine()
 	if err != nil {
 		return "", err

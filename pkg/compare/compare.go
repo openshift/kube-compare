@@ -182,8 +182,8 @@ func NewCmd(f kcmdutil.Factory, streams genericiooptions.IOStreams) *cobra.Comma
 			// were found. We also don't want kubectl to
 			// return 1 if there was a problem.
 			if err := options.Run(); err != nil {
-				 // FIXME: Handle clean up of temporary directory more gracefully.
-				 // See above FIXME for details
+				// FIXME: Handle clean up of temporary directory more gracefully.
+				// See above FIXME for details
 				os.RemoveAll(options.TmpDir)
 				if exitErr := diffError(err); exitErr != nil {
 					kcmdutil.CheckErr(kcmdutil.ErrExit)

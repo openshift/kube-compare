@@ -10,6 +10,9 @@ import (
 	"testing"
 )
 
+const podman = "podman"
+const docker = "docker"
+
 func TestIsContainer(t *testing.T) {
 	tests := []struct {
 		input    string
@@ -105,16 +108,16 @@ func fakeExecCommand(command string, args ...string) *exec.Cmd {
 	}
 	cs := []string{"-test.run=TestHelperProcess", "--", command}
 	cs = append(cs, args...)
-	cmd := exec.Command(os.Args[0], cs...)
+	cmd := exec.Command(os.Args[0], cs...) // nolint:gosec
 	cmd.Env = []string{"GO_WANT_HELPER_PROCESS=1"}
 	return cmd
 }
 
 func fakeLookPath(command string) (string, error) {
 	switch command {
-	case "podman":
+	case podman:
 		return "/usr/bin/podman", nil
-	case "docker":
+	case docker:
 		return "/usr/bin/docker", nil
 	default:
 		return "", errors.New("not found")
@@ -131,8 +134,8 @@ func TestRunEngineCommand(t *testing.T) {
 		engine engine
 		args   []string
 	}{
-		{engine{"podman", false, "container123", "/tmp/dir/"}, []string{"run", "hello-world"}},
-		{engine{"docker", true, "container123", "/tmp/dir/"}, []string{"run", "hello-world"}},
+		{engine{podman, false, "container123", "/tmp/dir/"}, []string{"run", "hello-world"}},
+		{engine{docker, true, "container123", "/tmp/dir/"}, []string{"run", "hello-world"}},
 	}
 
 	for _, test := range tests {
@@ -162,20 +165,20 @@ func TestNewEngine(t *testing.T) {
 		expectedSudo bool
 		expectError  bool
 	}{
-		{"podman", "podman", false, false},     // Podman is available
-		{"docker", "docker", false, false},     // Docker available, no sudo needed
-		{"docker-sudo", "docker", true, false}, // Docker requires sudo
-		{"both", "podman", false, false},		// Both available, podman should be chosen
-		{"none", "", false, true},              // Neither Podman nor Docker is available
+		{podman, podman, false, false},       // Podman is available
+		{docker, docker, false, false},       // Docker available, no sudo needed
+		{"docker-sudo", docker, true, false}, // Docker requires sudo
+		{"both", podman, false, false},       // Both available, podman should be chosen
+		{"none", "", false, true},            // Neither Podman nor Docker is available
 	}
 
 	for _, test := range tests {
 		// Customize behavior based on test case
 		lookPath = func(cmd string) (string, error) {
-			if (test.available == "podman" || test.available == "both") && cmd == "podman" {
+			if (test.available == podman || test.available == "both") && cmd == podman {
 				return "/usr/bin/podman", nil
 			}
-			if (test.available == "docker" || test.available == "docker-sudo" || test.available == "both") && cmd == "docker" {
+			if (test.available == docker || test.available == "docker-sudo" || test.available == "both") && cmd == docker {
 				return "/usr/bin/docker", nil
 			}
 			return "", errors.New("not found")
@@ -184,7 +187,7 @@ func TestNewEngine(t *testing.T) {
 		execCommand = func(command string, args ...string) *exec.Cmd {
 			cs := []string{"-test.run=TestHelperProcess", "--", command}
 			cs = append(cs, args...)
-			cmd := exec.Command(os.Args[0], cs...)
+			cmd := exec.Command(os.Args[0], cs...) // nolint:gosec
 			cmd.Env = []string{"GO_WANT_HELPER_PROCESS=1"}
 			if test.available == "docker-sudo" {
 				cmd.Env = append(cmd.Env, "MOCK_DOCKER_FAIL=1") // Simulate `docker images` failing
@@ -220,7 +223,7 @@ func TestHelperProcess(t *testing.T) {
 	if os.Getenv("MOCK_DOCKER_FAIL") == "1" {
 		os.Exit(1)
 	}
-	fmt.Fprintf(os.Stdout, dockerRunResult)
+	fmt.Fprint(os.Stdout, dockerRunResult)
 	os.Exit(0)
 }
 
@@ -234,9 +237,9 @@ func TestPullAndRunContainer(t *testing.T) {
 		image       string
 		expectError bool
 	}{
-		{engine{"podman", false, "", ""}, "hello-world", false},
-		{engine{"docker", true, "", ""}, "hello-world", false},
-		{engine{"docker", true, "", ""}, "invalid-image", true},
+		{engine{podman, false, "", ""}, "hello-world", false},
+		{engine{docker, true, "", ""}, "hello-world", false},
+		{engine{docker, true, "", ""}, "invalid-image", true},
 	}
 
 	for _, test := range tests {
@@ -267,10 +270,10 @@ func TestExtractReferences(t *testing.T) {
 		dname          string
 		expectError    bool
 	}{
-		{engine{"podman", false, "container123", ""}, "/etc/configs", "/tmp/extracted", false},
-		{engine{"docker", true, "container456", ""}, "/var/lib/data", "/tmp/extracted", false},
-		{engine{"docker", true, "container456", ""}, "/invalid_path", "/tmp/extracted", true},
-		{engine{"podman", true, "container456", ""}, "/etc/configs", "/invalid/path", true},
+		{engine{podman, false, "container123", ""}, "/etc/configs", "/tmp/extracted", false},
+		{engine{docker, true, "container456", ""}, "/var/lib/data", "/tmp/extracted", false},
+		{engine{docker, true, "container456", ""}, "/invalid_path", "/tmp/extracted", true},
+		{engine{podman, true, "container456", ""}, "/etc/configs", "/invalid/path", true},
 	}
 
 	for _, test := range tests {
@@ -299,8 +302,8 @@ func TestCleanup(t *testing.T) {
 	tests := []struct {
 		engine engine
 	}{
-		{engine{"podman", false, "container123", ""}},
-		{engine{"docker", true, "container456", ""}},
+		{engine{podman, false, "container123", ""}},
+		{engine{docker, true, "container456", ""}},
 	}
 
 	for _, test := range tests {
