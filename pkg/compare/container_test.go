@@ -113,17 +113,6 @@ func fakeExecCommand(command string, args ...string) *exec.Cmd {
 	return cmd
 }
 
-func fakeLookPath(command string) (string, error) {
-	switch command {
-	case podman:
-		return "/usr/bin/podman", nil
-	case docker:
-		return "/usr/bin/docker", nil
-	default:
-		return "", errors.New("not found")
-	}
-}
-
 const dockerRunResult = "fake output"
 
 func TestRunEngineCommand(t *testing.T) {
@@ -153,10 +142,11 @@ func TestRunEngineCommand(t *testing.T) {
 func TestNewEngine(t *testing.T) {
 	// Override execCommand and LookPath with fakes
 	execCommand = fakeExecCommand
-	lookPath = fakeLookPath
+
+	// reset execCommand and lookPath after the test
 	defer func() {
 		execCommand = exec.Command
-		lookPath = exec.LookPath
+		lookPath = exec.LookPath // lookPath is reassigned below
 	}()
 
 	tests := []struct {
@@ -314,18 +304,37 @@ func TestCleanup(t *testing.T) {
 func TestGetReferencesFromContainer(t *testing.T) {
 	// Override execCommand with a fake function
 	execCommand = fakeExecCommand
-	defer func() { execCommand = exec.Command }()
+
+	// reset execCommand and lookPath after the test
+	defer func() {
+		execCommand = exec.Command
+		lookPath = exec.LookPath // lookPath is reassigned below
+	}()
 
 	tests := []struct {
-		path                string
-		tempContainerRefDir string
-		expectError         bool
+		path                    string
+		tempContainerRefDir     string
+		podmanOrDockerAvailable bool
+		expectError             bool
 	}{
-		{"container://image:tag:/etc/configs", "/tmp/refdir", false},
-		{"invalid-path", "/tmp/refdir", true},
+		{"container://image:tag:/etc/configs", "/tmp/refdir", true, false},
+		{"invalid-path", "/tmp/refdir", true, true},
+
+		// fakeExecCommand will fail when provided with arguments that contain "invalid"
+		{"container://image:tag:/etc/configs", "/invalid-tmp/refdir", true, true}, // Trigger extractReferences() failure
+		{"container://invalid-image:tag:/etc/configs", "/tmp/refdir", true, true}, // Trigger pullAndRunContainer() failure
+
+		{"container://image:tag:/etc/configs", "/tmp/refdir", false, true}, // Trigger newEngine() failure
 	}
 
 	for _, test := range tests {
+		lookPath = func(cmd string) (string, error) {
+			if test.podmanOrDockerAvailable == false {
+				return "", errors.New("not found")
+			}
+			return "/usr/bin/podman", nil
+
+		}
 		tempDir, err := getReferencesFromContainer(test.path, test.tempContainerRefDir)
 		if test.expectError {
 			if err == nil {
