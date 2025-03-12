@@ -172,6 +172,7 @@ func NewCmd(f kcmdutil.Factory, streams genericiooptions.IOStreams) *cobra.Comma
 				klog.Warningf("temporary directory could not be created %s", err)
 			} else {
 				options.TmpDir = tmpDir
+				defer os.RemoveAll(options.TmpDir)
 			}
 			kcmdutil.CheckDiffErr(options.Complete(f, cmd, args))
 			// `kubectl cluster-compare` propagates the error code from
