@@ -88,6 +88,9 @@ var (
 
 		# Run a known valid reference configuration with a must-gather output:
 		kubectl cluster-compare -r ./reference/metadata.yaml -f "must-gather*/*/cluster-scoped-resources","must-gather*/*/namespaces" -R
+
+		# Extract a reference configuration from a container image and compare with a local set of CRs:
+		kubectl cluster-compare -r container://<IMAGE>:<TAG>:/home/ztp/reference/metadata.yaml -f ./crsdir -R
 	`)
 )
 
@@ -115,7 +118,7 @@ var OutputFormats = []string{Json, Yaml, PatchYaml, Junit}
 
 type Options struct {
 	CRs                resource.FilenameOptions
-	referenceConfig    string
+	ReferenceConfig    string
 	diffConfigFileName string
 	diffAll            bool
 	verboseOutput      bool
@@ -139,6 +142,8 @@ type Options struct {
 	templatesToGenerateOverridesFor []string
 	overrideReason                  string
 
+	TmpDir string
+
 	diff *diff.DiffProgram
 	genericiooptions.IOStreams
 }
@@ -159,6 +164,17 @@ func NewCmd(f kcmdutil.Factory, streams genericiooptions.IOStreams) *cobra.Comma
 		Long:                  compareLong,
 		Example:               example,
 		Run: func(cmd *cobra.Command, args []string) {
+
+			// FIXME: Handle creation of temporary directory more gracefully. Right now,
+			// kcmdutil.CheckDiffErr calls os.exit(), which does not run defer statements.
+			// Maybe we can create an error handler of some kind, and run os.exit() in a PostRun() block.
+			tmpDir, err := os.MkdirTemp("", "kube-compare")
+			if err != nil {
+				klog.Warningf("temporary directory could not be created %s", err)
+			} else {
+				options.TmpDir = tmpDir
+				defer os.RemoveAll(options.TmpDir)
+			}
 			kcmdutil.CheckDiffErr(options.Complete(f, cmd, args))
 			// `kubectl cluster-compare` propagates the error code from
 			// `kubectl diff` that propagates the error code from
@@ -168,6 +184,9 @@ func NewCmd(f kcmdutil.Factory, streams genericiooptions.IOStreams) *cobra.Comma
 			// were found. We also don't want kubectl to
 			// return 1 if there was a problem.
 			if err := options.Run(); err != nil {
+				// FIXME: Handle clean up of temporary directory more gracefully.
+				// See above FIXME for details
+				os.RemoveAll(options.TmpDir)
 				if exitErr := diffError(err); exitErr != nil {
 					kcmdutil.CheckErr(kcmdutil.ErrExit)
 				}
@@ -188,7 +207,7 @@ func NewCmd(f kcmdutil.Factory, streams genericiooptions.IOStreams) *cobra.Comma
 			" but more memory, I/O and CPU over that shorter period of time.")
 	kcmdutil.AddFilenameOptionFlags(cmd, &options.CRs, "contains the configuration to diff")
 	cmd.Flags().StringVarP(&options.diffConfigFileName, "diff-config", "c", "", "Path to the user config file")
-	cmd.Flags().StringVarP(&options.referenceConfig, "reference", "r", "", "Path to reference config file.")
+	cmd.Flags().StringVarP(&options.ReferenceConfig, "reference", "r", "", "Path to reference config file.")
 	cmd.Flags().BoolVar(&options.ShowManagedFields, "show-managed-fields", options.ShowManagedFields, "If true, include managed fields in the diff.")
 	cmd.Flags().BoolVarP(&options.diffAll, "all-resources", "A", options.diffAll,
 		"If present, In live mode will try to match all resources that are from the types mentioned in the reference. "+
@@ -236,12 +255,26 @@ func diffError(err error) exec.ExitError {
 	return nil
 }
 
-func GetRefFS(refConfig string) (fs.FS, error) {
-	referenceDir := filepath.Dir(refConfig)
-	if isURL(refConfig) {
+func (o *Options) GetRefFS() (fs.FS, error) {
+	referenceDir := filepath.Dir(o.ReferenceConfig)
+	if isURL(o.ReferenceConfig) {
 		// filepath.Dir removes one / from http://
 		referenceDir = strings.Replace(referenceDir, "/", "//", 1)
 		return HTTPFS{baseURL: referenceDir, httpGet: httpgetImpl}, nil
+	}
+	if isContainer(o.ReferenceConfig) {
+		// filepath.Dir removes one / from container://
+		referenceDir = strings.Replace(referenceDir, "/", "//", 1)
+		if o.TmpDir != "" {
+			if info, err := os.Stat(o.TmpDir); err == nil && info.IsDir() { // Does directory exist?
+				containerPath, err := getReferencesFromContainer(referenceDir, o.TmpDir)
+				if err != nil {
+					return nil, err
+				}
+				return os.DirFS(containerPath), nil
+			}
+		}
+		return nil, fmt.Errorf("temporary directory could not be accessed, see logs for details")
 	}
 	rootPath, err := filepath.Abs(referenceDir)
 	if err != nil {
@@ -263,19 +296,19 @@ func (o *Options) Complete(f kcmdutil.Factory, cmd *cobra.Command, args []string
 		}
 	}
 
-	if o.referenceConfig == "" {
+	if o.ReferenceConfig == "" {
 		return kcmdutil.UsageErrorf(cmd, noRefFileWasPassed)
 	}
-	if _, err := os.Stat(o.referenceConfig); os.IsNotExist(err) && !isURL(o.referenceConfig) {
+	if _, err := os.Stat(o.ReferenceConfig); os.IsNotExist(err) && !isURL(o.ReferenceConfig) && !isContainer(o.ReferenceConfig) {
 		return errors.New(refFileNotExistsError)
 	}
 
-	cfs, err := GetRefFS(o.referenceConfig)
+	cfs, err := o.GetRefFS()
 	if err != nil {
 		return err
 	}
 
-	referenceFileName := filepath.Base(o.referenceConfig)
+	referenceFileName := filepath.Base(o.ReferenceConfig)
 	o.ref, err = GetReference(cfs, referenceFileName)
 	if err != nil {
 		return err
