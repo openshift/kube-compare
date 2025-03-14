@@ -1,3 +1,7 @@
+Found 1 matches for apps/v1_Deployment_kubernetes-dashboard_dashboard-metrics-scraper
+ - deploymentMetrics.yaml -> 1 fields different
+Found 1 matches for apps/v1_Deployment_kubernetes-dashboard_kubernetes-dashboard
+ - deploymentDashboard.yaml -> 0 fields different
 **********************************
 
 Cluster CR: apps/v1_Deployment_kubernetes-dashboard_kubernetes-dashboard
