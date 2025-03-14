@@ -1,4 +1,7 @@
 More than one template with same apiVersion, metadata_name, metadata_namespace, kind. By Default for each Cluster CR that is correlated to one of these templates the template with the least number of diffs will be used. To use a different template for a specific CR specify it in the diff-config (-c flag) Template names are: apps.v1.DaemonSet.kube-system.kindnet.yaml, apps.v1.DaemonSet.kube-system.kindnet.yaml
+Found 2 matches for apps/v1_DaemonSet_SomeNS_Name
+ - apps.v1.DaemonSet.kube-system.kindnet.yaml -> 0 fields different
+ - apps.v1.DaemonSet.kube-system.kindnet.yaml -> 0 fields different
 **********************************
 
 Cluster CR: apps/v1_DaemonSet_SomeNS_Name

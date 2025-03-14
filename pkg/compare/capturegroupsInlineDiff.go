@@ -203,14 +203,14 @@ func (id *diffInfo) captureAllGroups(deletion, insertion diffmatchpatch.Diff) er
 	// The insert side is the value we're matching against
 	value := insertion.Text
 
-	klog.V(1).Infof("Comparing Pattern '%s' to value '%s'", pattern, value)
-
 	// Find all capturegroups in the pattern
 	groups := CapturegroupIndex(pattern)
 	if len(groups) == 0 {
 		// No groups to match
 		return nil
 	}
+
+	klog.V(1).Infof("Comparing Pattern '%s' to value '%s'", pattern, value)
 
 	// Quote all text that surrounds the capturegroups
 	quotedPattern := CapturegroupQuoteMeta(pattern, groups)

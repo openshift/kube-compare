@@ -537,6 +537,7 @@ func countLeaves(uo *UserOverride) (int, error) {
 func findBestMatch(matches []*diffResult) *diffResult {
 	var bestLeafMatch *diffResult
 	for _, match := range matches {
+		klog.V(1).Infof(" - %s -> %d fields different", match.temp.GetPath(), match.leafCount)
 		if bestLeafMatch == nil || match.leafCount < bestLeafMatch.leafCount {
 			bestLeafMatch = match
 		}
@@ -564,6 +565,7 @@ func getBestMatchByLines(templates []ReferenceTemplate, cr *unstructured.Unstruc
 		}
 		matches = append(matches, diffResult)
 	}
+	klog.V(1).Infof("Found %d matches for %s", len(matches), apiKindNamespaceName(cr))
 	return findBestMatch(matches), errors.Join(errs...)
 
 }
@@ -574,16 +576,17 @@ type diffResult struct {
 
 	userOverride *UserOverride
 	temp         ReferenceTemplate
+	crname       string
 	leafCount    int
 }
 
 func (d diffResult) IsDiff() bool {
 	res := d.leafCount > 0
 	if !res && d.exitError != nil && d.exitError.ExitStatus() == 1 {
-		klog.Warning("Internally we found no difference but the external tool responded with an exit code of 1")
+		klog.Warningf("%s: Internally we found no difference but the external tool responded with an exit code of 1", d.crname)
 	}
 	if res && d.exitError == nil {
-		klog.Warning("Internally we found a difference but the external tool responded with an exit code of 0")
+		klog.Warningf("%s: Internally we found a difference but the external tool responded with an exit code of 0", d.crname)
 	}
 	return res
 }
@@ -594,7 +597,8 @@ func (d diffResult) DiffOutput() *bytes.Buffer {
 
 func diffAgainstTemplate(temp ReferenceTemplate, clusterCR *unstructured.Unstructured, userOverrides []*UserOverride, o *Options) (*diffResult, error) {
 	res := &diffResult{
-		temp: temp,
+		crname: apiKindNamespaceName(clusterCR),
+		temp:   temp,
 	}
 
 	localRef, err := temp.Exec(clusterCR.Object)
@@ -602,6 +606,7 @@ func diffAgainstTemplate(temp ReferenceTemplate, clusterCR *unstructured.Unstruc
 		return res, err //nolint: wrapcheck
 	}
 	obj := InfoObject{
+		templateSource:          temp.GetPath(),
 		injectedObjFromTemplate: localRef,
 		clusterObj:              clusterCR,
 		FieldsToOmit:            temp.GetFieldsToOmit(o.ref.GetFieldsToOmit()),
@@ -774,6 +779,7 @@ func (o *Options) Run() error {
 
 // InfoObject matches the diff.Object interface, it contains the objects that shall be compared.
 type InfoObject struct {
+	templateSource          string
 	injectedObjFromTemplate *unstructured.Unstructured
 	clusterObj              *unstructured.Unstructured
 	FieldsToOmit            []*ManifestPathV1
@@ -862,6 +868,7 @@ func (obj InfoObject) runInlineDiffFuncs() error {
 			errs = append(errs, fmt.Errorf("failed to validate the inline diff for field %s, %w", pathToKey, err))
 			continue
 		}
+		klog.V(1).Infof("Performing %s comparison for %s::%s", inlineDiffFunc, obj.templateSource, pathToKey)
 		err = SetNestedString(obj.injectedObjFromTemplate.Object, diffFn.Diff(value, clusterValue), listedPath...)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("failed to update value of inline diff func result for field %s, %w", pathToKey, err))
