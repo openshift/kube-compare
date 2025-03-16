@@ -511,6 +511,16 @@ func TestCompareRun(t *testing.T) {
 			withMetadataFile("metadata-one-of.yaml").
 			withChecks(defaultChecks.withPrefixedSuffix("oneOf")),
 
+		defaultTest("Multitemplate Tie Breaker"),
+		defaultTest("Multitemplate Tie Breaker").
+			withSubTestSuffix("Length Mismatch").
+			withMetadataFile("metadata-length-mismatch.yaml").
+			withChecks(defaultChecks.withPrefixedSuffix("lengthMismatch")),
+		defaultTest("Multitemplate Tie Breaker").
+			withSubTestSuffix("Field Mismatch").
+			withMetadataFile("metadata-field-mismatch.yaml").
+			withChecks(defaultChecks.withPrefixedSuffix("fieldMismatch")),
+
 		defaultTest("Reference V2 All").
 			withSubTestSuffix("All Of").
 			withMetadataFile("metadata-all-of.yaml").

@@ -1,2 +1,2 @@
-error: error occurred while trying to process resources: error occurered during diff: failed to properly run inline diff functions for v1_configmap_kubernetes-dashboard_kubernetes-dashboard-settings some diff may be incorrect: failed to acces value in template of field spec.bigTextBloc that uses inline diff func: Not found
+error: error occurred while trying to process resources: template injection failed: failed to properly run inline diff functions for v1_configmap_kubernetes-dashboard_kubernetes-dashboard-settings some diff may be incorrect: failed to acces value in template of field spec.bigTextBloc that uses inline diff func: Not found
 error code:2
