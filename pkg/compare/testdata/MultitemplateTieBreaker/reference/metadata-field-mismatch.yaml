@@ -1,0 +1,9 @@
+apiVersion: v2
+parts:
+  - name: ExamplePart
+    components:
+      - name: Test
+        oneOf:
+          - path: cm-missing-field.yaml
+          - path: cm-correct.yaml
+          - path: cm-extra-field.yaml
