@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: settings
+  namespace: default
+data:
+  fieldOne: mismatch
+  fieldTwo: |-
+    Multi-line string
+    This has a much larger difference with respect to the ConfigMap we're testing
+    mismatch
+    Multi-line string
+    Oh yes, many more differences.  We shouldn't choose this one; choose the other one

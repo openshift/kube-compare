@@ -1,0 +1,29 @@
+The reference contains overlapping object definitions which may result in unexpected correlation results. Re-run with '--verbose' output enabled to view a detailed description of the issues
+**********************************
+
+Cluster CR: v1_ConfigMap_default_settings
+Reference File: cm-correct.yaml
+Diff Output: diff -u -N TEMP/v1_configmap_default_settings TEMP/v1_configmap_default_settings
+--- TEMP/v1_configmap_default_settings	DATE
++++ TEMP/v1_configmap_default_settings	DATE
+@@ -1,9 +1,9 @@
+ apiVersion: v1
+ data:
+-  fieldOne: mismatch
++  fieldOne: valueOne
+   fieldTwo: |-
+     Multi-line string
+-    mismatch
++    valueTwo
+     Multi-line string
+ kind: ConfigMap
+ metadata:
+
+**********************************
+
+Summary
+CRs with diffs: 1/1
+No validation issues with the cluster
+No CRs are unmatched to reference CRs
+Metadata Hash: 50ff17f62807f51373d719dbe4f1b220720542360168a32cde598dc0d4d807ae
+No patched CRs
