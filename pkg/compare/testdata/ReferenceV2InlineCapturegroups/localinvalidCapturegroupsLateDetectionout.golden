@@ -1,4 +1,4 @@
-Skipping during Input contains additional files from supported file extensions (json/yaml) that do not contain a valid resource, error: :]`.
+Skipping failed: Input contains additional files from supported file extensions (json/yaml) that do not contain a valid resource, error: :]`.
  In case this file is expected to be a valid resource modify it accordingly. 
 Summary
 CRs with diffs: 0/0

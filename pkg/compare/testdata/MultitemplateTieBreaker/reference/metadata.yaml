@@ -1,0 +1,11 @@
+apiVersion: v2
+parts:
+  - name: ExamplePart
+    components:
+      - name: Test
+        oneOf:
+          - path: cm-same-fields-too-short.yaml
+          - path: cm-same-fields-too-long.yaml
+          - path: cm-correct.yaml
+          - path: cm-extra-field.yaml
+          - path: cm-missing-field.yaml

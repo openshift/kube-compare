@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: settings
+  namespace: default
+data:
+  fieldTwo: |-
+    Multi-line string
+    mismatch
+    Multi-line string

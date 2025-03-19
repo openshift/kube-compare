@@ -17,6 +17,7 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/gosimple/slug"
+	"github.com/sergi/go-diff/diffmatchpatch"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -542,41 +543,15 @@ func extractPath(str string, pathIndex int) string {
 	return "Unknown Path"
 }
 
-func countLeaf(d any) int {
-	count := 0
-	switch t := d.(type) {
-	case map[string]any:
-		for _, v := range t {
-			count += countLeaf(v)
-		}
-	case []any:
-		for _, v := range t {
-			count += countLeaf(v)
-		}
-	default:
-		return 1
-	}
-	return count
-}
-
-func countLeaves(uo *UserOverride) (int, error) {
-	var data map[string]any
-	err := json.Unmarshal([]byte(uo.Patch), &data)
-	if err != nil {
-		return 0, fmt.Errorf("failed to unmarshal internal diff: %w", err)
-	}
-	return countLeaf(data), nil
-}
-
 func findBestMatch(matches []*diffResult) *diffResult {
-	var bestLeafMatch *diffResult
+	var bestMatch *diffResult
 	for _, match := range matches {
-		if bestLeafMatch == nil || match.leafCount < bestLeafMatch.leafCount {
-			bestLeafMatch = match
+		klog.V(1).Infof(" - %s - Diff score: %d", match.temp.GetPath(), match.diffScore)
+		if bestMatch == nil || match.diffScore < bestMatch.diffScore {
+			bestMatch = match
 		}
 	}
-	return bestLeafMatch
-
+	return bestMatch
 }
 
 func getBestMatchByLines(templates []ReferenceTemplate, cr *unstructured.Unstructured, userOverrides []*UserOverride, o *Options) (*diffResult, error) {
@@ -598,6 +573,7 @@ func getBestMatchByLines(templates []ReferenceTemplate, cr *unstructured.Unstruc
 		}
 		matches = append(matches, diffResult)
 	}
+	klog.V(1).Infof("Found %d matches for %s", len(matches), apiKindNamespaceName(cr))
 	return findBestMatch(matches), errors.Join(errs...)
 
 }
@@ -608,16 +584,17 @@ type diffResult struct {
 
 	userOverride *UserOverride
 	temp         ReferenceTemplate
-	leafCount    int
+	crname       string
+	diffScore    int
 }
 
 func (d diffResult) IsDiff() bool {
-	res := d.leafCount > 0
+	res := d.diffScore > 0
 	if !res && d.exitError != nil && d.exitError.ExitStatus() == 1 {
-		klog.Warning("Internally we found no difference but the external tool responded with an exit code of 1")
+		klog.Warningf("%s: Internally we found no difference but the external tool responded with an exit code of 1", d.crname)
 	}
 	if res && d.exitError == nil {
-		klog.Warning("Internally we found a difference but the external tool responded with an exit code of 0")
+		klog.Warningf("%s: Internally we found a difference but the external tool responded with an exit code of 0", d.crname)
 	}
 	return res
 }
@@ -628,20 +605,20 @@ func (d diffResult) DiffOutput() *bytes.Buffer {
 
 func diffAgainstTemplate(temp ReferenceTemplate, clusterCR *unstructured.Unstructured, userOverrides []*UserOverride, o *Options) (*diffResult, error) {
 	res := &diffResult{
-		temp: temp,
+		crname: apiKindNamespaceName(clusterCR),
+		temp:   temp,
 	}
 
-	localRef, err := temp.Exec(clusterCR.Object)
-	if err != nil {
-		return res, err //nolint: wrapcheck
-	}
 	obj := InfoObject{
-		injectedObjFromTemplate: localRef,
-		clusterObj:              clusterCR,
-		FieldsToOmit:            temp.GetFieldsToOmit(o.ref.GetFieldsToOmit()),
-		allowMerge:              temp.GetConfig().GetAllowMerge(),
-		userOverrides:           userOverrides,
-		templateFieldConf:       temp.GetConfig().GetInlineDiffFuncs(),
+		templateSource:    temp.GetPath(),
+		FieldsToOmit:      temp.GetFieldsToOmit(o.ref.GetFieldsToOmit()),
+		allowMerge:        temp.GetConfig().GetAllowMerge(),
+		userOverrides:     userOverrides,
+		templateFieldConf: temp.GetConfig().GetInlineDiffFuncs(),
+	}
+	err := obj.initializeObjData(temp, clusterCR)
+	if err != nil {
+		return res, fmt.Errorf("template injection failed: %w", err)
 	}
 
 	differ, err := diff.NewDiffer("MERGED", "LIVE")
@@ -667,19 +644,35 @@ func diffAgainstTemplate(temp ReferenceTemplate, clusterCR *unstructured.Unstruc
 		return res, fmt.Errorf("diff exited with non-zero code: %w", err)
 	}
 
-	// Some extra metadata for deciding if its a good diff
+	// Construct a diffScore based on a diffmatchpatch character-wise diff.
+	// The score is used to decide which of multiple matches is the best match.
+	dmp := diffmatchpatch.New()
+	templateData, err := os.ReadFile(filepath.Join(differ.From.Dir.Name, obj.Name()))
+	if err != nil {
+		return res, fmt.Errorf("readback of diff From object: %w", err)
+	}
+	crData, err := os.ReadFile(filepath.Join(differ.To.Dir.Name, obj.Name()))
+	if err != nil {
+		return res, fmt.Errorf("readback of diff To object: %w", err)
+	}
+	diffs := dmp.DiffMain(string(templateData), string(crData), false)
+	count := 0
+	for _, diff := range diffs {
+		if diff.Type != diffmatchpatch.DiffEqual {
+			count += len(diff.Text)
+		}
+	}
+	res.diffScore = count
+
+	// Create the user override MergePatch for later use
+	// TODO: This is based on obj.Live() and obj.Merged() which may be
+	// marginally different than the differ-written files used in the two prior
+	// steps.
 	uo, err := CreateMergePatch(temp, &obj, o.overrideReason)
-	// if user override is ok we can count the leaves in the patches
 	if err != nil {
 		return res, err
 	}
 	res.userOverride = uo
-
-	count, err := countLeaves(uo)
-	if err != nil {
-		return res, err
-	}
-	res.leafCount = count
 
 	return res, nil
 }
@@ -808,6 +801,7 @@ func (o *Options) Run() error {
 
 // InfoObject matches the diff.Object interface, it contains the objects that shall be compared.
 type InfoObject struct {
+	templateSource          string
 	injectedObjFromTemplate *unstructured.Unstructured
 	clusterObj              *unstructured.Unstructured
 	FieldsToOmit            []*ManifestPathV1
@@ -818,7 +812,6 @@ type InfoObject struct {
 
 // Live Returns the cluster version of the object
 func (obj InfoObject) Live() runtime.Object {
-	omitFields(obj.clusterObj.Object, obj.FieldsToOmit)
 	return obj.clusterObj
 }
 
@@ -831,29 +824,42 @@ func (e MergeError) Error() string {
 	return fmt.Sprintf("failed to properly merge the manifests for %s some diff may be incorrect: %s", e.obj.Name(), e.err)
 }
 
-// Merged Returns the Injected Reference Version of the Resource
-func (obj InfoObject) Merged() (runtime.Object, error) {
+// Initialize obj.clusterCR and obj.injectedObjFromTemplate
+func (obj *InfoObject) initializeObjData(temp ReferenceTemplate, clusterCR *unstructured.Unstructured) error {
+	obj.clusterObj = clusterCR
+	omitFields(obj.clusterObj.Object, obj.FieldsToOmit)
+
 	var err error
+	localRef, err := temp.Exec(clusterCR.Object)
+	if err != nil {
+		return err //nolint: wrapcheck
+	}
+	obj.injectedObjFromTemplate = localRef
 	if obj.allowMerge {
 		obj.injectedObjFromTemplate, err = MergeManifests(obj.injectedObjFromTemplate, obj.clusterObj)
 		if err != nil {
-			return obj.injectedObjFromTemplate, &MergeError{obj: &obj, err: err}
+			return &MergeError{obj: obj, err: err}
 		}
 	}
 
 	for _, override := range obj.userOverrides {
 		patched, err := override.Apply(obj.injectedObjFromTemplate, obj.clusterObj)
 		if err != nil {
-			return obj.injectedObjFromTemplate, err
+			return err
 		}
 		obj.injectedObjFromTemplate = patched
 	}
 	err = obj.runInlineDiffFuncs()
 	if err != nil {
-		return obj.injectedObjFromTemplate, &InlineDiffError{obj: &obj, err: err}
+		return &InlineDiffError{obj: obj, err: err}
 	}
 	omitFields(obj.injectedObjFromTemplate.Object, obj.FieldsToOmit)
-	return obj.injectedObjFromTemplate, err
+	return nil
+}
+
+// Merged Returns the Injected Reference Version of the Resource
+func (obj InfoObject) Merged() (runtime.Object, error) {
+	return obj.injectedObjFromTemplate, nil
 }
 
 type InlineDiffError struct {
@@ -915,6 +921,7 @@ func (obj InfoObject) runInlineDiffFuncs() error {
 			errs = append(errs, fmt.Errorf("failed to validate the inline diff for field %s, %w", pathToKey, err))
 			continue
 		}
+		klog.V(1).Infof("Performing %s comparison for %s::%s", inlineDiffFunc, obj.templateSource, pathToKey)
 		_, updatedCapturegroups := diffFn.Diff(value, clusterValue, sharedCapturegroups)
 		sharedCapturegroups = updatedCapturegroups
 		preprocessedValues = append(preprocessedValues, DiffValues{
