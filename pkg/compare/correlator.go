@@ -115,7 +115,7 @@ type GroupCorrelator[T CorrelationEntry] struct {
 // For fieldsGroups =  {{{"metadata", "namespace"}, {"kind"}}, {{"kind"}}} and the following templates: [fixedKindTemplate, fixedNamespaceKindTemplate]
 // the fixedNamespaceKindTemplate will be added to a mapping where the keys are  in the format of `namespace_kind`. The fixedKindTemplate
 // will be added to a mapping where the keys are  in the format of `kind`.
-func NewGroupCorrelator[T CorrelationEntry](fieldGroups [][][]string, objects []T, verboseOutput bool) (*GroupCorrelator[T], error) {
+func NewGroupCorrelator[T CorrelationEntry](fieldGroups [][][]string, objects []T) (*GroupCorrelator[T], error) {
 	sort.Slice(fieldGroups, func(i, j int) bool {
 		return len(fieldGroups[i]) >= len(fieldGroups[j])
 	})
@@ -134,7 +134,7 @@ func NewGroupCorrelator[T CorrelationEntry](fieldGroups [][][]string, objects []
 
 		err := fc.ValidateTemplates()
 		if err != nil {
-			if verboseOutput {
+			if klog.V(1).Enabled() {
 				klog.Warning(err)
 			} else {
 				klog.Warning("The reference contains overlapping object definitions which may result in unexpected correlation results. Re-run with '--verbose' output enabled to view a detailed description of the issues")
