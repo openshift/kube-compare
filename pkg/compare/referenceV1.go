@@ -353,6 +353,7 @@ func ParseV1Templates(ref *ReferenceV1, fsys fs.FS) ([]ReferenceTemplate, error)
 			}
 		}
 		temp.Template = parsedTemp
+		klog.V(1).Infof("Pre-processing template %s with empty data", temp.GetPath())
 		temp.metadata, err = temp.Exec(map[string]any{}) // Extract Metadata
 		if err != nil {
 			errs = append(errs, fmt.Errorf("failed to parse template %s with empty data: %w", temp.Path, err))

@@ -733,6 +733,9 @@ func (o *Options) Run() error {
 		clusterCRs[i] = &unstructured.Unstructured{Object: clusterCRMapping}
 	}
 
+	// Load all CRs for the lookup function:
+	AllCRs = clusterCRs
+
 	process := func(clusterCR *unstructured.Unstructured) error {
 		temps, err := o.correlator.Match(clusterCR)
 		if err != nil && (!containOnly(err, []error{UnknownMatch{}}) || o.diffAll) {
@@ -846,6 +849,7 @@ func (obj *InfoObject) initializeObjData(temp ReferenceTemplate, clusterCR *unst
 	omitFields(obj.clusterObj.Object, obj.FieldsToOmit)
 
 	var err error
+	klog.V(1).Infof("Executing template %s", temp.GetPath())
 	localRef, err := temp.Exec(clusterCR.Object)
 	if err != nil {
 		return err //nolint: wrapcheck

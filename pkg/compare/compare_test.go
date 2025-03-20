@@ -660,6 +660,11 @@ func TestCompareRun(t *testing.T) {
 			withEnvVar("KUBECTL_EXTERNAL_DIFF", "diff -y -W 150").
 			withChecks(defaultChecks.withPrefixedSuffix("with_diff_y")),
 		defaultTest("Machine Configs Catch All"),
+
+		defaultTest("LookupCRs"),
+		defaultTest("LookupCRs").
+			withSubTestSuffix("LookupCR").
+			withMetadataFile("metadata-lookupCR.yaml"),
 	}
 
 	tf := cmdtesting.NewTestFactory()
