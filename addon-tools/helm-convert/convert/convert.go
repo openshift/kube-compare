@@ -182,23 +182,58 @@ func loadYAMLFiles(root string) (map[string]map[string]interface{}, error) {
 	return filesMapping, nil
 }
 
-func cgDefaultsFor(compName string, helmValues map[string]any) (map[string]any, error) {
+func sectionFor(compName, key string, helmValues map[string]any) (map[string]any, error) {
 	if values, ok := helmValues[compName].([]any); ok && len(values) > 0 {
-		if section, ok := values[0].(map[string]any); ok && len(section) > 0 {
-			if dflts, ok := section["captureGroup_defaults"].(map[string]any); ok && len(dflts) > 0 {
-				return dflts, nil
+		if compSection, ok := values[0].(map[string]any); ok && len(compSection) > 0 {
+			if section, ok := compSection[key].(map[string]any); ok && len(section) > 0 {
+				return section, nil
 			}
 		}
 	}
-	return nil, fmt.Errorf("no captureGroup_defaults found for %s", compName)
+	return nil, fmt.Errorf("no %q found for %q", key, compName)
+}
+
+func removeSection(compName, key string, helmValues map[string]any) {
+	if values, ok := helmValues[compName].([]any); ok && len(values) > 0 {
+		if section, ok := values[0].(map[string]any); ok && len(section) > 0 {
+			delete(section, key)
+		}
+	}
+}
+
+func cgDefaultsFor(compName string, helmValues map[string]any) (map[string]any, error) {
+	return sectionFor(compName, "captureGroup_defaults", helmValues)
 }
 
 func removeCgDefaults(compName string, helmValues map[string]any) {
-	if values, ok := helmValues[compName].([]any); ok && len(values) > 0 {
-		if section, ok := values[0].(map[string]any); ok && len(section) > 0 {
-			delete(section, "captureGroup_defaults")
+	removeSection(compName, "captureGroup_defaults", helmValues)
+}
+
+func capturegroupSubstitution(content, compName string, helmValues map[string]any) string {
+	if dflts, err := cgDefaultsFor(compName, helmValues); err == nil {
+		cgs := compare.CapturegroupIndex(content)
+		contentBuilder := strings.Builder{}
+		idx := 0
+		for _, group := range cgs {
+			if idx < group.Start {
+				contentBuilder.WriteString(content[idx:group.Start])
+			}
+			if dflt, ok := dflts[group.Name]; ok {
+				fmt.Fprintf(os.Stderr, "  %s replacing CaptureGroup (?<%s>...) at [%d:%d] with default: %v\n", compName, group.Name, group.Start, group.End, dflt)
+				contentBuilder.WriteString(fmt.Sprintf("%v", dflt))
+			} else {
+				contentBuilder.WriteString(content[group.Start:group.End])
+			}
+			idx = group.End
 		}
+		if idx < len(content) {
+			contentBuilder.WriteString(content[idx:])
+		}
+		content = contentBuilder.String()
+		// Now that we've fully consumed the defaults, strip them so they don't appear in the Helm chart...
+		removeCgDefaults(compName, helmValues)
 	}
+	return content
 }
 
 func convertToHelmTemplate(cfs fs.FS, t compare.ReferenceTemplate, helmValues map[string]any) (string, error) {
@@ -221,29 +256,7 @@ func convertToHelmTemplate(cfs fs.FS, t compare.ReferenceTemplate, helmValues ma
 	content := string(data)
 
 	if len(t.GetConfig().GetInlineDiffFuncs()) > 0 {
-		if dflts, err := cgDefaultsFor(compName, helmValues); err == nil {
-			cgs := compare.CapturegroupIndex(content)
-			contentBuilder := strings.Builder{}
-			idx := 0
-			for _, group := range cgs {
-				if idx < group.Start {
-					contentBuilder.WriteString(content[idx:group.Start])
-				}
-				if dflt, ok := dflts[group.Name]; ok {
-					fmt.Fprintf(os.Stderr, "  %s replacing CaptureGroup (?<%s>...) at [%d:%d] with default: %v\n", compName, group.Name, group.Start, group.End, dflt)
-					contentBuilder.WriteString(fmt.Sprintf("%v", dflt))
-				} else {
-					contentBuilder.WriteString(content[group.Start:group.End])
-				}
-				idx = group.End
-			}
-			if idx < len(content) {
-				contentBuilder.WriteString(content[idx:])
-			}
-			content = contentBuilder.String()
-			// Now that we've fully consumed the defaults, strip them so they don't appear in the Helm chart...
-			removeCgDefaults(compName, helmValues)
-		}
+		content = capturegroupSubstitution(content, compName, helmValues)
 	}
 
 	helmTemplate := fmt.Sprintf(templateStructure, compName, compName, content)
