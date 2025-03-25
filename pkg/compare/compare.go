@@ -708,7 +708,7 @@ func (o *Options) Run() error {
 	if err := r.Err(); err != nil {
 		return fmt.Errorf("failed to collect resources: %w", err)
 	}
-	r.IgnoreErrors(func(err error) bool {
+	ignoreErrors := func(err error) bool {
 		if strings.Contains(err.Error(), "Object 'Kind' is missing") {
 			klog.Warningf(skipInvalidResources, extractPath(err.Error(), 3), "'Kind' is missing")
 			return true
@@ -719,12 +719,21 @@ func (o *Options) Run() error {
 			return true
 		}
 		return containOnly(err, []error{UnknownMatch{}, MergeError{}, InlineDiffError{}})
-	})
+	}
+	r.IgnoreErrors(ignoreErrors)
 
-	err := r.Visit(func(info *resource.Info, _ error) error { // ignoring previous errors
+	infos, err := r.Infos()
+	if err != nil {
+		return fmt.Errorf("error occurred while trying to fetch resources: %w", err)
+	}
+
+	clusterCRs := make([]*unstructured.Unstructured, len(infos))
+	for i, info := range infos {
 		clusterCRMapping, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(info.Object)
-		clusterCR := &unstructured.Unstructured{Object: clusterCRMapping}
+		clusterCRs[i] = &unstructured.Unstructured{Object: clusterCRMapping}
+	}
 
+	process := func(clusterCR *unstructured.Unstructured) error {
 		temps, err := o.correlator.Match(clusterCR)
 		if err != nil && (!containOnly(err, []error{UnknownMatch{}}) || o.diffAll) {
 			o.metricsTracker.addUNMatch(clusterCR)
@@ -777,7 +786,15 @@ func (o *Options) Run() error {
 			Description:        bestMatch.temp.GetDescription(),
 		})
 		return err
-	})
+	}
+	errs := make([]error, 0)
+	for _, clusterCR := range clusterCRs {
+		err := process(clusterCR)
+		if err != nil && !ignoreErrors(err) {
+			errs = append(errs, err)
+		}
+	}
+	err = errors.Join(errs...)
 	if err != nil {
 		return fmt.Errorf("error occurred while trying to process resources: %w", err)
 	}
