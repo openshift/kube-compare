@@ -1,0 +1,23 @@
+{{- $values := list (dict)}}
+{{- if .Values.cm}}
+{{- $values = .Values.cm }}
+{{- end }}
+{{- range $values -}}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: downstream
+  namespace: default
+data:
+  {{- $objList := ($.Values.global.lookup_substitutions.lookupCRs_v1_ConfigMap_default) }}
+  {{- $plainObj := ($.Values.global.lookup_substitutions.lookupCR_v1_ConfigMap_default_single) }}
+  {{- $value := "not found" }}
+  {{- if $objList }}
+    {{- $firstObj := index $objList 0 }}
+    {{- $value = index $firstObj "data" "fieldname" }}
+  {{- end }}
+  value1: {{ $value | toYaml }}
+  value2: {{ $plainObj.data.fieldname | toYaml }}
+ 
+{{ end -}}

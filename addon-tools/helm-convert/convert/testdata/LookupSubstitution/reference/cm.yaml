@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: downstream
+  namespace: default
+data:
+  {{- $objList := lookupCRs "v1" "ConfigMap" "default" "*" }}
+  {{- $plainObj := lookupCR "v1" "ConfigMap" "default" "single" }}
+  {{- $value := "not found" }}
+  {{- if $objList }}
+    {{- $firstObj := index $objList 0 }}
+    {{- $value = index $firstObj "data" "fieldname" }}
+  {{- end }}
+  value1: {{ $value | toYaml }}
+  value2: {{ $plainObj.data.fieldname | toYaml }}

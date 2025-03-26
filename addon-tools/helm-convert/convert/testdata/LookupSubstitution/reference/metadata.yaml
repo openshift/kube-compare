@@ -1,0 +1,7 @@
+apiVersion: v2
+parts:
+  - name: ExamplePart
+    components:
+      - name: Example
+        allOf:
+          - path: cm.yaml

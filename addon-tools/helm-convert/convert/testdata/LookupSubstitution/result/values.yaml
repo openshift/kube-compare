@@ -1,0 +1,12 @@
+cm:
+- {}
+global:
+  lookup_substitutions:
+    lookupCR_v1_ConfigMap_default_single:
+      data:
+        fieldname: single value
+    lookupCRs_v1_ConfigMap_default:
+    - data:
+        fieldname: first substituted value
+    - data:
+        fieldname: second substituted value

@@ -140,6 +140,80 @@ spec:
     And another capturegroup (?<bar>.*) with no default.
 ```
 
+### lookupCR(s) substitution
+
+Since the helm-convert tool needs to make a template that's fully
+helm-compliant, we need to replace our custom `lookupCR` and `lookupCRs`
+template functions with something that is:
+
+- Functionally equivalent (returns an object or list of objects)
+- Fully defined by the user's values.yaml
+
+So this code finds all `lookupCR` or `lookupCRs` calls and expects to
+see a corresponding entry in the values.yaml for this template under the
+new global `lookup_substitutions` section.
+
+For example, if you have a CR like this:
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: downstream
+  namespace: default
+data:
+  {{- $objList := lookupCRs "v1" "ConfigMap" "default" "*" }}
+  {{- $plainObj := lookupCR "v1" "ConfigMap" "default" "single" }}
+  {{- $value := "not found" }}
+  {{- if $objList }}
+    {{- $firstObj := index $objList 0 }}
+    {{- $value = index $firstObj "data" "fieldname" }}
+  {{- end }}
+  value1: {{ $value | toYaml }}
+  value2: {{ $plainObj.data.fieldname | toYaml }}
+```
+
+With this in the values.yaml:
+
+```yaml
+global:
+  lookup_substitutions:
+    lookupCRs_v1_ConfigMap_default:
+    - data:
+        fieldname: first substituted value
+    - data:
+        fieldname: second substituted value
+    lookupCR_v1_ConfigMap_default_single:
+      data:
+        fieldname: single value
+cm:
+- ...
+```
+
+This will inject the data into the template as if there really was another
+ConfigMap named "upstream" with the canned data as follows:
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: downstream
+  namespace: default
+data:
+  {{- $objList := ($.Values.global.lookup_substitutions.lookupCRs_v1_ConfigMap_default) }}
+  {{- $plainObj := ($.Values.global.lookup_substitutions.lookupCR_v1_ConfigMap_default_single) }}
+  {{- $value := "not found" }}
+  {{- if $objList }}
+    {{- $firstObj := index $objList 0 }}
+    {{- $value = index $firstObj "data" "fieldname" }}
+  {{- end }}
+  value1: {{ $value | toYaml }}
+  value2: {{ $plainObj.data.fieldname | toYaml }}
+```
+
+This ensures the template code still functions identically, but removes all
+`lookupCR` or `lookupCRs` calls which cannot be fulfilled by helm itself.
+
 ## Auto Extracting of default values from Existing CRs
 
 another feature that can help in initial building of values.yaml files is extracting default values from existing CRs,
