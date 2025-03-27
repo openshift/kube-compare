@@ -10,6 +10,8 @@ import (
 
 	"github.com/BurntSushi/toml"
 	"github.com/Masterminds/sprig/v3"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/yaml"
 )
 
@@ -42,6 +44,8 @@ func FuncMap() template.FuncMap {
 		"toJson":        toJSON,
 		"fromJson":      fromJSON,
 		"fromJsonArray": fromJSONArray,
+		"lookupCRs":     lookupCRs,
+		"lookupCR":      lookupCR,
 	}
 
 	for k, v := range extra {
@@ -149,4 +153,51 @@ func fromJSONArray(str string) []any {
 		a = []any{err.Error()}
 	}
 	return a
+}
+
+// In order to use `lookupCRs` and `lookupCR`, AllCRs must be populated
+var AllCRs []*unstructured.Unstructured
+
+// lookupCRs looks for all known CRS that match the given fields.
+// apiVersion and kind must be supplied.
+// namespace is optional (may be "" or "*")
+// name is optional (may be "" or "*")
+func lookupCRs(apiVersion, kind, namespace, name string) []map[string]any {
+	var matched []map[string]any
+	for _, obj := range AllCRs {
+		if apiVersion != obj.GetAPIVersion() {
+			continue
+		}
+		if kind != obj.GetKind() {
+			continue
+		}
+		if namespace != "" && namespace != "*" && namespace != obj.GetNamespace() {
+			continue
+		}
+		if name != "" && name != "*" && name != obj.GetName() {
+			continue
+		}
+		matched = append(matched, obj.Object)
+	}
+	if klog.V(1).Enabled() {
+		stage := ""
+		if len(AllCRs) == 0 {
+			stage = "pre-init "
+		}
+		klog.Infof("%slookupCRs %q %q %q %q located %d objects", stage, apiVersion, kind, namespace, name, len(matched))
+	}
+	return matched
+}
+
+// lookupCR returns a single object if exactly one object matched the search criteria
+// If 0 objects or >1 objects matched, returns nil
+// apiVersion and kind must be supplied.
+// namespace is optional (may be "" or "*")
+// name is optional (may be "" or "*")
+func lookupCR(apiVersion, kind, namespace, name string) map[string]any {
+	all := lookupCRs(apiVersion, kind, namespace, name)
+	if len(all) != 1 {
+		return nil
+	}
+	return all[0]
 }

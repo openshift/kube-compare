@@ -174,6 +174,53 @@ spec:
     {{- end }}
 ```
 
+### Additional template functions
+
+These custom functions add capabilities beyond the capabilities of the sprig or
+helm templates.
+
+#### lookupCRs
+
+Search for external structured objects.
+
+Usage:
+
+```yaml
+{{- $objlist := lookupCRs "$apiVersion" "$kind" "$namespace" "$name" }}
+```
+
+Returns a list of matching objects.  The `$apiVersion` and `$kind` arguments are
+required.  Both `$namespace` and `$name` can be blank or have the value `*`
+to match any namespace or name.
+
+This can be used within a template to represent a relationship between the
+object being matched and another separate object elsewhere.  Note: Only other
+objects that have templates to match in the current reference will be found -
+This cannot look up arbitrary objects on a cluster.  Likewise, when running in
+offline mode (with the `-f` option), only objects already in the file system
+paths specified are in scope to be found by this function.
+
+#### lookupCR
+
+Search for a singular structured object.
+
+Usage:
+
+```yaml
+{{- $obj := lookupCR "$apiVersion" "$kind" "$namespace" "$name" }}
+```
+
+or
+
+```yaml
+field: {{ (lookupCR "$apiVersion" "$kind" "$namespace" "$name").spec.replicas }}
+```
+
+Returns the matching object if there is exactly one.  The `$apiVersion` and
+`$kind` arguments are required.  Both `$namespace` and `$name` can be blank or
+have the value `*` to match any namespace or name.  If multiple objects are
+matched, this returns `nil`.
+
 ## Per-template configuration
 
 ### Pre-merging

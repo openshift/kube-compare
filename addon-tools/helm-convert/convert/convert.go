@@ -6,7 +6,9 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strings"
+	"unicode"
 
 	"github.com/openshift/kube-compare/pkg/compare"
 	"github.com/spf13/cobra"
@@ -182,23 +184,181 @@ func loadYAMLFiles(root string) (map[string]map[string]interface{}, error) {
 	return filesMapping, nil
 }
 
-func cgDefaultsFor(compName string, helmValues map[string]any) (map[string]any, error) {
+func sectionFor(compName, key string, helmValues map[string]any) (map[string]any, error) {
 	if values, ok := helmValues[compName].([]any); ok && len(values) > 0 {
-		if section, ok := values[0].(map[string]any); ok && len(section) > 0 {
-			if dflts, ok := section["captureGroup_defaults"].(map[string]any); ok && len(dflts) > 0 {
-				return dflts, nil
+		if compSection, ok := values[0].(map[string]any); ok && len(compSection) > 0 {
+			if section, ok := compSection[key].(map[string]any); ok && len(section) > 0 {
+				return section, nil
 			}
 		}
 	}
-	return nil, fmt.Errorf("no captureGroup_defaults found for %s", compName)
+	return nil, fmt.Errorf("no %q found for %q", key, compName)
+}
+
+func removeSection(compName, key string, helmValues map[string]any) {
+	if values, ok := helmValues[compName].([]any); ok && len(values) > 0 {
+		if section, ok := values[0].(map[string]any); ok && len(section) > 0 {
+			delete(section, key)
+		}
+	}
+}
+
+func cgDefaultsFor(compName string, helmValues map[string]any) (map[string]any, error) {
+	return sectionFor(compName, "captureGroup_defaults", helmValues)
 }
 
 func removeCgDefaults(compName string, helmValues map[string]any) {
-	if values, ok := helmValues[compName].([]any); ok && len(values) > 0 {
-		if section, ok := values[0].(map[string]any); ok && len(section) > 0 {
-			delete(section, "captureGroup_defaults")
+	removeSection(compName, "captureGroup_defaults", helmValues)
+}
+
+func capturegroupSubstitution(content, compName string, helmValues map[string]any) string {
+	if dflts, err := cgDefaultsFor(compName, helmValues); err == nil {
+		cgs := compare.CapturegroupIndex(content)
+		contentBuilder := strings.Builder{}
+		idx := 0
+		for _, group := range cgs {
+			if idx < group.Start {
+				contentBuilder.WriteString(content[idx:group.Start])
+			}
+			if dflt, ok := dflts[group.Name]; ok {
+				fmt.Fprintf(os.Stderr, "  %s replacing CaptureGroup (?<%s>...) at [%d:%d] with default: %v\n", compName, group.Name, group.Start, group.End, dflt)
+				contentBuilder.WriteString(fmt.Sprintf("%v", dflt))
+			} else {
+				contentBuilder.WriteString(content[group.Start:group.End])
+			}
+			idx = group.End
+		}
+		if idx < len(content) {
+			contentBuilder.WriteString(content[idx:])
+		}
+		content = contentBuilder.String()
+		// Now that we've fully consumed the defaults, strip them so they don't appear in the Helm chart...
+		removeCgDefaults(compName, helmValues)
+	}
+	return content
+}
+
+const lookupRoot = "$.Values.global.lookup_substitutions"
+
+type Lookup struct {
+	Text  string
+	Array bool
+	Key   string
+	Start int
+	End   int
+}
+
+var encoder = regexp.MustCompile(`[^a-zA-Z0-9]+`)
+
+func encodeLookupKey(in string) string {
+	return strings.TrimRight(encoder.ReplaceAllLiteralString(in, "_"), "_")
+}
+
+// Find all `lookupCR` or `lookupCRs` in the text field
+func findLookups(content string) []Lookup {
+	result := make([]Lookup, 0)
+	// The outer loop finds the beginning of the lookup keywords
+	for i := 0; i < len(content); i++ {
+		idx := strings.Index(content[i:], "lookupCR")
+		if idx == -1 {
+			// No lookups in the remaining text
+			break
+		}
+		lookup := Lookup{
+			Start: idx + i,
+		}
+		i = lookup.Start + 8
+		if i >= len(content) {
+			// EOS
+			break
+		}
+		switch c := content[i]; {
+		case c == 's':
+			lookup.Array = true
+			i++
+		case !unicode.IsSpace(rune(c)):
+			continue
+		}
+		// Consume the next 4 words, looking out for double-quoted strings and parenthenticals
+		words := 0
+		pDepth := 0
+		quoting := false
+		for ; i < len(content); i++ {
+			// Find next non-space character
+			idx = strings.IndexFunc(content[i:], func(r rune) bool {
+				return !unicode.IsSpace(r)
+			})
+			if idx == -1 {
+				// End of string; Not a complete lookup.
+				break
+			}
+			i += idx
+			// find the next word end
+			for ; i < len(content); i++ {
+				switch content[i] {
+				case '\\':
+					// Escape next character
+					i++
+				case '(':
+					if !quoting {
+						pDepth++
+					}
+				case ')':
+					if !quoting {
+						pDepth--
+					}
+				case '"':
+					if pDepth == 0 {
+						quoting = !quoting
+					}
+				}
+				// Ignore everything until we're out of quotes and out of parentheses
+				if pDepth == 0 && !quoting {
+					idx = strings.IndexFunc(content[i:], unicode.IsSpace)
+					// Either result (end-of-string with no spaces, or found a space) is end-of-word
+					words++
+					if idx == -1 {
+						i = len(content)
+					} else {
+						i += idx
+					}
+					break
+				}
+			}
+			if words == 4 {
+				lookup.End = i
+				lookup.Text = content[lookup.Start:lookup.End]
+				lookup.Key = encodeLookupKey(lookup.Text)
+				result = append(result, lookup)
+				break
+			}
 		}
 	}
+	return result
+}
+
+func lookupSubstitution(content, compName string) string {
+	lookups := findLookups(content)
+	if len(lookups) > 0 {
+		fmt.Fprintf(os.Stderr, "  %s detected %d lookups: %v\n", compName, len(lookups), lookups)
+		contentBuilder := strings.Builder{}
+		idx := 0
+		for _, lookup := range lookups {
+			if idx < lookup.Start {
+				contentBuilder.WriteString(content[idx:lookup.Start])
+			}
+			sub := fmt.Sprintf("(%s.%s)", lookupRoot, lookup.Key)
+			fmt.Fprintf(os.Stderr, "  %s replacing {{ %s }} at [%d:%d] with %s\n", compName, lookup.Text, lookup.Start, lookup.End, sub)
+			contentBuilder.WriteString(sub)
+			idx = lookup.End
+		}
+		if idx < len(content) {
+			contentBuilder.WriteString(content[idx:])
+		}
+		content = contentBuilder.String()
+	}
+
+	return content
 }
 
 func convertToHelmTemplate(cfs fs.FS, t compare.ReferenceTemplate, helmValues map[string]any) (string, error) {
@@ -221,30 +381,11 @@ func convertToHelmTemplate(cfs fs.FS, t compare.ReferenceTemplate, helmValues ma
 	content := string(data)
 
 	if len(t.GetConfig().GetInlineDiffFuncs()) > 0 {
-		if dflts, err := cgDefaultsFor(compName, helmValues); err == nil {
-			cgs := compare.CapturegroupIndex(content)
-			contentBuilder := strings.Builder{}
-			idx := 0
-			for _, group := range cgs {
-				if idx < group.Start {
-					contentBuilder.WriteString(content[idx:group.Start])
-				}
-				if dflt, ok := dflts[group.Name]; ok {
-					fmt.Fprintf(os.Stderr, "  %s replacing CaptureGroup (?<%s>...) at [%d:%d] with default: %v\n", compName, group.Name, group.Start, group.End, dflt)
-					contentBuilder.WriteString(fmt.Sprintf("%v", dflt))
-				} else {
-					contentBuilder.WriteString(content[group.Start:group.End])
-				}
-				idx = group.End
-			}
-			if idx < len(content) {
-				contentBuilder.WriteString(content[idx:])
-			}
-			content = contentBuilder.String()
-			// Now that we've fully consumed the defaults, strip them so they don't appear in the Helm chart...
-			removeCgDefaults(compName, helmValues)
-		}
+		content = capturegroupSubstitution(content, compName, helmValues)
 	}
+
+	// Replace all lookupCR/lookupCRs with canned data
+	content = lookupSubstitution(content, compName)
 
 	helmTemplate := fmt.Sprintf(templateStructure, compName, compName, content)
 

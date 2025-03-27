@@ -1,0 +1,9 @@
+parts:
+  - name: ExamplePart
+    components:
+      - name: Dashboard
+        type: Required
+        requiredTemplates:
+          - path: deploymentDashboard.yaml
+          - path: deploymentMetrics.yaml
+          - path: cm-lookupCRs.yaml

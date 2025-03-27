@@ -1,0 +1,22 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  labels:
+    k8s-app: kubernetes-dashboard
+  name: kubernetes-dashboard-settings
+  namespace: kubernetes-dashboard
+data:
+  {{- $objlist := lookupCRs "apps/v1" "Deployment" "kubernetes-dashboard" "*" }}
+  {{- $dashboardName := "unknown" }}
+  {{- $metricsName := "unknown" }}
+  {{- range $obj := $objlist }}
+    {{- $appname := index $obj "metadata" "labels" "k8s-app" }}
+    {{- if contains "metrics" $appname }}
+      {{- $metricsName = $obj.metadata.name }}
+    {{- end }}
+    {{- if eq "kubernetes-dashboard" $appname }}
+      {{- $dashboardName = $obj.metadata.name }}
+    {{- end }}
+  {{- end }}
+  dashboard: {{ $dashboardName }}
+  metrics: {{ $metricsName }}

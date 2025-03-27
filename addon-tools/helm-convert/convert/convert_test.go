@@ -13,6 +13,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -83,6 +84,10 @@ func TestConvert(t *testing.T) {
 		},
 		{
 			name:           "Capturegroup Defaults",
+			passValuesFile: true,
+		},
+		{
+			name:           "Lookup Substitution",
 			passValuesFile: true,
 		},
 	}
@@ -191,4 +196,111 @@ func diffDirs(dir1, dir2 string) error {
 		return fmt.Errorf("failed to execute diff command: %w", err)
 	}
 	return nil
+}
+
+func checkLookups(t *testing.T, expected, result []Lookup) {
+	assert.Equal(t, len(expected), len(result), "Lookup count")
+	if len(result) > 0 {
+		for i, e := range expected {
+			r := result[i]
+			assert.Equal(t, e.Key, r.Key, "Lookup.Key")
+			assert.Equal(t, e.Array, r.Array, "Lookup.Array")
+		}
+	}
+}
+
+func TestFindLookups(t *testing.T) {
+	tests := []struct {
+		inputs   []string
+		expected []Lookup
+	}{
+		{
+			inputs: []string{
+				"",
+				" nothing here ",
+				"lookupCR",
+				"lookupCR incomplete",
+				"lookupCR incomplete three arguments",
+				`lookupCR "two words" (Unterminated parentheses" "arg(" "end"`,
+				`lookupCR "two words" "Unterminated quoted string\" with some text`,
+			},
+			expected: []Lookup{},
+		},
+		{
+			inputs: []string{
+				"lookupCR a b c d",
+				`lookupCR a b
+					c
+					d`,
+				`lookupCR "a" (b) "c" (d)`,
+				"Text before lookupCR a b c d and after",
+			},
+			expected: []Lookup{
+				{
+					Key: "lookupCR_a_b_c_d",
+				},
+			},
+		},
+		{
+			inputs: []string{
+				"lookupCRs a b c d",
+				`lookupCRs a b
+					c
+					d`,
+				`lookupCRs "a" (b) "c" (d)`,
+				"Text before lookupCRs a b c d and after",
+			},
+			expected: []Lookup{
+				{
+					Key:   "lookupCRs_a_b_c_d",
+					Array: true,
+				},
+			},
+		},
+		{
+			inputs: []string{
+				`lookupCR "two words" (template function "with args") "arg(" ")end"`,
+				`lookupCR "two words" (template (function) "with \"args") "arg(" ")end\""`,
+			},
+			expected: []Lookup{
+				{
+					Key: "lookupCR_two_words_template_function_with_args_arg_end",
+				},
+			},
+		},
+		{
+			inputs: []string{
+				`{{- $objlist := lookupCRs
+						"apps/v1"
+						"ConfigMap"
+						"default"
+						"*"
+				}}`,
+			},
+			expected: []Lookup{
+				{
+					Key:   "lookupCRs_apps_v1_ConfigMap_default",
+					Array: true,
+				},
+			},
+		},
+		{
+			inputs: []string{
+				`{{-$obj:=lookupCR "apps/v1" "ConfigMap" "default" "cm1"}}`,
+			},
+			expected: []Lookup{
+				{
+					Key: "lookupCR_apps_v1_ConfigMap_default_cm1",
+				},
+			},
+		},
+	}
+	for _, test := range tests {
+		for _, input := range test.inputs {
+			t.Run(fmt.Sprintf("Testing lookup for %q", input), func(t *testing.T) {
+				result := findLookups(input)
+				checkLookups(t, test.expected, result)
+			})
+		}
+	}
 }
