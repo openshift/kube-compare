@@ -1,0 +1,7 @@
+apiVersion: v2
+parts:
+  - name: ExamplePart
+    components:
+      - name: Test
+        oneOf:
+          - path: nevermatch.yaml

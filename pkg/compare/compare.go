@@ -576,14 +576,23 @@ func getBestMatchByLines(templates []ReferenceTemplate, cr *unstructured.Unstruc
 
 		diffResult, err := diffAgainstTemplate(temp, cr, templateOverrides, o)
 		if err != nil {
-			errs = append(errs, err)
+			var nomatch *DoNotMatch
+			if errors.As(err, &nomatch) {
+				klog.V(1).Infof("Template %s excluded itself from matching: %s", temp.GetPath(), nomatch.Reason)
+				// Do not count this as an error, just skip its inclusion in the match list.
+			} else {
+				errs = append(errs, err)
+			}
 			continue
 		}
 		matches = append(matches, diffResult)
 	}
 	klog.V(1).Infof("Found %d matches for %s", len(matches), apiKindNamespaceName(cr))
+	if len(matches) == 0 && len(errs) == 0 {
+		// The caller expects an error return if there are no matches
+		errs = append(errs, &DoNotMatch{Reason: "Excluded by all possible templates"})
+	}
 	return findBestMatch(matches), errors.Join(errs...)
-
 }
 
 type diffResult struct {
@@ -751,9 +760,14 @@ func (o *Options) Run() error {
 		}
 
 		bestMatch, err := getBestMatchByLines(temps, clusterCR, userOverrides, o)
-
 		if err != nil {
-			o.metricsTracker.addUNMatch(clusterCR)
+			var nomatch *DoNotMatch
+			if errors.As(err, &nomatch) {
+				klog.V(1).Infof("Skipping comparison of %s: doNotMatch returned by all templates", apiKindNamespaceName(clusterCR))
+				return nil
+			} else {
+				o.metricsTracker.addUNMatch(clusterCR)
+			}
 			return err
 		}
 

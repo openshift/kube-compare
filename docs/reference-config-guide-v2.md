@@ -221,6 +221,27 @@ Returns the matching object if there is exactly one.  The `$apiVersion` and
 have the value `*` to match any namespace or name.  If multiple objects are
 matched, this returns `nil`.
 
+#### doNotMatch
+
+Allows a template to return an error which will force the correlation engine to
+never match this template with the CR under consideration, even if it would
+otherwise have done so.
+
+Usage:
+
+```yaml
+{{- if eq .metadata.annotations.nomeasure "true" }}
+  {{- doNotMatch "This template may not match nomeasure annotations" }}
+{{- end }}
+```
+
+The reason given as the argument is used for logging under `--verbose` output.
+
+Additionally, if a CR matches NO templates, and the reason is exclusively a set
+of these `doNotMatch` exceptions, that CRs failure to match is not counted as a
+comparison failure - The CR is assumed to be intentionally unchecked. This can
+be useful for nameless templates which would otherwise match too many CRs.
+
 ## Per-template configuration
 
 ### Pre-merging

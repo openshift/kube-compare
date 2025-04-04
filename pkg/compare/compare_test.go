@@ -665,6 +665,16 @@ func TestCompareRun(t *testing.T) {
 		defaultTest("LookupCRs").
 			withSubTestSuffix("LookupCR").
 			withMetadataFile("metadata-lookupCR.yaml"),
+
+		defaultTest("Do Not Match"),
+		defaultTest("Do Not Match").
+			withSubTestSuffix("No matches").
+			withMetadataFile("metadata-nomatch.yaml").
+			withChecks(defaultChecks.withPrefixedSuffix("NoMatch")),
+		defaultTest("Do Not Match").
+			withSubTestSuffix("Filter unnamed template matches").
+			withMetadataFile("metadata-filter.yaml").
+			withChecks(defaultChecks.withPrefixedSuffix("Filter")),
 	}
 
 	tf := cmdtesting.NewTestFactory()
