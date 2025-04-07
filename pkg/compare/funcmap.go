@@ -6,6 +6,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
+	"slices"
 	"strings"
 	"text/template"
 
@@ -17,6 +19,10 @@ import (
 )
 
 // This File is almost identical to the FuncMap used in Helm to match Helm templating behaviour.
+
+var FuncHelp = make(map[string]string)
+
+const SprigImportFlag = `<<sprig>>`
 
 // FuncMap returns a mapping of all of the functions that Engine has.
 //
@@ -36,25 +42,93 @@ func FuncMap() template.FuncMap {
 	delete(f, "env")
 	delete(f, "expandenv")
 
+	for key := range f {
+		FuncHelp[key] = SprigImportFlag
+	}
+
 	// Add some extra functionality
-	extra := template.FuncMap{
-		"toToml":        toTOML,
-		"toYaml":        toYAML,
-		"fromYaml":      FromYAML,
-		"fromYamlArray": fromYAMLArray,
-		"toJson":        toJSON,
-		"fromJson":      fromJSON,
-		"fromJsonArray": fromJSONArray,
-		"lookupCRs":     lookupCRs,
-		"lookupCR":      lookupCR,
-		"doNotMatch":    doNotMatch,
+	extra := map[string]struct {
+		fn   any
+		help string
+	}{
+		"toToml": {
+			fn:   toTOML,
+			help: "Parse the incoming string as structured TOML data",
+		},
+		"toYaml": {
+			fn:   toYAML,
+			help: "Render incoming data as YAML, preserving types properly",
+		},
+		"fromYaml": {
+			fn:   FromYAML,
+			help: "Parse the incoming string as a structured YAML object",
+		},
+		"fromYamlArray": {
+			fn:   fromYAMLArray,
+			help: "Parse the incoming string as a structured YAML array",
+		},
+		"toJson": {
+			fn:   toJSON,
+			help: "Render incoming data as JSON, preserving types properly",
+		},
+		"fromJson": {
+			fn:   fromJSON,
+			help: "Parse the incoming string as a structured JSON object",
+		},
+		"fromJsonArray": {
+			fn:   fromJSONArray,
+			help: "Parse the incoming string as a structured JSON array",
+		},
+		"lookupCRs": {
+			fn:   lookupCRs,
+			help: "Lookup an external CR and return an array of matching objects",
+		},
+		"lookupCR": {
+			fn:   lookupCR,
+			help: "Lookup an external CR and return exactly one matching object",
+		},
+		"doNotMatch": {
+			fn:   doNotMatch,
+			help: "Skip matching this target against the current CR",
+		},
 	}
 
 	for k, v := range extra {
-		f[k] = v
+		f[k] = v.fn
+		FuncHelp[k] = v.help
 	}
 
 	return f
+}
+
+func DisplayFuncmap(w io.Writer) {
+	if len(FuncHelp) == 0 {
+		// Populate the help text
+		FuncMap()
+	}
+	customNames := make([]string, 0, len(FuncHelp))
+	sprigNames := make([]string, 0, len(FuncHelp))
+	for k, v := range FuncHelp {
+		if v == SprigImportFlag {
+			sprigNames = append(sprigNames, k)
+		} else {
+			customNames = append(customNames, k)
+		}
+	}
+	slices.Sort(customNames)
+	slices.Sort(sprigNames)
+
+	fmt.Fprintln(w, "Available Template Functions")
+	fmt.Fprintln(w, "============================")
+	fmt.Fprintln(w, "")
+	for _, name := range customNames {
+		fmt.Fprintf(w, "%s:\n  %s\n", name, FuncHelp[name])
+	}
+	fmt.Fprintln(w, "")
+	fmt.Fprintln(w, "Imported from https://masterminds.github.io/sprig/")
+	fmt.Fprintln(w, "--------------------------------------------------")
+	fmt.Fprintln(w, "")
+	fmt.Fprintln(w, strings.Join(sprigNames, ", "))
 }
 
 // toYAML takes an interface, marshals it to yaml, and returns a string. It will

@@ -147,6 +147,8 @@ type Options struct {
 
 	diff *diff.DiffProgram
 	genericiooptions.IOStreams
+
+	showTemplateFunctions bool
 }
 
 func NewCmd(f kcmdutil.Factory, streams genericiooptions.IOStreams) *cobra.Command {
@@ -173,6 +175,11 @@ func NewCmd(f kcmdutil.Factory, streams genericiooptions.IOStreams) *cobra.Comma
 			flagSet := flag.NewFlagSet("test", flag.ExitOnError)
 			klog.InitFlags(flagSet)
 			_ = flagSet.Parse([]string{"--v", klogVerbosity})
+
+			if options.showTemplateFunctions {
+				DisplayFuncmap(os.Stdout)
+				return
+			}
 
 			// FIXME: Handle creation of temporary directory more gracefully. Right now,
 			// kcmdutil.CheckDiffErr calls os.exit(), which does not run defer statements.
@@ -226,7 +233,7 @@ func NewCmd(f kcmdutil.Factory, streams genericiooptions.IOStreams) *cobra.Comma
 	cmd.Flags().StringVarP(&options.userOverridesPath, "overrides", "p", "", "Path to user overrides")
 	cmd.Flags().StringSliceVar(&options.templatesToGenerateOverridesFor, "generate-override-for", []string{}, "Path for template file you wish to generate a override for")
 	cmd.Flags().StringVar(&options.overrideReason, "override-reason", "", "Reason for generating the override")
-
+	cmd.Flags().BoolVar(&options.showTemplateFunctions, "show-template-functions", options.showTemplateFunctions, "Show a list of all available template functions")
 	cmd.Flags().StringVarP(&options.OutputFormat, "output", "o", "", fmt.Sprintf(`Output format. One of: (%s)`, strings.Join(OutputFormats, ", ")))
 	kcmdutil.CheckErr(cmd.RegisterFlagCompletionFunc(
 		"output",
