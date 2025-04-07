@@ -5,6 +5,7 @@ package compare
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"text/template"
 
@@ -46,6 +47,7 @@ func FuncMap() template.FuncMap {
 		"fromJsonArray": fromJSONArray,
 		"lookupCRs":     lookupCRs,
 		"lookupCR":      lookupCR,
+		"doNotMatch":    doNotMatch,
 	}
 
 	for k, v := range extra {
@@ -200,4 +202,16 @@ func lookupCR(apiVersion, kind, namespace, name string) map[string]any {
 		return nil
 	}
 	return all[0]
+}
+
+type DoNotMatch struct {
+	Reason string
+}
+
+func (e DoNotMatch) Error() string {
+	return fmt.Sprintf("Do not match: %s", e.Reason)
+}
+
+func doNotMatch(reason string) (string, error) {
+	return "", &DoNotMatch{Reason: reason}
 }

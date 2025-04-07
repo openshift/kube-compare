@@ -1,0 +1,7 @@
+apiVersion: v2
+parts:
+  - name: ExamplePart
+    components:
+      - name: Test
+        allOf:
+          - path: d1-anyname.yaml

@@ -1,0 +1,7 @@
+The reference contains overlapping object definitions which may result in unexpected correlation results. Re-run with '--verbose' output enabled to view a detailed description of the issues
+Summary
+CRs with diffs: 0/1
+No validation issues with the cluster
+No CRs are unmatched to reference CRs
+Metadata Hash: $METADATA_HASH$
+No patched CRs
