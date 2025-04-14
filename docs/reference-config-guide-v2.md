@@ -174,6 +174,12 @@ spec:
     {{- end }}
 ```
 
+For a full list of all supported template functions, run:
+
+```bash
+kubectl cluster-compare --show-template-functions
+```
+
 ### Additional template functions
 
 These custom functions add capabilities beyond the capabilities of the sprig or
