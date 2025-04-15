@@ -31,6 +31,7 @@ func (id *TestSuites) AddSuite(suite TestSuite) {
 	id.Suites = append(id.Suites, suite)
 	id.Tests += suite.Tests
 	id.Failures += suite.Failures
+	id.Skipped += suite.Skipped
 }
 
 func (id *TestSuites) WithSuite(suite TestSuite) *TestSuites {
@@ -57,10 +58,14 @@ func (id *TestSuite) AddCase(tcase TestCase) {
 	id.Tests += 1
 	if tcase.Failure != nil {
 		id.Failures += 1
-	}
-	if tcase.SkipMessage != nil {
+	} else if tcase.SkipMessage != nil {
 		id.Skipped += 1
 	}
+}
+
+func (id *TestSuite) WithCase(tcase TestCase) *TestSuite {
+	id.AddCase(tcase)
+	return id
 }
 
 // TestCase is a single test case with its result.
