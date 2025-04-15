@@ -53,11 +53,15 @@ func FuncMap() template.FuncMap {
 	}{
 		"toToml": {
 			fn:   toTOML,
-			help: "Parse the incoming string as structured TOML data",
+			help: "Render incoming data of any type as a TOML document string",
 		},
 		"toYaml": {
 			fn:   toYAML,
-			help: "Render incoming data as YAML, preserving types properly",
+			help: "Render incoming data of any type as a YAML document string",
+		},
+		"toJson": {
+			fn:   toJSON,
+			help: "Render incoming data of any type as a JSON string",
 		},
 		"fromYaml": {
 			fn:   FromYAML,
@@ -66,10 +70,6 @@ func FuncMap() template.FuncMap {
 		"fromYamlArray": {
 			fn:   fromYAMLArray,
 			help: "Parse the incoming string as a structured YAML array",
-		},
-		"toJson": {
-			fn:   toJSON,
-			help: "Render incoming data as JSON, preserving types properly",
 		},
 		"fromJson": {
 			fn:   fromJSON,
@@ -122,7 +122,7 @@ func DisplayFuncmap(w io.Writer) {
 	fmt.Fprintln(w, "============================")
 	fmt.Fprintln(w, "")
 	for _, name := range customNames {
-		fmt.Fprintf(w, "%s:\n  %s\n", name, FuncHelp[name])
+		fmt.Fprintf(w, "%s:\n  %s\n", name, strings.Join(strings.Split(FuncHelp[name], "\n"), "\n  "))
 	}
 	fmt.Fprintln(w, "")
 	fmt.Fprintln(w, "Imported from https://masterminds.github.io/sprig/")

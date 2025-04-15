@@ -185,6 +185,31 @@ kubectl cluster-compare --show-template-functions
 These custom functions add capabilities beyond the capabilities of the sprig or
 helm templates.
 
+#### toYaml
+
+Render incoming data of any type as a YAML document string.
+
+Usage:
+
+```yaml
+spec:
+  scalar: {{ .spec.scalar | toYaml }}
+  deeper:
+    {{- .spec.deeper | toYaml | nindent 4 }}
+```
+
+In this example, the 'scalar' item is expected to be a single scalar value.
+Adding the `| toYaml` function will YAML-encode the scalar to ensure that the
+underlying datatype is preserved.  Otherwise if the value of `.spec.scalar` is
+"4", it may render into the final YAML document as `scalar: 4`, changing the
+type.  Using `| toYaml` ensures it will render properly as `scalar: "4"`.
+
+The example field "deeper" is expected to be a sub-object.  In the go template
+the data will be a dictionary, so using `| toYaml | nindent` will ensure the
+full structure is rendered as YAML data, and indented to the proper place in the
+object.  When using this method, ensure the argument to nindent matches the
+final indentation you need at that point in the document.
+
 #### lookupCRs
 
 Search for external structured objects.
