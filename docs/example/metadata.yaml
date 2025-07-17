@@ -1,0 +1,21 @@
+apiVersion: v2
+parts: 
+  - name: example-compare
+    description: |-
+      This reference provides a minimal baseline for demonstrating the `cluster-compare` plugin.
+      It includes example configurations for common cluster resources: `ClusterVersion`, `ClusterOperator`, and `MachineConfigPool`.
+      Use this reference to test the plugin setup, explore how comparisons work, and verify expected output in a controlled environment.
+      It is not intended for production validation or strict conformance checks.
+    components:
+    components:
+      - name: example-compare
+        allOf:
+          - path: ClusterVersion.yaml
+            config:
+              ignore-unspecified-fields: true # Ignore fields not specified in the reference
+          - path: ClusterOperator.yaml
+            config:
+              ignore-unspecified-fields: true # Ignore fields not specified in the reference
+          - path: MachineConfigPool.yaml
+            config:
+              ignore-unspecified-fields: true # Ignore fields not specified in the reference

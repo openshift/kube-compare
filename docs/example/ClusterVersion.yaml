@@ -1,0 +1,9 @@
+apiVersion: config.openshift.io/v1
+kind: ClusterVersion
+metadata:
+  name: {{ .metadata.name }}  # Required but can be anything
+spec:
+  {{- if .spec.channel }}
+  channel: {{ .spec.channel }}
+  {{- end }}  
+  clusterID: {{ .spec.clusterID }}  # Required but can be anything
