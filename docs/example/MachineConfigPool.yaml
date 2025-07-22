@@ -1,0 +1,13 @@
+apiVersion: machineconfiguration.openshift.io/v1
+kind: MachineConfigPool
+metadata:
+  name: {{ .metadata.name }}  # Required but can be anything
+  labels:
+    example.com/trigger-diff: "true"   # Deliberate diff-causing label
+spec:
+  {{- if .spec.machineConfigSelector }}
+  machineConfigSelector:
+    {{- toYaml .spec.machineConfigSelector | nindent 4 }}
+  {{- end }}
+  nodeSelector:
+    {{- toYaml .spec.nodeSelector | nindent 4 }}
