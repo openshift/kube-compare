@@ -10,7 +10,7 @@ require (
 	github.com/samber/lo v1.51.0
 	github.com/sergi/go-diff v1.4.0
 	github.com/spf13/cobra v1.9.1
-	github.com/stretchr/testify v1.10.0
+	github.com/stretchr/testify v1.11.0
 	helm.sh/helm/v3 v3.18.4
 	k8s.io/apimachinery v0.33.2
 	k8s.io/cli-runtime v0.33.2
