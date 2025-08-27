@@ -29,7 +29,7 @@ required CRs are included in the input configuration then all required CRs
 in the group are expected to be included and any which are missing will be reported. If none of
 the required CRs in the group are included then no report of "missing content" for the group will be generated.
 
-In this version Parts only help with organization of the components into groups and don't have any affection on the diff
+In this version Parts only help with organization of the components into groups and don't have any effect on the diff
 process.
 
 Thus, the file `metadata.yaml` includes an array denoted by `parts` of one or more objects. Each object includes:
@@ -38,7 +38,7 @@ Thus, the file `metadata.yaml` includes an array denoted by `parts` of one or mo
 - a key "components" defined as an array of objects
 
 ```yaml
-# Every part denotes typically denotes a workload or set of workloads
+# Every part typically denotes a workload or set of workloads
 apiVersion: v2 # Required will default to v1
 parts:
   - name: ExamplePart1
@@ -115,9 +115,9 @@ parts:
     description: |-
       General text for every template beneath, unless overridden.
     components:
-      - name: ExampleComponent1o
+      - name: ExampleComponent1
         # With no description set, this inherits that of the part above.
-        OneOf:
+        oneOf:
           - path: Template1.yaml
             # Likewise this inherits the component description
           - path: Template2.yaml
@@ -169,7 +169,7 @@ spec:
   - port: 80
   selector:
     app: guestbook
-    {{- if .sepc.selector.tier }} #2 optional fields
+    {{- if .spec.selector.tier }} #2 optional fields
     tier: frontend
     {{- end }}
 ```
@@ -279,7 +279,7 @@ be useful for nameless templates which would otherwise match too many CRs.
 
 If you don't want to check live-manifest exactly matches your template you can enable merging.
 This will do a strategic merge of the template into the manifest which will remove features not mentioned in the template from the diff.
-This can be useful when dealing with annotation or labels which may be of no consiquence to your check.
+This can be useful when dealing with annotation or labels which may be of no consequence to your check.
 Note that this could cover up differences in things you do care about so use it with care.
 This can be configured for a manifest by adding config to the metadata.yaml
 
@@ -409,9 +409,9 @@ No CRs are missing from the cluster
 No CRs are unmatched to reference CRs
 ```
 
-### Ignoring feilds
+### Ignoring fields
 
-It is possible as a reference writter to ignore fields for a given template.
+It is possible as a reference writer to ignore fields for a given template.
 
 First you must define an entry in `fieldsToOmit.items` e.g.:
 
@@ -455,7 +455,6 @@ fieldsToOmit:
    defaultOmitRef: default
    items:
     common:
-      - pathToKey: metadata.annotations."kubernetes.io/metadata.name"
       - pathToKey: metadata.annotations."kubernetes.io/metadata.name"
       - pathToKey: metadata.annotations."kubectl.kubernetes.io/last-applied-configuration"
       - pathToKey: metadata.creationTimestamp
@@ -502,7 +501,7 @@ but if they were implemented with go templating would result in unclear diff log
 The functions goal is to enable a more clear and readable usage for common custom templating functions and allow more complex
 functionalities.
 
-To specify an inline function for a specific field yse the `perField` section in the metadata.yaml file as in this example:
+To specify an inline function for a specific field use the `perField` section in the metadata.yaml file as in this example:
 
 ```yaml
 apiVersion: v2
@@ -530,7 +529,7 @@ diff function you need to enable the regexInline function for the specific
 field and template in the metadata.yaml and also specify the regex inside the
 template.
 
-Additionally, we validate that all identically-named capturegroups in the regx
+Additionally, we validate that all identically-named capturegroups in the regex
 match the same values.  See "Enforcing named capturegroup values" below for
 details and how these intersect with the `capturegroup` inline diff function.
 
@@ -544,7 +543,7 @@ metadata:
 data:
   bigTextBlock: |-
     This is a big text block with some static content, like this line.
-    It also has a place where (?<username>[a-z0-9]+) would put in their own name. (?<username>[a-z0-9]+) would put in their own name.
+    It also has a place where (?<username>[a-z0-9]+) would put in their own name.
 ```
 
 the metadata.yaml should contain:
@@ -594,7 +593,7 @@ metadata:
 data:
   bigTextBlock: |-
     This is a big text block with some static content, like this line.
-    It also has a place where (?<username>[a-z0-9]+) would put in their own name. (?<username>[a-z0-9]+) would put in their own name.
+    It also has a place where (?<username>[a-z0-9]+) would put in their own name.
 ```
 
 the metadata.yaml should contain:
@@ -657,8 +656,8 @@ in both the `username` and `bigTextBlock` fields.
 
 ## Catch all templates
 
-It is possible to create catch all templates to manifests not corrilated by others.
-This is becuase the more specific templates are prefered of less specific ones.
-So by adding wildcards of the corrilated fields such as name or namespace,
-you can have templates that will match manifests not caught more specific templates.
+It is possible to create catch all templates to manifests not correlated by others.
+This is because the more specific templates are preferred over less specific ones.
+So by adding wildcards of the correlated fields such as name or namespace,
+you can have templates that will match manifests not caught by more specific templates.
 In our test data we have an example of using [`MachineConfigs`](../pkg/compare/testdata/MachineConfigsCatchAll/reference/)
