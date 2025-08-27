@@ -612,6 +612,8 @@ parts:
           inlineDiffFunc: capturegroups
 ```
 
+Note: When using inline diff functions, using any regex (.*) does not match new lines.
+
 ##### Enforcing named capturegroup values
 
 Within a single object template, we additionally validate that all
