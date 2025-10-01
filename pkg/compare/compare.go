@@ -298,6 +298,7 @@ func (o *Options) GetRefFS() (fs.FS, error) {
 	}
 	return os.DirFS(rootPath), nil
 }
+
 func (o *Options) Complete(f kcmdutil.Factory, cmd *cobra.Command, args []string) error {
 	var err error
 	o.builder = f.NewBuilder()
@@ -743,10 +744,19 @@ func (o *Options) Run() error {
 		return fmt.Errorf("error occurred while trying to fetch resources: %w", err)
 	}
 
-	clusterCRs := make([]*unstructured.Unstructured, len(infos))
-	for i, info := range infos {
+	clusterCRs := make([]*unstructured.Unstructured, 0)
+	uniqueIDs := make(map[string]bool)
+	for _, info := range infos {
 		clusterCRMapping, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(info.Object)
-		clusterCRs[i] = &unstructured.Unstructured{Object: clusterCRMapping}
+		obj := &unstructured.Unstructured{Object: clusterCRMapping}
+		id := apiKindNamespaceName(obj)
+		if _, exists := uniqueIDs[id]; !exists {
+			klog.V(1).Infof("Loading object %s", id)
+			clusterCRs = append(clusterCRs, obj)
+			uniqueIDs[id] = true
+		} else {
+			klog.V(2).Infof("Skipping duplicate object %s", id)
+		}
 	}
 
 	// Load all CRs for the lookup function:
