@@ -1,5 +1,7 @@
 Pre-processing template deploymentDashboard.yaml with empty data
 Pre-processing template deploymentMetrics.yaml with empty data
+Loading object apps/v1_Deployment_kubernetes-dashboard_dashboard-metrics-scraper
+Loading object apps/v1_Deployment_kubernetes-dashboard_kubernetes-dashboard
 Executing template deploymentMetrics.yaml
 Found 1 matches for apps/v1_Deployment_kubernetes-dashboard_dashboard-metrics-scraper
  - deploymentMetrics.yaml - Diff score: 5
