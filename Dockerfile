@@ -1,16 +1,16 @@
 # This Dockerfile builds an image containing the Mac and Windows version of kube-compare
 # layered on top of the Linux cli image.
-FROM registry.ci.openshift.org/ocp/builder:rhel-8-golang-1.24-openshift-4.20 AS builder-rhel-8
+FROM registry.ci.openshift.org/ocp/builder:rhel-8-golang-1.24-openshift-4.21 AS builder-rhel-8
 WORKDIR /go/src/github.com/openshift/kube-compare
 COPY . .
 RUN make cross-build --warn-undefined-variables
 
-FROM registry.ci.openshift.org/ocp/builder:rhel-9-golang-1.24-openshift-4.20 AS builder-rhel-9
+FROM registry.ci.openshift.org/ocp/builder:rhel-9-golang-1.24-openshift-4.21 AS builder-rhel-9
 WORKDIR /go/src/github.com/openshift/kube-compare
 COPY . .
 RUN make cross-build --warn-undefined-variables
 
-FROM registry.ci.openshift.org/ocp/4.20:cli AS final-builder
+FROM registry.ci.openshift.org/ocp/4.21:cli AS final-builder
 
 COPY --from=builder-rhel-9 /go/src/github.com/openshift/kube-compare/_output/bin/ /usr/share/openshift/
 
