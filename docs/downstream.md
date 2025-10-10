@@ -8,17 +8,18 @@ This build is managed by ART, so most changes need to go through them.
 
 ## Build information
 
-- [art-dash build status](https://art-dash.engineering.redhat.com/dashboard/build/history?dg_name=kube-compare-artifacts)
-- [brew package](https://brewweb.engineering.redhat.com/brew/packageinfo?packageID=86274)
+- [art build status](https://art-build-history-art-build-history.apps.artc2023.pc3z.p1.openshiftapps.com/?name=kube-compare-art)
+  - Staging pullspec: `registry.stage.redhat.io/openshift4/kube-compare-artifacts-rhel9:v4.21`
 - [Errata](https://errata.engineering.redhat.com/package/show/kube-compare-artifacts-container)
 - [Downstream container](https://catalog.redhat.com/software/containers/openshift4/kube-compare-artifacts-rhel9/66d56abedf3259c57cfc8cba)
-  - Pullspec: registry.redhat.io/openshift4/kube-compare-artifacts-rhel9:latest
+  - Release pullspec: registry.redhat.io/openshift4/kube-compare-artifacts-rhel9:v4.19
 
 ## Installing the downstream version of the tool
 
 ```bash
+TAG=v4.19 # Check the downstream container page for the highest released version tag (do not use `latest`)
 ENGINE=podman # works with "docker" too
-IMAGE=registry.redhat.io/openshift4/kube-compare-artifacts-rhel9:latest
+IMAGE=registry.redhat.io/openshift4/kube-compare-artifacts-rhel9:$TAG
 BASEOS=rhel9 # "rhel8" is an option too, for older systems
 $ENGINE create --name kube-compare "$IMAGE"
 $ENGINE cp "kube-compare:/usr/share/openshift/linux_amd64/kube-compare.$BASEOS" ./kubectl-cluster_compare
