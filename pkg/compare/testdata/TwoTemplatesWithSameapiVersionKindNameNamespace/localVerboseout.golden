@@ -1,6 +1,6 @@
 Pre-processing template apps.v1.DaemonSet.kube-system.kindnet.yaml with empty data
 Pre-processing template apps.v1.DaemonSet.kube-system.kindnet.yaml with empty data
-More than one template with same apiVersion, metadata_name, metadata_namespace, kind. By Default for each Cluster CR that is correlated to one of these templates the template with the least number of diffs will be used. To use a different template for a specific CR specify it in the diff-config (-c flag) Template names are: apps.v1.DaemonSet.kube-system.kindnet.yaml, apps.v1.DaemonSet.kube-system.kindnet.yaml
+more than one template with same apiVersion, metadata_name, metadata_namespace, kind: by default for each cluster CR that is correlated to one of these templates the template with the least number of diffs will be used; to use a different template for a specific CR specify it in the diff-config (-c flag); template names are: apps.v1.DaemonSet.kube-system.kindnet.yaml, apps.v1.DaemonSet.kube-system.kindnet.yaml
 Loading object apps/v1_DaemonSet_SomeNS_Name
 Executing template apps.v1.DaemonSet.kube-system.kindnet.yaml
 Executing template apps.v1.DaemonSet.kube-system.kindnet.yaml

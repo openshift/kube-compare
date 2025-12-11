@@ -1,7 +1,7 @@
 #!/bin/bash -e
 
 TAG=$(gh release view --json name | jq -r .name)
-checksums=$(gh release download --pattern '*_checksums.txt' -O -) 
+checksums=$(gh release download --pattern '*_checksums.txt' -O -)
 echo "Creating krew bump for $TAG"
 
 # Tmpdir for krew-index clone
@@ -26,7 +26,7 @@ done <<<"$checksums"
 # Commit and push
 git commit -asm "Version bump cluster-compare to $TAG"
 git push -u origin "$BRANCH"
-gh pr create --fill 
+gh pr create --fill
 
 # Cleanup
 popd && popd && rm -rf _release_tmp

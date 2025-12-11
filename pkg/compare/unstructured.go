@@ -13,7 +13,7 @@ import (
 // This is a copy of unstructured.NestedFieldNoCopy but can also traverse slices
 // If the value is a slice it will try to convert the field into an int (and use it as the index)
 func NestedField(obj any, fields ...string) (any, bool, error) {
-	var val any = obj
+	val := obj
 
 	for i, field := range fields {
 		if val == nil {

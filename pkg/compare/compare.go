@@ -659,7 +659,7 @@ func diffAgainstTemplate(temp ReferenceTemplate, clusterCR *unstructured.Unstruc
 	if err != nil {
 		return res, fmt.Errorf("error occurered during diff: %w", err)
 	}
-	err = differ.Run(&diff.DiffProgram{Exec: exec.New(), IOStreams: genericiooptions.IOStreams{In: o.IOStreams.In, Out: diffOutput, ErrOut: o.IOStreams.ErrOut}})
+	err = differ.Run(&diff.DiffProgram{Exec: exec.New(), IOStreams: genericiooptions.IOStreams{In: o.In, Out: diffOutput, ErrOut: o.ErrOut}})
 
 	// If the diff tool runs without issues and detects differences at this level of the code, we would like to report that there are no issues
 	var exitErr exec.ExitError

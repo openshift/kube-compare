@@ -184,7 +184,7 @@ func (entry *FieldsToOmitV2Entry) process(previousKeys []string, toOmit *FieldsT
 
 	errs := make([]error, 0)
 	if entry.ManifestPathV1 != nil && entry.PathToKey != "" {
-		err := entry.ManifestPathV1.Process()
+		err := entry.Process()
 		if err != nil {
 			errs = append(errs, err)
 		} else {
