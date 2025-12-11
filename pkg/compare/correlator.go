@@ -289,10 +289,10 @@ func (f *FieldCorrelator[T]) ValidateTemplates() error {
 	for _, values := range f.objects {
 		if len(values) > 1 {
 			errs = append(errs, fmt.Errorf(
-				"More than one template with same %s. By Default for each Cluster CR that is correlated "+
-					"to one of these templates the template with the least number of diffs will be used. "+
-					"To use a different template for a specific CR specify it in the diff-config (-c flag) "+
-					"Template names are: %s",
+				"more than one template with same %s: by default for each cluster CR that is correlated "+
+					"to one of these templates the template with the least number of diffs will be used; "+
+					"to use a different template for a specific CR specify it in the diff-config (-c flag); "+
+					"template names are: %s",
 				getFields(f.Fields), getTemplatesNames(values)),
 			)
 		}

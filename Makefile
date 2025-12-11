@@ -135,10 +135,18 @@ build-helm-convert:
 test-helm-convert:
 	go test --race ./addon-tools/helm-convert/*/
 
+.PHONY: lint
+lint: golangci-lint shfmt ## Run all linters
+
 .PHONY: golangci-lint
 golangci-lint: ## Run golangci-lint against code.
 	@echo "Running golangci-lint"
 	hack/golangci-lint.sh
+
+.PHONY: shfmt
+shfmt: ## Run shfmt against shell scripts in hack/
+	@echo "Running shfmt"
+	shfmt -d -i 4 -ci hack/*.sh
 
 # markdownlint rules, following: https://github.com/openshift/enhancements/blob/master/Makefile
 .PHONY: markdownlint-image
