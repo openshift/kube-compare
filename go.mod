@@ -3,7 +3,7 @@ module github.com/openshift/kube-compare
 go 1.24.0
 
 require (
-	github.com/BurntSushi/toml v1.5.0
+	github.com/BurntSushi/toml v1.6.0
 	github.com/Masterminds/sprig/v3 v3.3.0
 	github.com/evanphx/json-patch v5.9.11+incompatible
 	github.com/gosimple/slug v1.15.0
