@@ -3,7 +3,7 @@
 IMAGE_NAME=kube-compare
 
 PACKAGE_NAME          := github.com/openshift/kube-compare
-GOLANG_CROSS_VERSION  ?= v1.22.7
+GOLANG_CROSS_VERSION  ?= v1.24.0
 
 # Auto-detect host OS and architecture if not explicitly set
 HOST_OS := $(shell go env GOOS)
