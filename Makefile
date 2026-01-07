@@ -112,7 +112,7 @@ install-user:
 	@echo "Make sure ~/.local/bin is in your PATH by adding this to your shell config:"
 	@echo '  export PATH="$$HOME/.local/bin:$$PATH"'
 
-.PHONE: test-all
+.PHONY: test-all
 test-all: test test-report-creator test-helm-convert
 
 .PHONY: test
