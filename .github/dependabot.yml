@@ -15,6 +15,20 @@ updates:
       - "ok-to-test"
       - "dependencies"
     open-pull-requests-limit: 5
+    groups:
+      k8s:
+        patterns: ["k8s.io/*", "sigs.k8s.io/*"]
+        update-types: ["major", "minor", "patch"]
+      openshift:
+        patterns: ["github.com/openshift/*"]
+        update-types: ["major", "minor", "patch"]
+      other-go-modules:
+        patterns: ["*"]
+        exclude-patterns:
+          - "k8s.io/*"
+          - "sigs.k8s.io/*"
+          - "github.com/openshift/*"
+        update-types: ["major", "minor", "patch"]
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-patch"]
