@@ -47,6 +47,10 @@ func NewMultiCorrelator[T CorrelationEntry](correlators []Correlator[T]) *MultiC
 	return &MultiCorrelator[T]{correlators: correlators}
 }
 
+func (c *MultiCorrelator[T]) AddCorrelator(correlator Correlator[T]) {
+	c.correlators = append(c.correlators, correlator)
+}
+
 func (c MultiCorrelator[T]) Match(object *unstructured.Unstructured) ([]T, error) {
 	var errs []error
 	for _, core := range c.correlators {
@@ -311,4 +315,178 @@ func (f FieldCorrelator[T]) Match(object *unstructured.Unstructured) ([]T, error
 		return nil, UnknownMatch{Resource: object}
 	}
 	return objs, nil
+}
+
+// OwnerReferenceCorrelator searches for resources by checking if the resource appears in the ownerReferences
+// field of any cluster resource. This handles cases where resources are managed by operators and don't exist
+// as standalone objects but are referenced as owners.
+type OwnerReferenceCorrelator[T CorrelationEntry] struct {
+	templates     []T
+	ownerRefIndex map[string]bool // Index of all ownerReferences found (key = apiVersion_kind_namespace_name)
+	templatesMap  map[string][]T  // Map from apiVersion_kind_namespace_name to templates
+}
+
+// NewOwnerReferenceCorrelator creates a new OwnerReferenceCorrelator
+// It builds an index of all ownerReferences found in cluster resources
+func NewOwnerReferenceCorrelator[T CorrelationEntry](templates []T, clusterCRs []*unstructured.Unstructured) *OwnerReferenceCorrelator[T] {
+	templatesMap := make(map[string][]T)
+	for _, temp := range templates {
+		md := temp.GetMetadata()
+		key := apiKindNamespaceName(md)
+		templatesMap[key] = append(templatesMap[key], temp)
+	}
+
+	// Build index of all ownerReferences found in cluster resources
+	ownerRefIndex := make(map[string]bool)
+	for _, clusterCR := range clusterCRs {
+		ownerRefs, found, err := unstructured.NestedSlice(clusterCR.Object, "metadata", "ownerReferences")
+		if err != nil || !found {
+			continue
+		}
+
+		for _, ownerRefInterface := range ownerRefs {
+			ownerRef, ok := ownerRefInterface.(map[string]interface{})
+			if !ok {
+				continue
+			}
+
+			apiVersion, _, _ := unstructured.NestedString(ownerRef, "apiVersion")
+			kind, _, _ := unstructured.NestedString(ownerRef, "kind")
+			name, _, _ := unstructured.NestedString(ownerRef, "name")
+
+			if apiVersion == "" || kind == "" || name == "" {
+				continue
+			}
+
+			// Build the owner key
+			// For cluster-scoped owners referenced from namespaced resources, we need to index both:
+			// 1. Without namespace (for cluster-scoped owners)
+			// 2. With namespace (for namespaced owners)
+			ownerKeyWithoutNS := strings.Join([]string{apiVersion, kind, name}, FieldSeparator)
+			ownerRefIndex[ownerKeyWithoutNS] = true
+
+			if clusterCR.GetNamespace() != "" {
+				ownerKeyWithNS := strings.Join([]string{apiVersion, kind, clusterCR.GetNamespace(), name}, FieldSeparator)
+				ownerRefIndex[ownerKeyWithNS] = true
+			}
+		}
+	}
+
+	return &OwnerReferenceCorrelator[T]{
+		templates:     templates,
+		ownerRefIndex: ownerRefIndex,
+		templatesMap:  templatesMap,
+	}
+}
+
+// Match searches for the resource in the pre-built ownerReferences index
+func (c OwnerReferenceCorrelator[T]) Match(object *unstructured.Unstructured) ([]T, error) {
+	searchKey := apiKindNamespaceName(object)
+
+	// Check if this resource exists as an ownerReference
+	if c.ownerRefIndex[searchKey] {
+		// Found the resource in ownerReferences index
+		if temps, ok := c.templatesMap[searchKey]; ok {
+			klog.V(1).Infof("Found resource %s via ownerReferences", searchKey)
+			return temps, nil
+		}
+	}
+
+	return []T{}, UnknownMatch{Resource: object}
+}
+
+// SubjectsCorrelator searches for resources by checking if the resource appears in the subjects
+// field of RBAC resources (ClusterRoleBindings, RoleBindings). This handles cases where ServiceAccounts
+// and other subjects are referenced but don't exist as standalone objects in the collection.
+type SubjectsCorrelator[T CorrelationEntry] struct {
+	templates     []T
+	subjectsIndex map[string]bool // Index of all subjects found (key = apiVersion_kind_namespace_name)
+	templatesMap  map[string][]T  // Map from apiVersion_kind_namespace_name to templates
+}
+
+// NewSubjectsCorrelator creates a new SubjectsCorrelator
+// It builds an index of all subjects found in RBAC resources
+func NewSubjectsCorrelator[T CorrelationEntry](templates []T, clusterCRs []*unstructured.Unstructured) *SubjectsCorrelator[T] {
+	templatesMap := make(map[string][]T)
+	for _, temp := range templates {
+		md := temp.GetMetadata()
+		key := apiKindNamespaceName(md)
+		templatesMap[key] = append(templatesMap[key], temp)
+	}
+
+	// Build index of all subjects found in cluster resources
+	subjectsIndex := make(map[string]bool)
+	for _, clusterCR := range clusterCRs {
+		// Only check RBAC resources (ClusterRoleBinding, RoleBinding)
+		kind := clusterCR.GetKind()
+		if kind != "ClusterRoleBinding" && kind != "RoleBinding" {
+			continue
+		}
+
+		subjects, found, err := unstructured.NestedSlice(clusterCR.Object, "subjects")
+		if err != nil || !found {
+			continue
+		}
+
+		for _, subjectInterface := range subjects {
+			subject, ok := subjectInterface.(map[string]interface{})
+			if !ok {
+				continue
+			}
+
+			// Extract subject information
+			// Note: subjects use "kind" not "apiVersion"
+			subjKind, _, _ := unstructured.NestedString(subject, "kind")
+			subjName, _, _ := unstructured.NestedString(subject, "name")
+			subjNamespace, _, _ := unstructured.NestedString(subject, "namespace")
+
+			if subjKind == "" || subjName == "" {
+				continue
+			}
+
+			// Build the subject key
+			// ServiceAccount subjects use "v1" as apiVersion
+			var apiVersion string
+			switch subjKind {
+			case "ServiceAccount":
+				apiVersion = "v1"
+			case "User", "Group":
+				// Users and Groups don't have apiVersions in the same way
+				continue
+			default:
+				continue
+			}
+
+			// Index both with and without namespace
+			subjKeyWithoutNS := strings.Join([]string{apiVersion, subjKind, subjName}, FieldSeparator)
+			subjectsIndex[subjKeyWithoutNS] = true
+
+			if subjNamespace != "" {
+				subjKeyWithNS := strings.Join([]string{apiVersion, subjKind, subjNamespace, subjName}, FieldSeparator)
+				subjectsIndex[subjKeyWithNS] = true
+			}
+		}
+	}
+
+	return &SubjectsCorrelator[T]{
+		templates:     templates,
+		subjectsIndex: subjectsIndex,
+		templatesMap:  templatesMap,
+	}
+}
+
+// Match searches for the resource in the pre-built subjects index
+func (c SubjectsCorrelator[T]) Match(object *unstructured.Unstructured) ([]T, error) {
+	searchKey := apiKindNamespaceName(object)
+
+	// Check if this resource exists as a subject
+	if c.subjectsIndex[searchKey] {
+		// Found the resource in subjects index
+		if temps, ok := c.templatesMap[searchKey]; ok {
+			klog.V(1).Infof("Found resource %s via RBAC subjects", searchKey)
+			return temps, nil
+		}
+	}
+
+	return []T{}, UnknownMatch{Resource: object}
 }

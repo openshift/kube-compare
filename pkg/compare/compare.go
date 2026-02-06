@@ -126,15 +126,16 @@ type Options struct {
 	ShowManagedFields  bool
 	OutputFormat       string
 
-	builder        *resource.Builder
-	correlator     *MultiCorrelator[ReferenceTemplate]
-	metricsTracker *MetricsTracker
-	templates      []ReferenceTemplate
-	local          bool
-	types          []string
-	ref            Reference
-	userConfig     UserConfig
-	Concurrency    int
+	builder                *resource.Builder
+	correlator             *MultiCorrelator[ReferenceTemplate]
+	metricsTracker         *MetricsTracker
+	templates              []ReferenceTemplate
+	matchedByReferenceOnly []ReferenceTemplate
+	local                  bool
+	types                  []string
+	ref                    Reference
+	userConfig             UserConfig
+	Concurrency            int
 
 	userOverridesPath               string
 	userOverridesCorrelator         Correlator[*UserOverride]
@@ -298,7 +299,6 @@ func (o *Options) GetRefFS() (fs.FS, error) {
 	}
 	return os.DirFS(rootPath), nil
 }
-
 func (o *Options) Complete(f kcmdutil.Factory, cmd *cobra.Command, args []string) error {
 	var err error
 	o.builder = f.NewBuilder()
@@ -702,6 +702,43 @@ func diffAgainstTemplate(temp ReferenceTemplate, clusterCR *unstructured.Unstruc
 	return res, nil
 }
 
+// buildWarnings constructs warnings array from summary data
+func buildWarnings(sum *Summary) []Warning {
+	warnings := []Warning{}
+
+	if len(sum.MatchedByReferenceOnly) > 0 {
+		warnings = append(warnings, Warning{
+			Type:      "InferredResourcesNotValidated",
+			Message:   "Resource(s) found via ownerReferences or RBAC subjects but contents not validated",
+			Resources: sum.MatchedByReferenceOnly,
+		})
+	}
+
+	return warnings
+}
+
+// checkTemplateReferences proactively checks templates that exist in ownerReferences or RBAC subjects
+func (o *Options) checkTemplateReferences(ownerRefCorrelator *OwnerReferenceCorrelator[ReferenceTemplate], subjectsCorrelator *SubjectsCorrelator[ReferenceTemplate]) {
+	for _, template := range o.templates {
+		templateMd := template.GetMetadata()
+
+		// Check ownerReferences
+		if _, err := ownerRefCorrelator.Match(templateMd); err == nil {
+			o.metricsTracker.addMatch(template)
+			o.matchedByReferenceOnly = append(o.matchedByReferenceOnly, template)
+			klog.V(1).Infof("Template %s found via ownerReferences (content not validated)", template.GetIdentifier())
+			continue
+		}
+
+		// Check RBAC subjects
+		if _, err := subjectsCorrelator.Match(templateMd); err == nil {
+			o.metricsTracker.addMatch(template)
+			o.matchedByReferenceOnly = append(o.matchedByReferenceOnly, template)
+			klog.V(1).Infof("Template %s found via RBAC subjects (content not validated)", template.GetIdentifier())
+		}
+	}
+}
+
 // Run uses the factory to parse file arguments (in case of local mode) or gather all cluster resources matching
 // templates types. For each Resource it finds the matching Resource template and
 // injects, compares, and runs against differ.
@@ -762,6 +799,17 @@ func (o *Options) Run() error {
 	// Load all CRs for the lookup function:
 	AllCRs = clusterCRs
 
+	// Add OwnerReferenceCorrelator now that AllCRs is populated
+	ownerRefCorrelator := NewOwnerReferenceCorrelator(o.templates, AllCRs)
+	o.correlator.AddCorrelator(ownerRefCorrelator)
+
+	// Add SubjectsCorrelator for RBAC subjects
+	subjectsCorrelator := NewSubjectsCorrelator(o.templates, AllCRs)
+	o.correlator.AddCorrelator(subjectsCorrelator)
+
+	// Proactively check templates that exist in ownerReferences or subjects and mark them as matched
+	o.checkTemplateReferences(ownerRefCorrelator, subjectsCorrelator)
+
 	process := func(clusterCR *unstructured.Unstructured) error {
 		temps, err := o.correlator.Match(clusterCR)
 		if err != nil && (!containOnly(err, []error{UnknownMatch{}}) || o.diffAll) {
@@ -782,9 +830,8 @@ func (o *Options) Run() error {
 			if errors.As(err, &nomatch) {
 				klog.V(1).Infof("Skipping comparison of %s: doNotMatch returned by all templates", apiKindNamespaceName(clusterCR))
 				return nil
-			} else {
-				o.metricsTracker.addUNMatch(clusterCR)
 			}
+			o.metricsTracker.addUNMatch(clusterCR)
 			return err
 		}
 
@@ -833,9 +880,10 @@ func (o *Options) Run() error {
 		return fmt.Errorf("error occurred while trying to process resources: %w", err)
 	}
 
-	sum := newSummary(o.ref, o.metricsTracker, numDiffCRs, o.templates, numPatched)
+	sum := newSummary(o.ref, o.metricsTracker, numDiffCRs, o.templates, numPatched, o.matchedByReferenceOnly)
 
-	_, err = Output{Summary: sum, Diffs: &diffs, patches: o.newUserOverrides}.Print(o.OutputFormat, o.Out, o.verboseOutput)
+	warnings := buildWarnings(sum)
+	_, err = Output{Summary: sum, Diffs: &diffs, Warnings: warnings, patches: o.newUserOverrides}.Print(o.OutputFormat, o.Out, o.verboseOutput)
 	if err != nil {
 		return err
 	}

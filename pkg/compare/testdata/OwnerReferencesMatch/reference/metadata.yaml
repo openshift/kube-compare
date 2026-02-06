@@ -1,0 +1,15 @@
+parts:
+  - name: OwnerReferencesTest
+    components:
+      - name: Logging
+        type: Required
+        requiredTemplates:
+          - path: clusterlogforwarder.yaml
+      - name: Storage
+        type: Required
+        requiredTemplates:
+          - path: storagecluster.yaml
+      - name: Metal3
+        type: Required
+        requiredTemplates:
+          - path: provisioning.yaml

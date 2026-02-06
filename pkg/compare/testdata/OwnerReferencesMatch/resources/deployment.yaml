@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rook-ceph-operator
+  namespace: openshift-storage
+  ownerReferences:
+  - apiVersion: ocs.openshift.io/v1
+    controller: true
+    kind: StorageCluster
+    name: ocs-storagecluster
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rook-ceph-operator
+  template:
+    metadata:
+      labels:
+        app: rook-ceph-operator
+    spec:
+      containers:
+      - name: operator
+        image: quay.io/ceph/ceph:latest
