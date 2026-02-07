@@ -490,8 +490,12 @@ func getSupportedResourceTypes(client discovery.CachedDiscoveryInterface) (map[s
 	}
 	for _, list := range lists {
 		if len(list.APIResources) != 0 {
+			gv, err := schema.ParseGroupVersion(list.GroupVersion)
+			if err != nil {
+				klog.Warningf("Failed to parse GroupVersion %s: %v", list.GroupVersion, err)
+				continue
+			}
 			for _, res := range list.APIResources {
-				gv := schema.GroupVersion{Group: res.Group, Version: res.Version}
 				if !slices.Contains(resources[res.Kind], gv) {
 					resources[res.Kind] = append(resources[res.Kind], gv)
 				}
