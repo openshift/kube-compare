@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: metal3
+  namespace: openshift-machine-api
+  ownerReferences:
+  - apiVersion: metal3.io/v1alpha1
+    controller: true
+    kind: Provisioning
+    name: provisioning-configuration
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: metal3
+  template:
+    metadata:
+      labels:
+        app: metal3
+    spec:
+      containers:
+      - name: metal3
+        image: quay.io/metal3-io/baremetal-operator:latest

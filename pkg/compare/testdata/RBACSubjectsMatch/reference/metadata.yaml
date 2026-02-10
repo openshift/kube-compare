@@ -1,0 +1,7 @@
+parts:
+  - name: RBACSubjectsTest
+    components:
+      - name: Logging
+        type: Required
+        requiredTemplates:
+          - path: serviceaccount.yaml
