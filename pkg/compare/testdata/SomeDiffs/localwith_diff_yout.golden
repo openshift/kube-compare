@@ -1,75 +1,8 @@
 **********************************
 
-Cluster CR: apps/v1_Deployment_kubernetes-dashboard_kubernetes-dashboard
-Reference File: deploymentDashboard.yaml
-Diff Output: diff -y -W 150 TEMP/apps-v1_deployment_kubernetes-dashboard_kubernetes-dashboard TEMP/apps-v1_deployment_kubernetes-dashboard_kubernetes-dashboard
-apiVersion: apps/v1								apiVersion: apps/v1
-kind: Deployment								kind: Deployment
-metadata:									metadata:
-  labels:									  labels:
-    k8s-app: kubernetes-dashboard						    k8s-app: kubernetes-dashboard
-  name: kubernetes-dashboard							  name: kubernetes-dashboard
-  namespace: kubernetes-dashboard						  namespace: kubernetes-dashboard
-spec:										spec:
-  replicas: 1									  replicas: 1
-  revisionHistoryLimit: 10							  revisionHistoryLimit: 10
-  selector:									  selector:
-    matchLabels:								    matchLabels:
-      k8s-app: kubernetes-dashboard						      k8s-app: kubernetes-dashboard
-  template:									  template:
-    metadata:									    metadata:
-      labels:									      labels:
-        k8s-app: kubernetes-dashboard						        k8s-app: kubernetes-dashboard
-    spec:									    spec:
-      containers:								      containers:
-      - args:									      - args:
-        - --auto-generate-certificates						        - --auto-generate-certificates
-        - --namespace=kubernetes-dashboard					        - --namespace=kubernetes-dashboard
-        image: kubernetesui/dashboard:v2.7.0					        image: kubernetesui/dashboard:v2.7.0
-        imagePullPolicy: Always							        imagePullPolicy: Always
-        livenessProbe:								        livenessProbe:
-          httpGet:								          httpGet:
-            path: /								            path: /
-            port: 8443								            port: 8443
-            scheme: HTTPS							            scheme: HTTPS
-          initialDelaySeconds: 30						          initialDelaySeconds: 30
-          timeoutSeconds: 30							          timeoutSeconds: 30
-        name: kubernetes-dashboard						        name: kubernetes-dashboard
-        ports:									        ports:
-        - containerPort: 8443							        - containerPort: 8443
-          protocol: TCP								          protocol: TCP
-        securityContext:							        securityContext:
-          allowPrivilegeEscalation: false					          allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: true						          readOnlyRootFilesystem: true
-          runAsGroup: 2001							          runAsGroup: 2001
-          runAsUser: 1001							          runAsUser: 1001
-        volumeMounts:								        volumeMounts:
-        - mountPath: /certs							        - mountPath: /certs
-          name: kubernetes-dashboard-certs					          name: kubernetes-dashboard-certs
-        - mountPath: /tmp							        - mountPath: /tmp
-          name: tmp-volume							          name: tmp-volume
-      nodeSelector:								      nodeSelector:
-        kubernetes.io/os: linux							        kubernetes.io/os: linux
-      securityContext:								      securityContext:
-        seccompProfile:								        seccompProfile:
-          type: RuntimeDefault							          type: RuntimeDefault
-      serviceAccountName: kubernetes-dashboard					      serviceAccountName: kubernetes-dashboard
-      tolerations:								      tolerations:
-      - effect: NoSchedule							      - effect: NoSchedule
-        key: node-role.kubernetes.io/master					        key: node-role.kubernetes.io/master
-      volumes:									      volumes:
-      - name: kubernetes-dashboard-certs					      - name: kubernetes-dashboard-certs
-        secret:									        secret:
-          secretName: kubernetes-dashboard-certs				          secretName: kubernetes-dashboard-certs
-      - emptyDir: {}								      - emptyDir: {}
-        name: tmp-volume							        name: tmp-volume
-
-**********************************
-
 Cluster CR: apps/v1_Deployment_kubernetes-dashboard_dashboard-metrics-scraper
 Reference File: deploymentMetrics.yaml
-Diff Output: diff -y -W 150 TEMP/apps-v1_deployment_kubernetes-dashboard_dashboard-metrics-scraper TEMP/apps-v1_deployment_kubernetes-dashboard_dashboard-metrics-scraper
-apiVersion: apps/v1								apiVersion: apps/v1
+Diff Output: apiVersion: apps/v1								apiVersion: apps/v1
 kind: Deployment								kind: Deployment
 metadata:									metadata:
   labels:									  labels:
@@ -81,6 +14,7 @@ spec:										spec:
   revisionHistoryLimit: 10							  revisionHistoryLimit: 10
   selector:									  selector:
     matchLabels:								    matchLabels:
+diff -y - TEMP/apps-v1_deployment_kubernetes-dashboard_dashboard-metrics-scraper TEMP/apps-v1_deployment_kubernetes-dashboard_dashboard-metrics-scraper
       k8s-app: dashboard-metrics-scraper				  |	      k8s-app: dashboard-metrics-scraper-diff
   template:									  template:
     metadata:									    metadata:

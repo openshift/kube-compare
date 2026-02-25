@@ -790,8 +790,9 @@ func setClient(t *testing.T, resources []*unstructured.Unstructured, tf *cmdtest
 	tf.UnstructuredClient = &fake.RESTClient{
 		NegotiatedSerializer: resource.UnstructuredPlusDefaultContentConfig().NegotiatedSerializer,
 		Client: fake.CreateHTTPClient(func(req *http.Request) (*http.Response, error) {
-			switch p, m := req.URL.Path, req.Method; {
-			case m == "GET":
+			switch m := req.Method; m {
+			case "GET":
+				p := req.URL.Path
 				a := unstructured.Unstructured{}
 				exampleResource := resourcesByKind[p][0]
 				a.SetKind(exampleResource.GetKind() + "List")

@@ -3,9 +3,9 @@ Diffs:
   CorrelatedTemplate: deploymentDashboard.yaml
   DiffOutput: "diff -u -N TEMP/apps-v1_deployment_kubernetes-dashboard_kubernetes-dashboard
     TEMP/apps-v1_deployment_kubernetes-dashboard_kubernetes-dashboard\n---
-    TEMP/apps-v1_deployment_kubernetes-dashboard_kubernetes-dashboard\tDATE\n+++ TEMP/apps-v1_deployment_kubernetes-dashboard_kubernetes-dashboard\tDATE\n@@ -14,7 +14,7 @@\n   template:\n     metadata:\n       labels:\n-
-    \       k8s-app: kubernetes-dashboard\n+        k8s-app: kubernetes-dashboard-diff\n
-    \    spec:\n       containers:\n       - args:\n"
+    TEMP/apps-v1_deployment_kubernetes-dashboard_kubernetes-dashboard\tDATE\n+++ TEMP/apps-v1_deployment_kubernetes-dashboard_kubernetes-dashboard\tDATE\n@@ -14,7 +14,7 @@\n   template:\n     metadata:\n       labels:\n-        k8s-app:
+    kubernetes-dashboard\n+        k8s-app: kubernetes-dashboard-diff\n     spec:\n
+    \      containers:\n       - args:\n"
 Summary:
   MetadataHash: aa4c94f1307788e1da81f57718a9f1364d35d4ff6099fc633724bcf9d051a094
   NumDiffCRs: 1
