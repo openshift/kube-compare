@@ -1,0 +1,13 @@
+# Example generate config for cluster-compare -g
+# Use: kubectl cluster-compare -g docs/example/generate-config.yaml
+# Or with must-gather: kubectl cluster-compare -g docs/example/generate-config.yaml --must-gather ./must-gather.123456
+apiVersion: refgen/v1
+outputDir: ./generated-reference
+
+resources:
+  - kind: Namespace
+    apiVersion: v1
+    required: false
+    names:
+      - openshift-sriov-network-operator
+      - openshift-ptp

@@ -17,6 +17,7 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/gosimple/slug"
+	"github.com/openshift/kube-compare/pkg/generate"
 	"github.com/sergi/go-diff/diffmatchpatch"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -74,6 +75,11 @@ var (
 
 		Note: KUBECTL_EXTERNAL_DIFF, if used, is expected to follow that convention.
 
+		Generate mode: Use -g with a generate config file to create a reference from a live cluster
+		or must-gather directory. The config specifies which resource types to capture. Use
+		--must-gather to generate from a must-gather directory instead of a live cluster.
+		Use --output-dir to override the output directory from the config.
+
 		Experimental: This command is under active development and may change without notice.
 	`)
 
@@ -92,6 +98,12 @@ var (
 
 		# Extract a reference configuration from a container image and compare with a local set of CRs:
 		kubectl cluster-compare -r container://<IMAGE>:<TAG>:/home/ztp/reference/metadata.yaml -f ./crsdir -R
+
+		# Generate a reference configuration from a live cluster:
+		kubectl cluster-compare -g ./refgen-config.yaml
+
+		# Generate a reference configuration from a must-gather directory:
+		kubectl cluster-compare -g ./refgen-config.yaml --must-gather ./must-gather.123456
 	`)
 )
 
@@ -143,6 +155,11 @@ type Options struct {
 	templatesToGenerateOverridesFor []string
 	overrideReason                  string
 
+	// Generate mode (when -g is set)
+	generateConfig    string
+	generateOutputDir string
+	mustGatherDir     string
+
 	TmpDir string
 
 	diff *diff.DiffProgram
@@ -192,6 +209,19 @@ func NewCmd(f kcmdutil.Factory, streams genericiooptions.IOStreams) *cobra.Comma
 				defer os.RemoveAll(options.TmpDir)
 			}
 			kcmdutil.CheckDiffErr(options.Complete(f, cmd, args))
+			// In generate mode, run generate and exit.
+			if options.generateConfig != "" {
+				genOpts := &generate.Options{
+					GenerateConfig: options.generateConfig,
+					OutputDir:      options.generateOutputDir,
+					MustGatherDir:  options.mustGatherDir,
+					Verbose:        options.verboseOutput,
+					Factory:        f,
+					Streams:        options.IOStreams,
+				}
+				kcmdutil.CheckErr(genOpts.Run())
+				return
+			}
 			// `kubectl cluster-compare` propagates the error code from
 			// `kubectl diff` that propagates the error code from
 			// diff or `KUBECTL_EXTERNAL_DIFF`. Also, we
@@ -230,6 +260,9 @@ func NewCmd(f kcmdutil.Factory, streams genericiooptions.IOStreams) *cobra.Comma
 			"In local mode will try to match all resources passed to the command")
 	cmd.Flags().BoolVarP(&options.verboseOutput, "verbose", "v", options.verboseOutput, "Increases the verbosity of the tool")
 
+	cmd.Flags().StringVarP(&options.generateConfig, "generate-config", "g", "", "Path to generate config file. When set, generates reference from cluster or must-gather instead of comparing.")
+	cmd.Flags().StringVar(&options.generateOutputDir, "output-dir", "", "Output directory for generated reference (overrides config file setting). Only used with -g.")
+	cmd.Flags().StringVar(&options.mustGatherDir, "must-gather", "", "Path to must-gather directory. When set with -g, generates reference from must-gather instead of live cluster.")
 	cmd.Flags().StringVarP(&options.userOverridesPath, "overrides", "p", "", "Path to user overrides")
 	cmd.Flags().StringSliceVar(&options.templatesToGenerateOverridesFor, "generate-override-for", []string{}, "Path for template file you wish to generate a override for")
 	cmd.Flags().StringVar(&options.overrideReason, "override-reason", "", "Reason for generating the override")
@@ -301,6 +334,18 @@ func (o *Options) GetRefFS() (fs.FS, error) {
 
 func (o *Options) Complete(f kcmdutil.Factory, cmd *cobra.Command, args []string) error {
 	var err error
+
+	// Generate mode: -g and -r are mutually exclusive.
+	if o.generateConfig != "" {
+		if o.ReferenceConfig != "" {
+			return kcmdutil.UsageErrorf(cmd, "cannot use -r and -g together; use -r for compare or -g for generate")
+		}
+		if len(args) != 0 {
+			return kcmdutil.UsageErrorf(cmd, "Unexpected args: %v", args)
+		}
+		return nil
+	}
+
 	o.builder = f.NewBuilder()
 
 	if o.OutputFormat == PatchYaml {
