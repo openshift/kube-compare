@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: collector
+  namespace: openshift-logging
+  ownerReferences:
+  - apiVersion: observability.openshift.io/v1
+    controller: true
+    kind: ClusterLogForwarder
+    name: instance
+spec:
+  selector:
+    matchLabels:
+      app: collector
+  template:
+    metadata:
+      labels:
+        app: collector
+    spec:
+      containers:
+      - name: collector
+        image: quay.io/openshift/collector:latest

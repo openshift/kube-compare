@@ -1,0 +1,9 @@
+Summary
+CRs with diffs: 0/1
+No validation issues with the cluster
+
+Warning: 1 resource(s) found via ownerReferences or RBAC subjects but contents not validated:
+  - serviceaccount.yaml
+No CRs are unmatched to reference CRs
+Metadata Hash: $METADATA_HASH$
+No patched CRs

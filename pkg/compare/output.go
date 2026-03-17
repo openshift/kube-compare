@@ -20,6 +20,13 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
+// Warning represents a warning message in the output
+type Warning struct {
+	Type      string   `json:"type"`
+	Message   string   `json:"message"`
+	Resources []string `json:"resources"`
+}
+
 // DiffSum Contains the diff output and correlation info of a specific CR
 type DiffSum struct {
 	DiffOutput         string   `json:"DiffOutput"`
@@ -67,21 +74,25 @@ func (s DiffSum) WasPatched() bool {
 
 // Summary Contains all info included in the Summary output of the compare command
 type Summary struct {
-	ValidationIssues map[string]map[string]ValidationIssue `json:"ValidationIssuses"`
-	NumMissing       int                                   `json:"NumMissing"`
-	UnmatchedCRS     []string                              `json:"UnmatchedCRS"`
-	NumDiffCRs       int                                   `json:"NumDiffCRs"`
-	TotalCRs         int                                   `json:"TotalCRs"`
-	MetadataHash     string                                `json:"MetadataHash"`
-	PatchedCRs       int                                   `json:"patchedCRs"`
+	ValidationIssues       map[string]map[string]ValidationIssue `json:"ValidationIssuses"`
+	NumMissing             int                                   `json:"NumMissing"`
+	UnmatchedCRS           []string                              `json:"UnmatchedCRS"`
+	NumDiffCRs             int                                   `json:"NumDiffCRs"`
+	TotalCRs               int                                   `json:"TotalCRs"`
+	MetadataHash           string                                `json:"MetadataHash"`
+	PatchedCRs             int                                   `json:"patchedCRs"`
+	MatchedByReferenceOnly []string                              `json:"matchedByReferenceOnly,omitempty"`
 }
 
-func newSummary(reference Reference, c *MetricsTracker, numDiffCRs int, templates []ReferenceTemplate, numPatchedCRs int) *Summary {
+func newSummary(reference Reference, c *MetricsTracker, numDiffCRs int, templates []ReferenceTemplate, numPatchedCRs int, matchedByReferenceOnly []ReferenceTemplate) *Summary {
 	s := Summary{NumDiffCRs: numDiffCRs, PatchedCRs: numPatchedCRs}
 	s.ValidationIssues, s.NumMissing = reference.GetValidationIssues(c.MatchedTemplatesNames)
 	s.TotalCRs = c.getTotalCRs()
 	s.UnmatchedCRS = lo.Map(c.UnMatchedCRs, func(r *unstructured.Unstructured, i int) string {
 		return apiKindNamespaceName(r)
+	})
+	s.MatchedByReferenceOnly = lo.Map(matchedByReferenceOnly, func(t ReferenceTemplate, i int) string {
+		return t.GetIdentifier()
 	})
 
 	hash := sha256.New()
@@ -127,6 +138,13 @@ CRs in reference missing from the cluster: {{.NumMissing}}
 {{- else}}
 No validation issues with the cluster
 {{- end }}
+{{- if ne (len  .MatchedByReferenceOnly) 0 }}
+
+Warning: {{len  .MatchedByReferenceOnly}} resource(s) found via ownerReferences or RBAC subjects but contents not validated:
+{{- range $cr := .MatchedByReferenceOnly }}
+  - {{ $cr }}
+{{- end }}
+{{- end }}
 {{- if ne (len  .UnmatchedCRS) 0 }}
 Cluster CRs unmatched to reference CRs: {{len  .UnmatchedCRS}}
 {{ toYaml .UnmatchedCRS}}
@@ -148,9 +166,10 @@ No patched CRs
 
 // Output Contains the complete output of the command
 type Output struct {
-	Summary *Summary   `json:"Summary"`
-	Diffs   *[]DiffSum `json:"Diffs"`
-	patches []*UserOverride
+	Summary  *Summary   `json:"Summary"`
+	Diffs    *[]DiffSum `json:"Diffs"`
+	Warnings []Warning  `json:"Warnings,omitempty"`
+	patches  []*UserOverride
 }
 
 func (o Output) String(showEmptyDiffs bool) string {

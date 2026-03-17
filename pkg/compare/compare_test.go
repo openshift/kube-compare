@@ -675,6 +675,8 @@ func TestCompareRun(t *testing.T) {
 			withSubTestSuffix("Filter unnamed template matches").
 			withMetadataFile("metadata-filter.yaml").
 			withChecks(defaultChecks.withPrefixedSuffix("Filter")),
+		defaultTest("OwnerReferencesMatch"),
+		defaultTest("RBACSubjectsMatch"),
 	}
 
 	tf := cmdtesting.NewTestFactory()
