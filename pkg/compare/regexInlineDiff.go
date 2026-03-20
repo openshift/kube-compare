@@ -22,14 +22,14 @@ type capturedGroupIndex struct {
 
 type capturedValueIndices struct {
 	CapturedValues
-	topLevelCaputuredGroups []capturedGroupIndex
+	topLevelCapturedGroups []capturedGroupIndex
 }
 
 func (c *capturedValueIndices) addCapture(name, value string, start, end int) {
 	c.CapturedValues.addCapture(name, value)
 	addNew := true
 	replaces := []int{}
-	for n, tlg := range c.topLevelCaputuredGroups {
+	for n, tlg := range c.topLevelCapturedGroups {
 		if start >= tlg.start && end <= tlg.end {
 			addNew = false
 		} else if start <= tlg.start && end >= tlg.end {
@@ -37,21 +37,21 @@ func (c *capturedValueIndices) addCapture(name, value string, start, end int) {
 		}
 	}
 	if addNew || len(replaces) > 0 {
-		c.topLevelCaputuredGroups = append(c.topLevelCaputuredGroups,
+		c.topLevelCapturedGroups = append(c.topLevelCapturedGroups,
 			capturedGroupIndex{name: name, start: start, end: end},
 		)
 	}
 
 	for _, i := range replaces {
-		c.topLevelCaputuredGroups = slices.Delete(c.topLevelCaputuredGroups, i, i+1)
+		c.topLevelCapturedGroups = slices.Delete(c.topLevelCapturedGroups, i, i+1)
 	}
 }
 
 func (c *capturedValueIndices) getTopLevelIndices() []capturedGroupIndex {
-	sort.Slice(c.topLevelCaputuredGroups, func(i, j int) bool {
-		return cmp.Less(c.topLevelCaputuredGroups[j].start, c.topLevelCaputuredGroups[i].start)
+	sort.Slice(c.topLevelCapturedGroups, func(i, j int) bool {
+		return cmp.Less(c.topLevelCapturedGroups[j].start, c.topLevelCapturedGroups[i].start)
 	})
-	return c.topLevelCaputuredGroups
+	return c.topLevelCapturedGroups
 }
 
 func (id RegexInlineDiff) Diff(regex, crValue string, sharedCapturedValues CapturedValues) (string, CapturedValues) {
@@ -84,7 +84,7 @@ func (id RegexInlineDiff) Diff(regex, crValue string, sharedCapturedValues Captu
 
 func (id RegexInlineDiff) Validate(regex string) error {
 	if _, err := regexp.Compile(regex); err != nil {
-		return fmt.Errorf("invalid regex passed to inline rgegex diff function: %w", err)
+		return fmt.Errorf("invalid regex passed to inline regex diff function: %w", err)
 	}
 	return nil
 }
