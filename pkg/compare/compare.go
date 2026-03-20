@@ -75,9 +75,9 @@ var (
 
 		Note: KUBECTL_EXTERNAL_DIFF, if used, is expected to follow that convention.
 
-		Generate mode: Use -g with a generate config file to create a reference from a live cluster
-		or must-gather directory. The config specifies which resource types to capture. Use
-		--must-gather to generate from a must-gather directory instead of a live cluster.
+		Generate mode: Use -g with a generate config file to create an initial reference from a live cluster
+		or must-gather directory. The config specifies which resource types to capture. Use -f with a single
+		path to the must-gather root directory to generate from disk; omit -f to use the live cluster.
 		Use --output-dir to override the output directory from the config.
 
 		Experimental: This command is under active development and may change without notice.
@@ -103,7 +103,7 @@ var (
 		kubectl cluster-compare -g ./refgen-config.yaml
 
 		# Generate a reference configuration from a must-gather directory:
-		kubectl cluster-compare -g ./refgen-config.yaml --must-gather ./must-gather.123456
+		kubectl cluster-compare -g ./refgen-config.yaml -f ./must-gather.123456
 	`)
 )
 
@@ -159,7 +159,6 @@ type Options struct {
 	// Generate mode (when -g is set)
 	generateConfig    string
 	generateOutputDir string
-	mustGatherDir     string
 
 	TmpDir string
 
@@ -212,10 +211,14 @@ func NewCmd(f kcmdutil.Factory, streams genericiooptions.IOStreams) *cobra.Comma
 			kcmdutil.CheckDiffErr(options.Complete(f, cmd, args))
 			// In generate mode, run generate and exit.
 			if options.generateConfig != "" {
+				var mustGatherDir string
+				if len(options.CRs.Filenames) > 0 {
+					mustGatherDir = options.CRs.Filenames[0]
+				}
 				genOpts := &generate.Options{
 					GenerateConfig: options.generateConfig,
 					OutputDir:      options.generateOutputDir,
-					MustGatherDir:  options.mustGatherDir,
+					MustGatherDir:  mustGatherDir,
 					Verbose:        options.verboseOutput,
 					Factory:        f,
 					Streams:        options.IOStreams,
@@ -252,7 +255,7 @@ func NewCmd(f kcmdutil.Factory, streams genericiooptions.IOStreams) *cobra.Comma
 	cmd.Flags().IntVar(&options.Concurrency, "concurrency", 4,
 		"Number of objects to process in parallel when diffing against the live version. Larger number = faster,"+
 			" but more memory, I/O and CPU over that shorter period of time.")
-	kcmdutil.AddFilenameOptionFlags(cmd, &options.CRs, "contains the configuration to diff")
+	kcmdutil.AddFilenameOptionFlags(cmd, &options.CRs, "contains the configuration to diff; with -g, optional single path to a must-gather root (omit for live cluster)")
 	cmd.Flags().StringVarP(&options.diffConfigFileName, "diff-config", "c", "", "Path to the user config file")
 	cmd.Flags().StringVarP(&options.ReferenceConfig, "reference", "r", "", "Path to reference config file.")
 	cmd.Flags().BoolVar(&options.ShowManagedFields, "show-managed-fields", options.ShowManagedFields, "If true, include managed fields in the diff.")
@@ -261,9 +264,8 @@ func NewCmd(f kcmdutil.Factory, streams genericiooptions.IOStreams) *cobra.Comma
 			"In local mode will try to match all resources passed to the command")
 	cmd.Flags().BoolVarP(&options.verboseOutput, "verbose", "v", options.verboseOutput, "Increases the verbosity of the tool")
 
-	cmd.Flags().StringVarP(&options.generateConfig, "generate-config", "g", "", "Path to generate config file. When set, generates reference from cluster or must-gather instead of comparing.")
+	cmd.Flags().StringVarP(&options.generateConfig, "generate-config", "g", "", "Path to generate config file. When set, generates reference from the live cluster or from a must-gather directory given by a single -f path instead of comparing.")
 	cmd.Flags().StringVar(&options.generateOutputDir, "output-dir", "", "Output directory for generated reference (overrides config file setting). Only used with -g.")
-	cmd.Flags().StringVar(&options.mustGatherDir, "must-gather", "", "Path to must-gather directory. When set with -g, generates reference from must-gather instead of live cluster.")
 	cmd.Flags().StringVarP(&options.userOverridesPath, "overrides", "p", "", "Path to user overrides")
 	cmd.Flags().StringSliceVar(&options.templatesToGenerateOverridesFor, "generate-override-for", []string{}, "Path for template file you wish to generate a override for")
 	cmd.Flags().StringVar(&options.overrideReason, "override-reason", "", "Reason for generating the override")
@@ -342,6 +344,12 @@ func (o *Options) Complete(f kcmdutil.Factory, cmd *cobra.Command, args []string
 		}
 		if len(args) != 0 {
 			return kcmdutil.UsageErrorf(cmd, "Unexpected args: %v", args)
+		}
+		if o.CRs.Kustomize != "" {
+			return kcmdutil.UsageErrorf(cmd, "cannot use -k with -g; use -f with a must-gather directory path, or omit -f for a live cluster")
+		}
+		if len(o.CRs.Filenames) > 1 {
+			return kcmdutil.UsageErrorf(cmd, "with -g, specify at most one must-gather path with -f (or omit -f to use the live cluster)")
 		}
 		return nil
 	}
