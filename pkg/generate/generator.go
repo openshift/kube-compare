@@ -13,6 +13,11 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
+var (
+	sanitizePathChars = regexp.MustCompile(`[^\w\-.]`)
+	sanitizePathDashes = regexp.MustCompile(`-+`)
+)
+
 // defaultFieldsToOmit returns the standard fieldsToOmit configuration for generated metadata.
 func defaultFieldsToOmit() map[string]any {
 	return map[string]any{
@@ -63,11 +68,26 @@ func defaultFieldsToOmit() map[string]any {
 
 // sanitizeFilename converts a resource name to a safe filename.
 func sanitizeFilename(name string) string {
-	safe := regexp.MustCompile(`[^\w\-.]`).ReplaceAllString(name, "-")
-	safe = regexp.MustCompile(`-+`).ReplaceAllString(safe, "-")
+	safe := sanitizePathChars.ReplaceAllString(name, "-")
+	safe = sanitizePathDashes.ReplaceAllString(safe, "-")
 	safe = strings.Trim(safe, "-")
 	if safe == "" {
 		return "unnamed"
+	}
+	return safe
+}
+
+// sanitizePathSegment maps user-controlled strings (e.g. Kind) to a single directory name
+// that cannot contain path separators or traverse outside the output directory when joined.
+func sanitizePathSegment(s string) string {
+	s = strings.ReplaceAll(s, string(filepath.Separator), "-")
+	s = strings.ReplaceAll(s, "/", "-")
+	s = strings.ReplaceAll(s, `\`, "-")
+	safe := sanitizePathChars.ReplaceAllString(s, "-")
+	safe = sanitizePathDashes.ReplaceAllString(safe, "-")
+	safe = strings.Trim(safe, "-.")
+	if safe == "" || safe == "." || safe == ".." || strings.Contains(safe, "..") {
+		return "resource"
 	}
 	return safe
 }
@@ -96,7 +116,7 @@ func cleanResource(obj *unstructured.Unstructured) map[string]any {
 // Generator generates kube-compare reference files.
 type Generator struct {
 	config    *RefgenConfig
-	outputDir string
+	outputDir string // absolute, cleaned root after Generate begins
 	files     map[string][]fileEntry
 }
 
@@ -119,6 +139,11 @@ func NewGenerator(config *RefgenConfig, outputDir string) *Generator {
 
 // Generate writes the reference directory with metadata.yaml and CR files.
 func (g *Generator) Generate(resourcesBySpec map[*ResourceSpec][]*unstructured.Unstructured) (string, error) {
+	outputAbs, err := filepath.Abs(filepath.Clean(g.outputDir))
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve output directory: %w", err)
+	}
+	g.outputDir = outputAbs
 	if err := os.MkdirAll(g.outputDir, 0o755); err != nil {
 		return "", fmt.Errorf("failed to create output directory: %w", err)
 	}
@@ -140,12 +165,31 @@ func (g *Generator) Generate(resourcesBySpec map[*ResourceSpec][]*unstructured.U
 	return absPath, nil
 }
 
+func (g *Generator) pathWithinOutput(path string) error {
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return fmt.Errorf("failed to resolve path: %w", err)
+	}
+	rel, err := filepath.Rel(g.outputDir, abs)
+	if err != nil {
+		return fmt.Errorf("invalid output path: %w", err)
+	}
+	if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return fmt.Errorf("path escapes output directory: %s", path)
+	}
+	return nil
+}
+
 func (g *Generator) writeCRFiles(spec *ResourceSpec, resources []*unstructured.Unstructured) error {
-	kindDir := filepath.Join(g.outputDir, spec.Kind)
+	safeKind := sanitizePathSegment(spec.Kind)
+	kindDir := filepath.Join(g.outputDir, safeKind)
+	if err := g.pathWithinOutput(kindDir); err != nil {
+		return err
+	}
 	if err := os.MkdirAll(kindDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create directory %s: %w", kindDir, err)
 	}
-	g.files[spec.Kind] = nil
+	g.files[safeKind] = nil
 	for _, r := range resources {
 		filename := sanitizeFilename(r.GetName()) + ".yaml"
 		crPath := filepath.Join(kindDir, filename)
@@ -163,11 +207,14 @@ func (g *Generator) writeCRFiles(spec *ResourceSpec, resources []*unstructured.U
 		if err != nil {
 			return fmt.Errorf("failed to marshal %s: %w", r.GetName(), err)
 		}
+		if err := g.pathWithinOutput(crPath); err != nil {
+			return err
+		}
 		if err := os.WriteFile(crPath, data, 0o644); err != nil {
 			return fmt.Errorf("failed to write %s: %w", crPath, err)
 		}
-		relativePath := spec.Kind + "/" + filepath.Base(crPath)
-		g.files[spec.Kind] = append(g.files[spec.Kind], fileEntry{spec: spec, path: relativePath})
+		relativePath := safeKind + "/" + filepath.Base(crPath)
+		g.files[safeKind] = append(g.files[safeKind], fileEntry{spec: spec, path: relativePath})
 	}
 	return nil
 }
@@ -201,7 +248,7 @@ func (g *Generator) writeMetadata() error {
 		}
 		part := map[string]any{
 			"name":        fmt.Sprintf("%s-%s", reqStr, strings.ToLower(kind)),
-			"description": fmt.Sprintf("%s %s resources", reqTitle, kind),
+			"description": fmt.Sprintf("%s %s resources", reqTitle, spec.Kind),
 			"components":  []map[string]any{component},
 		}
 		metadata["parts"] = append(metadata["parts"].([]map[string]any), part)
@@ -211,6 +258,9 @@ func (g *Generator) writeMetadata() error {
 		return fmt.Errorf("failed to marshal metadata: %w", err)
 	}
 	metadataPath := filepath.Join(g.outputDir, "metadata.yaml")
+	if err := g.pathWithinOutput(metadataPath); err != nil {
+		return err
+	}
 	if err := os.WriteFile(metadataPath, data, 0o644); err != nil {
 		return fmt.Errorf("failed to write metadata.yaml: %w", err)
 	}
