@@ -106,6 +106,39 @@ func TestCleanResource(t *testing.T) {
 	assert.Equal(t, "v", data["k"])
 }
 
+func TestCleanResourceKeepsUnlistedAnnotationsAndLabels(t *testing.T) {
+	t.Parallel()
+	obj := &unstructured.Unstructured{
+		Object: map[string]any{
+			"apiVersion": "v1",
+			"kind":       "ConfigMap",
+			"metadata": map[string]any{
+				"name": "cm1",
+				"annotations": map[string]any{
+					"keep.me/custom": "val",
+					"kubectl.kubernetes.io/last-applied-configuration": "blob",
+				},
+				"labels": map[string]any{
+					"app":                               "nginx",
+					"kubernetes.io/metadata.name":       "should-strip",
+					"security.openshift.io/scc.podSecurityLabelSync": "true",
+				},
+			},
+		},
+	}
+
+	out := cleanResource(obj)
+	md := out["metadata"].(map[string]any)
+	ann := md["annotations"].(map[string]any)
+	assert.Equal(t, "val", ann["keep.me/custom"])
+	assert.NotContains(t, ann, "kubectl.kubernetes.io/last-applied-configuration")
+
+	lbl := md["labels"].(map[string]any)
+	assert.Equal(t, "nginx", lbl["app"])
+	assert.NotContains(t, lbl, "kubernetes.io/metadata.name")
+	assert.NotContains(t, lbl, "security.openshift.io/scc.podSecurityLabelSync")
+}
+
 func TestGeneratorGenerate(t *testing.T) {
 	t.Parallel()
 

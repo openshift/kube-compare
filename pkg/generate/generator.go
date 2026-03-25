@@ -66,6 +66,33 @@ func defaultFieldsToOmit() map[string]any {
 	}
 }
 
+// omitAnnotationAndLabelKeys returns annotation and label keys referenced by defaultFieldsToOmit
+// defaults entries (metadata.annotations."key" / metadata.labels."key").
+func omitAnnotationAndLabelKeys() (annotations, labels []string) {
+	fto := defaultFieldsToOmit()
+	items, _ := fto["items"].(map[string]any)
+	if items == nil {
+		return nil, nil
+	}
+	defaults, _ := items["defaults"].([]map[string]string)
+	if defaults == nil {
+		return nil, nil
+	}
+	const annP = `metadata.annotations."`
+	const lblP = `metadata.labels."`
+	for _, m := range defaults {
+		p := m["pathToKey"]
+		if strings.HasPrefix(p, annP) && strings.HasSuffix(p, `"`) && len(p) > len(annP)+1 {
+			annotations = append(annotations, p[len(annP):len(p)-1])
+			continue
+		}
+		if strings.HasPrefix(p, lblP) && strings.HasSuffix(p, `"`) && len(p) > len(lblP)+1 {
+			labels = append(labels, p[len(lblP):len(p)-1])
+		}
+	}
+	return annotations, labels
+}
+
 // sanitizeFilename converts a resource name to a safe filename.
 func sanitizeFilename(name string) string {
 	safe := sanitizePathChars.ReplaceAllString(name, "-")
@@ -102,11 +129,22 @@ func cleanResource(obj *unstructured.Unstructured) map[string]any {
 		for _, key := range []string{"resourceVersion", "uid", "creationTimestamp", "generation", "managedFields", "selfLink"} {
 			delete(metadata, key)
 		}
-		if ann, ok := metadata["annotations"].(map[string]any); ok && len(ann) == 0 {
-			delete(metadata, "annotations")
+		annKeys, labelKeys := omitAnnotationAndLabelKeys()
+		if ann, ok := metadata["annotations"].(map[string]any); ok {
+			for _, k := range annKeys {
+				delete(ann, k)
+			}
+			if len(ann) == 0 {
+				delete(metadata, "annotations")
+			}
 		}
-		if lbl, ok := metadata["labels"].(map[string]any); ok && len(lbl) == 0 {
-			delete(metadata, "labels")
+		if lbl, ok := metadata["labels"].(map[string]any); ok {
+			for _, k := range labelKeys {
+				delete(lbl, k)
+			}
+			if len(lbl) == 0 {
+				delete(metadata, "labels")
+			}
 		}
 	}
 	delete(result, "status")
