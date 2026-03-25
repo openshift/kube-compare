@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	sanitizePathChars = regexp.MustCompile(`[^\w\-.]`)
+	sanitizePathChars  = regexp.MustCompile(`[^\w\-.]`)
 	sanitizePathDashes = regexp.MustCompile(`-+`)
 )
 
@@ -66,31 +66,103 @@ func defaultFieldsToOmit() map[string]any {
 	}
 }
 
-// omitAnnotationAndLabelKeys returns annotation and label keys referenced by defaultFieldsToOmit
-// defaults entries (metadata.annotations."key" / metadata.labels."key").
-func omitAnnotationAndLabelKeys() (annotations, labels []string) {
+const (
+	annotationPathPrefix = `metadata.annotations."`
+	labelPathPrefix      = `metadata.labels."`
+)
+
+func pathToKeyForAnnotation(key string) string {
+	return annotationPathPrefix + key + `"`
+}
+
+func pathToKeyForLabel(key string) string {
+	return labelPathPrefix + key + `"`
+}
+
+// mergeFieldsToOmit returns fieldsToOmit metadata: built-in defaults plus any
+// omitAnnotations / omitLabels from the refgen config.
+func mergeFieldsToOmit(cfg *RefgenConfig) map[string]any {
 	fto := defaultFieldsToOmit()
+	if cfg == nil || (len(cfg.OmitAnnotations) == 0 && len(cfg.OmitLabels) == 0) {
+		return fto
+	}
+	items, _ := fto["items"].(map[string]any)
+	if items == nil {
+		return fto
+	}
+	orig, _ := items["defaults"].([]map[string]string)
+	if orig == nil {
+		return fto
+	}
+	merged := make([]map[string]string, len(orig), len(orig)+len(cfg.OmitAnnotations)+len(cfg.OmitLabels))
+	copy(merged, orig)
+	for _, k := range cfg.OmitAnnotations {
+		merged = append(merged, map[string]string{"pathToKey": pathToKeyForAnnotation(k)})
+	}
+	for _, k := range cfg.OmitLabels {
+		merged = append(merged, map[string]string{"pathToKey": pathToKeyForLabel(k)})
+	}
+	items["defaults"] = merged
+	return fto
+}
+
+// omitAnnotationAndLabelKeys returns annotation and label keys referenced by fieldsToOmit
+// defaults entries (metadata.annotations."key" / metadata.labels."key").
+func omitAnnotationAndLabelKeys(fto map[string]any) (annotations, labels []string) {
 	items, _ := fto["items"].(map[string]any)
 	if items == nil {
 		return nil, nil
 	}
-	defaults, _ := items["defaults"].([]map[string]string)
-	if defaults == nil {
-		return nil, nil
-	}
-	const annP = `metadata.annotations."`
-	const lblP = `metadata.labels."`
-	for _, m := range defaults {
-		p := m["pathToKey"]
-		if strings.HasPrefix(p, annP) && strings.HasSuffix(p, `"`) && len(p) > len(annP)+1 {
-			annotations = append(annotations, p[len(annP):len(p)-1])
+	defaultsAny := items["defaults"]
+	paths := pathsFromDefaultsEntries(defaultsAny)
+	seenAnn := make(map[string]struct{})
+	seenLbl := make(map[string]struct{})
+	for _, p := range paths {
+		if strings.HasPrefix(p, annotationPathPrefix) && strings.HasSuffix(p, `"`) && len(p) > len(annotationPathPrefix)+1 {
+			k := p[len(annotationPathPrefix) : len(p)-1]
+			if _, ok := seenAnn[k]; !ok {
+				seenAnn[k] = struct{}{}
+				annotations = append(annotations, k)
+			}
 			continue
 		}
-		if strings.HasPrefix(p, lblP) && strings.HasSuffix(p, `"`) && len(p) > len(lblP)+1 {
-			labels = append(labels, p[len(lblP):len(p)-1])
+		if strings.HasPrefix(p, labelPathPrefix) && strings.HasSuffix(p, `"`) && len(p) > len(labelPathPrefix)+1 {
+			k := p[len(labelPathPrefix) : len(p)-1]
+			if _, ok := seenLbl[k]; !ok {
+				seenLbl[k] = struct{}{}
+				labels = append(labels, k)
+			}
 		}
 	}
 	return annotations, labels
+}
+
+func pathsFromDefaultsEntries(defaultsAny any) []string {
+	switch defaults := defaultsAny.(type) {
+	case []map[string]string:
+		out := make([]string, 0, len(defaults))
+		for _, m := range defaults {
+			if p := m["pathToKey"]; p != "" {
+				out = append(out, p)
+			}
+		}
+		return out
+	case []any:
+		out := make([]string, 0, len(defaults))
+		for _, elem := range defaults {
+			m, ok := elem.(map[string]any)
+			if !ok {
+				continue
+			}
+			pv, ok := m["pathToKey"].(string)
+			if ok && pv != "" {
+				out = append(out, pv)
+			}
+		}
+		return out
+	default:
+		return nil
+	}
 }
 
 // sanitizeFilename converts a resource name to a safe filename.
@@ -120,7 +192,8 @@ func sanitizePathSegment(s string) string {
 }
 
 // cleanResource returns a copy of the object with runtime-managed fields removed.
-func cleanResource(obj *unstructured.Unstructured) map[string]any {
+// fto is the merged fieldsToOmit map (defaults entries drive annotation/label key removal).
+func cleanResource(obj *unstructured.Unstructured, fto map[string]any) map[string]any {
 	result := make(map[string]any)
 	for k, v := range obj.Object {
 		result[k] = v
@@ -129,7 +202,7 @@ func cleanResource(obj *unstructured.Unstructured) map[string]any {
 		for _, key := range []string{"resourceVersion", "uid", "creationTimestamp", "generation", "managedFields", "selfLink"} {
 			delete(metadata, key)
 		}
-		annKeys, labelKeys := omitAnnotationAndLabelKeys()
+		annKeys, labelKeys := omitAnnotationAndLabelKeys(fto)
 		if ann, ok := metadata["annotations"].(map[string]any); ok {
 			for _, k := range annKeys {
 				delete(ann, k)
@@ -153,9 +226,10 @@ func cleanResource(obj *unstructured.Unstructured) map[string]any {
 
 // Generator generates kube-compare reference files.
 type Generator struct {
-	config    *RefgenConfig
-	outputDir string // absolute, cleaned root after Generate begins
-	files     map[string][]fileEntry
+	config       *RefgenConfig
+	outputDir    string // absolute, cleaned root after Generate begins
+	files        map[string][]fileEntry
+	fieldsToOmit map[string]any
 }
 
 type fileEntry struct {
@@ -169,9 +243,10 @@ func NewGenerator(config *RefgenConfig, outputDir string) *Generator {
 		outputDir = config.OutputDir
 	}
 	return &Generator{
-		config:    config,
-		outputDir: outputDir,
-		files:     make(map[string][]fileEntry),
+		config:       config,
+		outputDir:    outputDir,
+		files:        make(map[string][]fileEntry),
+		fieldsToOmit: mergeFieldsToOmit(config),
 	}
 }
 
@@ -240,7 +315,7 @@ func (g *Generator) writeCRFiles(spec *ResourceSpec, resources []*unstructured.U
 			crPath = filepath.Join(kindDir, filename)
 			counter++
 		}
-		clean := cleanResource(r)
+		clean := cleanResource(r, g.fieldsToOmit)
 		data, err := yaml.Marshal(clean)
 		if err != nil {
 			return fmt.Errorf("failed to marshal %s: %w", r.GetName(), err)
@@ -261,7 +336,7 @@ func (g *Generator) writeMetadata() error {
 	metadata := map[string]any{
 		"apiVersion":   "v2",
 		"parts":        []map[string]any{},
-		"fieldsToOmit": defaultFieldsToOmit(),
+		"fieldsToOmit": g.fieldsToOmit,
 	}
 	for kind, entries := range g.files {
 		if len(entries) == 0 {

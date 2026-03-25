@@ -6,14 +6,21 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"sigs.k8s.io/yaml"
 )
 
 // RefgenConfig is the root configuration for reference generation.
 type RefgenConfig struct {
-	APIVersion string         `json:"apiVersion"`
-	OutputDir  string         `json:"outputDir"`
+	APIVersion string `json:"apiVersion"`
+	OutputDir  string `json:"outputDir"`
+	// OmitAnnotations lists metadata.annotation keys stripped from captured manifests
+	// and added to generated metadata.yaml fieldsToOmit (in addition to built-in defaults).
+	OmitAnnotations []string `json:"omitAnnotations,omitempty"`
+	// OmitLabels lists metadata.labels keys stripped from captured manifests and
+	// added to fieldsToOmit defaults (in addition to built-in defaults).
+	OmitLabels []string       `json:"omitLabels,omitempty"`
 	Resources  []ResourceSpec `json:"resources"`
 }
 
@@ -52,5 +59,25 @@ func LoadConfig(configPath string) (*RefgenConfig, error) {
 	if len(config.Resources) == 0 {
 		return nil, fmt.Errorf("configuration must specify at least one resource")
 	}
+	for i, k := range config.OmitAnnotations {
+		if err := validateOmitKey(k, "omitAnnotations", i); err != nil {
+			return nil, err
+		}
+	}
+	for i, k := range config.OmitLabels {
+		if err := validateOmitKey(k, "omitLabels", i); err != nil {
+			return nil, err
+		}
+	}
 	return &config, nil
+}
+
+func validateOmitKey(key, field string, index int) error {
+	if key == "" {
+		return fmt.Errorf("%s[%d]: key must not be empty", field, index)
+	}
+	if strings.Contains(key, `"`) {
+		return fmt.Errorf("%s[%d]: key must not contain double quotes", field, index)
+	}
+	return nil
 }

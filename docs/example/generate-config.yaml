@@ -4,6 +4,13 @@
 apiVersion: refgen/v1
 outputDir: ./generated-reference
 
+# Optional: extra metadata.annotations / metadata.labels keys to strip from captured
+# YAML and to register in generated metadata.yaml fieldsToOmit (defaults still apply).
+# omitAnnotations:
+#   - my.company/last-synced
+# omitLabels:
+#   - ci-build-id
+
 resources:
   - kind: Namespace
     apiVersion: v1

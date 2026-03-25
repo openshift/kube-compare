@@ -119,4 +119,61 @@ resources:
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "invalid YAML in configuration file")
 	})
+
+	t.Run("valid omitAnnotations and omitLabels", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		path := filepath.Join(dir, "omit.yaml")
+		require.NoError(t, os.WriteFile(path, []byte(`apiVersion: refgen/v1
+omitAnnotations:
+  - my.operator/audit-id
+omitLabels:
+  - batch.kubernetes.io/job-name
+resources:
+  - kind: Namespace
+    apiVersion: v1
+    required: false
+`), 0o644))
+
+		cfg, err := LoadConfig(path)
+		require.NoError(t, err)
+		assert.Equal(t, []string{"my.operator/audit-id"}, cfg.OmitAnnotations)
+		assert.Equal(t, []string{"batch.kubernetes.io/job-name"}, cfg.OmitLabels)
+	})
+
+	t.Run("empty omit annotation key rejected", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		path := filepath.Join(dir, "badomit.yaml")
+		require.NoError(t, os.WriteFile(path, []byte(`apiVersion: refgen/v1
+omitAnnotations:
+  - ""
+resources:
+  - kind: Namespace
+    apiVersion: v1
+    required: false
+`), 0o644))
+
+		_, err := LoadConfig(path)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "omitAnnotations")
+	})
+
+	t.Run("omit key with double quote rejected", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		path := filepath.Join(dir, "badquote.yaml")
+		require.NoError(t, os.WriteFile(path, []byte(`apiVersion: refgen/v1
+omitLabels:
+  - 'bad"key'
+resources:
+  - kind: Namespace
+    apiVersion: v1
+    required: false
+`), 0o644))
+
+		_, err := LoadConfig(path)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "omitLabels")
+	})
 }
