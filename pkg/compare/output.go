@@ -74,7 +74,7 @@ func (s DiffSum) WasPatched() bool {
 
 // Summary Contains all info included in the Summary output of the compare command
 type Summary struct {
-	ValidationIssues       map[string]map[string]ValidationIssue `json:"ValidationIssuses"`
+	ValidationIssues       map[string]map[string]ValidationIssue `json:"ValidationIssues"`
 	NumMissing             int                                   `json:"NumMissing"`
 	UnmatchedCRS           []string                              `json:"UnmatchedCRS"`
 	NumDiffCRs             int                                   `json:"NumDiffCRs"`

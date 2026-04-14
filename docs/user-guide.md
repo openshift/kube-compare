@@ -175,7 +175,7 @@ For example:
 ```json
 {
   "Summary": {
-    "ValidationIssuses": {
+    "ValidationIssues": {
       "ExamplePart": {
         "Dashboard": {
           "Msg": "Missing CRs",
