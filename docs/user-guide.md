@@ -172,6 +172,8 @@ easily parsed by other software.
 
 For example:
 
+> **Note:** The JSON field `Summary.ValidationIssuses` was renamed to `Summary.ValidationIssues` (typo fix). Consumers parsing the old key name must update.
+
 ```json
 {
   "Summary": {
