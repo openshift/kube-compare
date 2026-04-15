@@ -3,14 +3,18 @@
 package compare
 
 import (
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
+	"text/template"
 	"text/template/parse"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/yaml"
 )
 
@@ -122,6 +126,54 @@ func ParseTemplates(ref Reference, fsys fs.FS) ([]ReferenceTemplate, error) {
 	}
 
 	return nil, fmt.Errorf("unknown reference file apiVersion: '%s'", ref.GetAPIVersion())
+}
+
+type parsableTemplate interface {
+	ReferenceTemplate
+	ValidateFieldsToOmit(fieldsToOmit FieldsToOmit) error
+	setTemplate(t *template.Template)
+	setMetadata(m *unstructured.Unstructured)
+	prepareForExec()
+	postExecValidate() error
+}
+
+func parseTemplatesCommon[T parsableTemplate](templates []T, functionFiles []string, fsys fs.FS, fieldsToOmit FieldsToOmit) ([]ReferenceTemplate, error) {
+	var errs []error
+	result := make([]ReferenceTemplate, 0, len(templates))
+	for _, temp := range templates {
+		result = append(result, temp)
+		parsedTemp, err := template.New(path.Base(temp.GetPath())).Funcs(FuncMap()).ParseFS(fsys, temp.GetPath())
+		if err != nil {
+			errs = append(errs, fmt.Errorf(templatesCantBeParsed, temp.GetPath(), err))
+			continue
+		}
+		if len(functionFiles) > 0 {
+			parsedTemp, err = parsedTemp.ParseFS(fsys, functionFiles...)
+			if err != nil {
+				errs = append(errs, fmt.Errorf(templatesFunctionsCantBeParsed, err))
+				continue
+			}
+		}
+		temp.setTemplate(parsedTemp)
+		temp.prepareForExec()
+		klog.V(1).Infof("Pre-processing template %s with empty data", temp.GetPath())
+		metadata, err := temp.Exec(map[string]any{})
+		temp.setMetadata(metadata)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to parse template %s with empty data: %w", temp.GetPath(), err))
+		} else {
+			if err := temp.postExecValidate(); err != nil {
+				errs = append(errs, err)
+			}
+			if metadata != nil && metadata.GetKind() == "" {
+				errs = append(errs, fmt.Errorf("template missing kind: %s", temp.GetPath()))
+			}
+		}
+		if err := temp.ValidateFieldsToOmit(fieldsToOmit); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return result, errors.Join(errs...) // nolint:wrapcheck
 }
 
 type CRMetadata struct {

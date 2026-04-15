@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"path"
 	"strings"
 	"text/template"
 	"text/template/parse"
@@ -294,6 +293,18 @@ func (rf ReferenceTemplateV1) GetTemplateTree() *parse.Tree {
 	return rf.Tree
 }
 
+func (rf *ReferenceTemplateV1) setTemplate(t *template.Template) {
+	rf.Template = t
+}
+
+func (rf *ReferenceTemplateV1) setMetadata(m *unstructured.Unstructured) {
+	rf.metadata = m
+}
+
+func (rf *ReferenceTemplateV1) prepareForExec() {}
+
+func (rf *ReferenceTemplateV1) postExecValidate() error { return nil }
+
 const builtInPathsKey = "cluster-compare-built-in"
 
 var builtInPathsV1 = []*ManifestPathV1{
@@ -335,36 +346,5 @@ func pathToList(path string) ([]string, error) {
 }
 
 func ParseV1Templates(ref *ReferenceV1, fsys fs.FS) ([]ReferenceTemplate, error) {
-	var errs []error
-	var result []ReferenceTemplate
-	functionTemplates := ref.TemplateFunctionFiles
-	for _, temp := range ref.getTemplates() {
-		result = append(result, temp)
-		parsedTemp, err := template.New(path.Base(temp.Path)).Funcs(FuncMap()).ParseFS(fsys, temp.Path)
-		if err != nil {
-			errs = append(errs, fmt.Errorf(templatesCantBeParsed, temp.Path, err))
-			continue
-		}
-		if len(functionTemplates) > 0 {
-			parsedTemp, err = parsedTemp.ParseFS(fsys, functionTemplates...)
-			if err != nil {
-				errs = append(errs, fmt.Errorf(templatesFunctionsCantBeParsed, err))
-				continue
-			}
-		}
-		temp.Template = parsedTemp
-		klog.V(1).Infof("Pre-processing template %s with empty data", temp.GetPath())
-		temp.metadata, err = temp.Exec(map[string]any{}) // Extract Metadata
-		if err != nil {
-			errs = append(errs, fmt.Errorf("failed to parse template %s with empty data: %w", temp.Path, err))
-		}
-		err = temp.ValidateFieldsToOmit(ref.FieldsToOmit)
-		if err != nil {
-			errs = append(errs, err)
-		}
-		if temp.metadata != nil && temp.metadata.GetKind() == "" {
-			errs = append(errs, fmt.Errorf("template missing kind: %s", temp.Path))
-		}
-	}
-	return result, errors.Join(errs...) // nolint:wrapcheck
+	return parseTemplatesCommon(ref.getTemplates(), ref.TemplateFunctionFiles, fsys, ref.FieldsToOmit)
 }
