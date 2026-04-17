@@ -7,11 +7,9 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"path"
 	"reflect"
 	"slices"
 	"strings"
-	"text/template"
 
 	"k8s.io/klog/v2"
 )
@@ -567,6 +565,14 @@ func (comp ComponentV2) getValidationIssues(matchedTemplates map[string]int) (Va
 	return comp.parts[0].getMissingCRs(matchedTemplates)
 }
 
+func (rf *ReferenceTemplateV2) prepareForExec() {
+	rf.ReferenceTemplateV1.Config = rf.Config.ReferenceTemplateConfigV1
+}
+
+func (rf *ReferenceTemplateV2) postExecValidate() error {
+	return rf.validateConfigPerField()
+}
+
 func getReferenceV2(fsys fs.FS, referenceFileName string) (*ReferenceV2, error) {
 	result := &ReferenceV2{}
 	err := parseYaml(fsys, referenceFileName, &result, refConfNotExistsError, refConfigNotInFormat)
@@ -590,41 +596,5 @@ func getReferenceV2(fsys fs.FS, referenceFileName string) (*ReferenceV2, error) 
 }
 
 func ParseV2Templates(ref *ReferenceV2, fsys fs.FS) ([]ReferenceTemplate, error) {
-	var errs []error
-	var result []ReferenceTemplate
-	functionTemplates := ref.TemplateFunctionFiles
-	for _, temp := range ref.getTemplates() {
-		result = append(result, temp)
-		parsedTemp, err := template.New(path.Base(temp.Path)).Funcs(FuncMap()).ParseFS(fsys, temp.Path)
-		if err != nil {
-			errs = append(errs, fmt.Errorf(templatesCantBeParsed, temp.Path, err))
-			continue
-		}
-		if len(functionTemplates) > 0 {
-			parsedTemp, err = parsedTemp.ParseFS(fsys, functionTemplates...)
-			if err != nil {
-				errs = append(errs, fmt.Errorf(templatesFunctionsCantBeParsed, err))
-				continue
-			}
-		}
-		temp.Template = parsedTemp
-		temp.ReferenceTemplateV1.Config = temp.Config.ReferenceTemplateConfigV1
-		klog.V(1).Infof("Pre-processing template %s with empty data", temp.GetPath())
-		temp.metadata, err = temp.Exec(map[string]any{}) // Extract Metadata
-		if err != nil {
-			errs = append(errs, fmt.Errorf("failed to parse template %s with empty data: %w", temp.Path, err))
-		}
-		err = temp.validateConfigPerField()
-		if err != nil {
-			errs = append(errs, err)
-		}
-		err = temp.ValidateFieldsToOmit(ref.FieldsToOmit)
-		if err != nil {
-			errs = append(errs, err)
-		}
-		if temp.metadata != nil && temp.metadata.GetKind() == "" {
-			errs = append(errs, fmt.Errorf("template missing kind: %s", temp.Path))
-		}
-	}
-	return result, errors.Join(errs...) // nolint:wrapcheck
+	return parseTemplatesCommon(ref.getTemplates(), ref.TemplateFunctionFiles, fsys, ref.FieldsToOmit)
 }
