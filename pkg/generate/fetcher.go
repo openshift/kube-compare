@@ -5,6 +5,7 @@ package generate
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -55,7 +56,7 @@ func NewClusterFetcher(f kcmdutil.Factory) (*ClusterFetcher, error) {
 // FetchResources fetches all resources matching the given specification from the cluster.
 func (f *ClusterFetcher) FetchResources(ctx context.Context, spec *ResourceSpec) ([]*unstructured.Unstructured, error) {
 	if err := ctx.Err(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("fetch resources: %w", err)
 	}
 	gv, err := schema.ParseGroupVersion(spec.APIVersion)
 	if err != nil {
@@ -111,11 +112,11 @@ func listClusterResourcePages(ctx context.Context, ri dynamic.ResourceInterface,
 	var accumulated []unstructured.Unstructured
 	for {
 		if err := ctx.Err(); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("list cluster resources: %w", err)
 		}
 		list, err := ri.List(ctx, opts)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("list cluster resources: %w", err)
 		}
 		accumulated = append(accumulated, list.Items...)
 		if list.GetContinue() == "" {
@@ -167,7 +168,7 @@ func NewMustGatherFetcher(mustGatherDir string) (*MustGatherFetcher, error) {
 // FetchResources fetches all resources matching the given specification from must-gather.
 func (f *MustGatherFetcher) FetchResources(ctx context.Context, spec *ResourceSpec) ([]*unstructured.Unstructured, error) {
 	if err := ctx.Err(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("fetch from must-gather: %w", err)
 	}
 	resources, err := f.loadAllResources()
 	if err != nil {
@@ -276,14 +277,14 @@ func (f *MustGatherFetcher) findDataRoots() ([]string, error) {
 func loadResourcesFromFile(path string) ([]*unstructured.Unstructured, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("read file %s: %w", path, err)
 	}
 	dec := yamlv3.NewDecoder(bytes.NewReader(data))
 	var result []*unstructured.Unstructured
 	for {
 		var raw map[string]any
 		if err := dec.Decode(&raw); err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			return nil, fmt.Errorf("yaml decode %s: %w", path, err)

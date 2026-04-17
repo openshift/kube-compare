@@ -27,6 +27,10 @@ func TestSanitizeFilename(t *testing.T) {
 		{name: "spaces and dots", input: "a b.c", expected: "a-b.c"},
 		{name: "collapse dashes", input: "a---b", expected: "a-b"},
 		{name: "trim dashes", input: "--x--", expected: "x"},
+		{name: "dot only", input: ".", expected: "unnamed"},
+		{name: "dot dot", input: "..", expected: "unnamed"},
+		{name: "contains dot dot after sanitize", input: "a..b", expected: "unnamed"},
+		{name: "trim dots and dashes", input: "..--x--..", expected: "x"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

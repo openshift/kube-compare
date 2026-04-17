@@ -28,7 +28,7 @@ func TestNewMustGatherFetcher(t *testing.T) {
 		t.Parallel()
 		dir := t.TempDir()
 		filePath := filepath.Join(dir, "notadir")
-		require.NoError(t, os.WriteFile(filePath, []byte("x"), 0o644))
+		require.NoError(t, os.WriteFile(filePath, []byte("x"), 0o600))
 		_, err := NewMustGatherFetcher(filePath)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "not a directory")
@@ -42,7 +42,7 @@ func TestMustGatherFetcherFetchResources(t *testing.T) {
 		t.Helper()
 		full := filepath.Join(root, relPath)
 		require.NoError(t, os.MkdirAll(filepath.Dir(full), 0o755))
-		require.NoError(t, os.WriteFile(full, []byte(content), 0o644))
+		require.NoError(t, os.WriteFile(full, []byte(content), 0o600))
 	}
 
 	t.Run("single document matches spec", func(t *testing.T) {
@@ -78,7 +78,7 @@ metadata:
   name: s1
   namespace: app-ns
 `
-		require.NoError(t, os.WriteFile(filepath.Join(nsDir, "secret.yaml"), []byte(yamlContent), 0o644))
+		require.NoError(t, os.WriteFile(filepath.Join(nsDir, "secret.yaml"), []byte(yamlContent), 0o600))
 
 		fetcher, err := NewMustGatherFetcher(mg)
 		require.NoError(t, err)

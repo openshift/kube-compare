@@ -22,7 +22,7 @@ func TestLoadConfig(t *testing.T) {
   - kind: Namespace
     apiVersion: v1
     required: false
-`), 0o644)
+`), 0o600)
 		require.NoError(t, err)
 
 		cfg, err := LoadConfig(path)
@@ -46,7 +46,7 @@ resources:
   - kind: ConfigMap
     apiVersion: v1
     required: true
-`), 0o644)
+`), 0o600)
 		require.NoError(t, err)
 
 		cfg, err := LoadConfig(path)
@@ -71,7 +71,7 @@ resources:
 		t.Parallel()
 		dir := t.TempDir()
 		path := filepath.Join(dir, "bad.yaml")
-		require.NoError(t, os.WriteFile(path, []byte("resources: [\n"), 0o644))
+		require.NoError(t, os.WriteFile(path, []byte("resources: [\n"), 0o600))
 
 		_, err := LoadConfig(path)
 		require.Error(t, err)
@@ -84,7 +84,7 @@ resources:
 		path := filepath.Join(dir, "empty.yaml")
 		require.NoError(t, os.WriteFile(path, []byte(`apiVersion: refgen/v1
 resources: []
-`), 0o644))
+`), 0o600))
 
 		_, err := LoadConfig(path)
 		require.Error(t, err)
@@ -96,7 +96,7 @@ resources: []
 		dir := t.TempDir()
 		path := filepath.Join(dir, "nor.yaml")
 		require.NoError(t, os.WriteFile(path, []byte(`apiVersion: refgen/v1
-`), 0o644))
+`), 0o600))
 
 		_, err := LoadConfig(path)
 		require.Error(t, err)
@@ -113,7 +113,7 @@ resources:
   - kind: Namespace
     apiVersion: v1
     required: false
-`), 0o644))
+`), 0o600))
 
 		_, err := LoadConfig(path)
 		require.Error(t, err)
@@ -133,7 +133,7 @@ resources:
   - kind: Namespace
     apiVersion: v1
     required: false
-`), 0o644))
+`), 0o600))
 
 		cfg, err := LoadConfig(path)
 		require.NoError(t, err)
@@ -152,7 +152,7 @@ resources:
   - kind: Namespace
     apiVersion: v1
     required: false
-`), 0o644))
+`), 0o600))
 
 		_, err := LoadConfig(path)
 		require.Error(t, err)
@@ -170,7 +170,7 @@ resources:
   - kind: Namespace
     apiVersion: v1
     required: false
-`), 0o644))
+`), 0o600))
 
 		_, err := LoadConfig(path)
 		require.Error(t, err)

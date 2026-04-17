@@ -3,7 +3,9 @@
 package generate
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -231,8 +233,8 @@ func deleteMapKeysByPrefix(m map[string]any, prefixes []string) {
 func sanitizeFilename(name string) string {
 	safe := sanitizePathChars.ReplaceAllString(name, "-")
 	safe = sanitizePathDashes.ReplaceAllString(safe, "-")
-	safe = strings.Trim(safe, "-")
-	if safe == "" {
+	safe = strings.Trim(safe, "-.")
+	if safe == "" || safe == "." || safe == ".." || strings.Contains(safe, "..") {
 		return "unnamed"
 	}
 	return safe
@@ -253,13 +255,10 @@ func sanitizePathSegment(s string) string {
 	return safe
 }
 
-// cleanResource returns a copy of the object with runtime-managed fields removed.
+// cleanResource returns a deep copy of the object (via DeepCopy) with runtime-managed fields removed.
 // fto is the merged fieldsToOmit map (defaults entries drive annotation/label key removal).
 func cleanResource(obj *unstructured.Unstructured, fto map[string]any) map[string]any {
-	result := make(map[string]any)
-	for k, v := range obj.Object {
-		result[k] = v
-	}
+	result := obj.DeepCopy().Object
 	if metadata, ok := result["metadata"].(map[string]any); ok {
 		for _, key := range []string{"resourceVersion", "uid", "creationTimestamp", "generation", "managedFields", "selfLink"} {
 			delete(metadata, key)
@@ -291,7 +290,7 @@ func cleanResource(obj *unstructured.Unstructured, fto map[string]any) map[strin
 // Generator generates kube-compare reference files.
 type Generator struct {
 	config       *RefgenConfig
-	outputDir    string // absolute, cleaned root after Generate begins
+	outputDir    string              // absolute, cleaned root after Generate begins
 	files        map[int][]fileEntry // config.Resources index: one slice per ResourceSpec row (same Kind allowed)
 	fieldsToOmit map[string]any
 }
@@ -373,22 +372,30 @@ func (g *Generator) writeCRFiles(specIndex int, spec *ResourceSpec, resources []
 		crPath := filepath.Join(kindDir, filename)
 		counter := 1
 		for {
-			if _, err := os.Stat(crPath); os.IsNotExist(err) {
+			if err := g.pathWithinOutput(crPath); err != nil {
+				return err
+			}
+			f, err := os.OpenFile(crPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+			if err == nil {
+				if err := f.Close(); err != nil {
+					return fmt.Errorf("failed to close %s: %w", crPath, err)
+				}
 				break
 			}
-			filename = fmt.Sprintf("%s-%d.yaml", sanitizeFilename(r.GetName()), counter)
-			crPath = filepath.Join(kindDir, filename)
-			counter++
+			if errors.Is(err, fs.ErrExist) {
+				filename = fmt.Sprintf("%s-%d.yaml", sanitizeFilename(r.GetName()), counter)
+				crPath = filepath.Join(kindDir, filename)
+				counter++
+				continue
+			}
+			return fmt.Errorf("failed to reserve output path %s: %w", crPath, err)
 		}
 		clean := cleanResource(r, g.fieldsToOmit)
 		data, err := yaml.Marshal(clean)
 		if err != nil {
 			return fmt.Errorf("failed to marshal %s: %w", r.GetName(), err)
 		}
-		if err := g.pathWithinOutput(crPath); err != nil {
-			return err
-		}
-		if err := os.WriteFile(crPath, data, 0o644); err != nil {
+		if err := os.WriteFile(crPath, data, 0o600); err != nil {
 			return fmt.Errorf("failed to write %s: %w", crPath, err)
 		}
 		relativePath := safeKind + "/" + filepath.Base(crPath)
@@ -443,7 +450,7 @@ func (g *Generator) writeMetadata() error {
 	if err := g.pathWithinOutput(metadataPath); err != nil {
 		return err
 	}
-	if err := os.WriteFile(metadataPath, data, 0o644); err != nil {
+	if err := os.WriteFile(metadataPath, data, 0o600); err != nil {
 		return fmt.Errorf("failed to write metadata.yaml: %w", err)
 	}
 	return nil
