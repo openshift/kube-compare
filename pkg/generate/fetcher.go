@@ -248,6 +248,7 @@ func (f *MustGatherFetcher) loadAllResources() ([]*unstructured.Unstructured, er
 	if loaded == nil {
 		loaded = []*unstructured.Unstructured{}
 	}
+	f.cache = loaded
 	return loaded, nil
 }
 

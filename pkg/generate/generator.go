@@ -368,6 +368,11 @@ func (g *Generator) writeCRFiles(specIndex int, spec *ResourceSpec, resources []
 		return fmt.Errorf("failed to create directory %s: %w", kindDir, err)
 	}
 	for _, r := range resources {
+		clean := cleanResource(r, g.fieldsToOmit)
+		data, err := yaml.Marshal(clean)
+		if err != nil {
+			return fmt.Errorf("failed to marshal %s: %w", r.GetName(), err)
+		}
 		filename := sanitizeFilename(r.GetName()) + ".yaml"
 		crPath := filepath.Join(kindDir, filename)
 		counter := 1
@@ -389,11 +394,6 @@ func (g *Generator) writeCRFiles(specIndex int, spec *ResourceSpec, resources []
 				continue
 			}
 			return fmt.Errorf("failed to reserve output path %s: %w", crPath, err)
-		}
-		clean := cleanResource(r, g.fieldsToOmit)
-		data, err := yaml.Marshal(clean)
-		if err != nil {
-			return fmt.Errorf("failed to marshal %s: %w", r.GetName(), err)
 		}
 		if err := os.WriteFile(crPath, data, 0o600); err != nil {
 			return fmt.Errorf("failed to write %s: %w", crPath, err)
