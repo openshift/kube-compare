@@ -352,6 +352,34 @@ func startWithCleanEnv() {
 	}
 }
 
+func TestOmitFieldsLabelPrefixRemovesKeyedEntries(t *testing.T) {
+	t.Parallel()
+	obj := map[string]any{
+		"metadata": map[string]any{
+			"labels": map[string]any{
+				"app":                                "nginx",
+				"operators.coreos.com/subscription":  "sub",
+				"pod-security.kubernetes.io/enforce": "restricted",
+			},
+		},
+	}
+	fields := []*ManifestPathV1{
+		{PathToKey: `metadata.labels."operators.coreos.com/"`, IsPrefix: true},
+		{PathToKey: `metadata.labels."pod-security.kubernetes.io/"`, IsPrefix: true},
+	}
+	for _, f := range fields {
+		require.NoError(t, f.Process())
+	}
+	omitFields(obj, fields)
+	md := obj["metadata"].(map[string]any)
+	lbl := md["labels"].(map[string]any)
+	require.Equal(t, "nginx", lbl["app"])
+	_, hasOlm := lbl["operators.coreos.com/subscription"]
+	require.False(t, hasOlm)
+	_, hasPSA := lbl["pod-security.kubernetes.io/enforce"]
+	require.False(t, hasPSA)
+}
+
 // TestCompareRun ensures that Run command calls the right actions
 // and returns the expected error.
 func TestCompareRun(t *testing.T) {

@@ -3,6 +3,7 @@
 package generate
 
 import (
+	"context"
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -23,15 +24,13 @@ type Options struct {
 }
 
 // Run executes the generate command: fetches resources and writes reference files.
-func (o *Options) Run() error {
+func (o *Options) Run(ctx context.Context) error {
 	config, err := LoadConfig(o.GenerateConfig)
 	if err != nil {
 		return err
 	}
-	if o.Verbose {
-		klog.V(1).Infof("Loaded configuration from %s", o.GenerateConfig)
-		klog.V(1).Infof("  Resources to capture: %d", len(config.Resources))
-	}
+	klog.V(1).Infof("Loaded configuration from %s", o.GenerateConfig)
+	klog.V(1).Infof("  Resources to capture: %d", len(config.Resources))
 
 	outputDir := o.OutputDir
 	if outputDir == "" {
@@ -40,17 +39,13 @@ func (o *Options) Run() error {
 
 	var fetcher Fetcher
 	if o.MustGatherDir != "" {
-		if o.Verbose {
-			klog.V(1).Infof("Using must-gather directory: %s", o.MustGatherDir)
-		}
+		klog.V(1).Infof("Using must-gather directory: %s", o.MustGatherDir)
 		fetcher, err = NewMustGatherFetcher(o.MustGatherDir)
 		if err != nil {
 			return err
 		}
 	} else {
-		if o.Verbose {
-			klog.V(1).Infof("Connected to Kubernetes cluster")
-		}
+		klog.V(1).Infof("Connected to Kubernetes cluster")
 		fetcher, err = NewClusterFetcher(o.Factory)
 		if err != nil {
 			return err
@@ -63,15 +58,19 @@ func (o *Options) Run() error {
 
 	for i := range config.Resources {
 		spec := &config.Resources[i]
-		if o.Verbose {
-			nsInfo := ""
-			if spec.Namespace != "" {
-				nsInfo = fmt.Sprintf(" in namespace %s", spec.Namespace)
-			}
-			klog.V(1).Infof("Fetching %s (%s)%s...", spec.Kind, spec.APIVersion, nsInfo)
+		nsInfo := ""
+		if spec.Namespace != "" {
+			nsInfo = fmt.Sprintf(" in namespace %s", spec.Namespace)
 		}
-		resources, err := fetcher.FetchResources(spec)
+		klog.V(1).Infof("Fetching %s (%s)%s...", spec.Kind, spec.APIVersion, nsInfo)
+		resources, err := fetcher.FetchResources(ctx, spec)
 		if err != nil {
+			if !spec.Required {
+				klog.Warningf("failed to fetch optional resource %s (%s): %v", spec.Kind, spec.APIVersion, err)
+				resourcesBySpec[spec] = nil
+				missingSpecs = append(missingSpecs, spec)
+				continue
+			}
 			return fmt.Errorf("failed to fetch %s: %w", spec.Kind, err)
 		}
 		resourcesBySpec[spec] = resources
@@ -79,9 +78,7 @@ func (o *Options) Run() error {
 		if len(resources) == 0 {
 			missingSpecs = append(missingSpecs, spec)
 		}
-		if o.Verbose {
-			klog.V(1).Infof("  Found %d resource(s)", len(resources))
-		}
+		klog.V(1).Infof("  Found %d resource(s)", len(resources))
 	}
 
 	generator := NewGenerator(config, outputDir)

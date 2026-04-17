@@ -5,6 +5,7 @@ package generate
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -139,6 +140,86 @@ func TestCleanResourceKeepsUnlistedAnnotationsAndLabels(t *testing.T) {
 	assert.NotContains(t, lbl, "security.openshift.io/scc.podSecurityLabelSync")
 }
 
+func TestCleanResourceStripsLabelKeyPrefixesFromDefaults(t *testing.T) {
+	t.Parallel()
+	obj := &unstructured.Unstructured{
+		Object: map[string]any{
+			"apiVersion": "v1",
+			"kind":       "ConfigMap",
+			"metadata": map[string]any{
+				"name": "cm1",
+				"labels": map[string]any{
+					"app":                                "nginx",
+					"operators.coreos.com/foo":           "bar",
+					"operators.coreos.com/test":          "v",
+					"pod-security.kubernetes.io/enforce": "restricted",
+					"pod-security.kubernetes.io/audit":   "restricted",
+					"keep.me/should-stay":                "yes",
+				},
+			},
+		},
+	}
+	out := cleanResource(obj, defaultFieldsToOmit())
+	md := out["metadata"].(map[string]any)
+	lbl := md["labels"].(map[string]any)
+	assert.Equal(t, "nginx", lbl["app"])
+	assert.Equal(t, "yes", lbl["keep.me/should-stay"])
+	assert.NotContains(t, lbl, "operators.coreos.com/foo")
+	assert.NotContains(t, lbl, "operators.coreos.com/test")
+	assert.NotContains(t, lbl, "pod-security.kubernetes.io/enforce")
+	assert.NotContains(t, lbl, "pod-security.kubernetes.io/audit")
+}
+
+func TestGeneratorMetadataDefaultsIncludeLabelPrefixOmissions(t *testing.T) {
+	t.Parallel()
+	outDir := t.TempDir()
+	cfg := &RefgenConfig{
+		APIVersion: "refgen/v1",
+		OutputDir:  outDir,
+		Resources:  []ResourceSpec{{Kind: "ConfigMap", APIVersion: "v1", Required: true}},
+	}
+	cm := &unstructured.Unstructured{
+		Object: map[string]any{
+			"apiVersion": "v1",
+			"kind":       "ConfigMap",
+			"metadata":   map[string]any{"name": "alpha"},
+		},
+	}
+	g := NewGenerator(cfg, outDir)
+	_, err := g.Generate(map[*ResourceSpec][]*unstructured.Unstructured{&cfg.Resources[0]: {cm}})
+	require.NoError(t, err)
+
+	metaRaw, err := os.ReadFile(filepath.Join(outDir, "metadata.yaml"))
+	require.NoError(t, err)
+	var meta map[string]any
+	require.NoError(t, yaml.Unmarshal(metaRaw, &meta))
+	fto := meta["fieldsToOmit"].(map[string]any)
+	items := fto["items"].(map[string]any)
+	defaults := items["defaults"].([]any)
+	var psa, olm bool
+	for _, e := range defaults {
+		m := e.(map[string]any)
+		p, _ := m["pathToKey"].(string)
+		isP := false
+		if v, ok := m["isPrefix"]; ok {
+			switch x := v.(type) {
+			case bool:
+				isP = x
+			case string:
+				isP = strings.EqualFold(x, "true")
+			}
+		}
+		if p == `metadata.labels."pod-security.kubernetes.io/"` && isP {
+			psa = true
+		}
+		if p == `metadata.labels."operators.coreos.com/"` && isP {
+			olm = true
+		}
+	}
+	assert.True(t, psa, "defaults should include pod-security label prefix with isPrefix")
+	assert.True(t, olm, "defaults should include operators.coreos.com label prefix with isPrefix")
+}
+
 func TestCleanResourceCustomOmitFromConfig(t *testing.T) {
 	t.Parallel()
 	fto := mergeFieldsToOmit(&RefgenConfig{
@@ -181,11 +262,10 @@ func TestGeneratorGenerate(t *testing.T) {
 	t.Run("required uses allOf in metadata", func(t *testing.T) {
 		t.Parallel()
 		outDir := t.TempDir()
-		spec := &ResourceSpec{Kind: "ConfigMap", APIVersion: "v1", Required: true}
 		cfg := &RefgenConfig{
 			APIVersion: "refgen/v1",
 			OutputDir:  outDir,
-			Resources:  []ResourceSpec{*spec},
+			Resources:  []ResourceSpec{{Kind: "ConfigMap", APIVersion: "v1", Required: true}},
 		}
 		cm := &unstructured.Unstructured{
 			Object: map[string]any{
@@ -198,7 +278,7 @@ func TestGeneratorGenerate(t *testing.T) {
 		}
 		g := NewGenerator(cfg, outDir)
 		resourcesBySpec := map[*ResourceSpec][]*unstructured.Unstructured{
-			spec: {cm},
+			&cfg.Resources[0]: {cm},
 		}
 		absOut, err := g.Generate(resourcesBySpec)
 		require.NoError(t, err)
@@ -232,11 +312,10 @@ func TestGeneratorGenerate(t *testing.T) {
 	t.Run("optional uses anyOf in metadata", func(t *testing.T) {
 		t.Parallel()
 		outDir := t.TempDir()
-		spec := &ResourceSpec{Kind: "Secret", APIVersion: "v1", Required: false}
 		cfg := &RefgenConfig{
 			APIVersion: "refgen/v1",
 			OutputDir:  outDir,
-			Resources:  []ResourceSpec{*spec},
+			Resources:  []ResourceSpec{{Kind: "Secret", APIVersion: "v1", Required: false}},
 		}
 		sec := &unstructured.Unstructured{
 			Object: map[string]any{
@@ -248,7 +327,7 @@ func TestGeneratorGenerate(t *testing.T) {
 			},
 		}
 		g := NewGenerator(cfg, outDir)
-		_, err := g.Generate(map[*ResourceSpec][]*unstructured.Unstructured{spec: {sec}})
+		_, err := g.Generate(map[*ResourceSpec][]*unstructured.Unstructured{&cfg.Resources[0]: {sec}})
 		require.NoError(t, err)
 
 		metaRaw, err := os.ReadFile(filepath.Join(outDir, "metadata.yaml"))
@@ -268,11 +347,10 @@ func TestGeneratorGenerate(t *testing.T) {
 	t.Run("duplicate names get suffix", func(t *testing.T) {
 		t.Parallel()
 		outDir := t.TempDir()
-		spec := &ResourceSpec{Kind: "ConfigMap", APIVersion: "v1", Required: true}
 		cfg := &RefgenConfig{
 			APIVersion: "refgen/v1",
 			OutputDir:  outDir,
-			Resources:  []ResourceSpec{*spec},
+			Resources:  []ResourceSpec{{Kind: "ConfigMap", APIVersion: "v1", Required: true}},
 		}
 		one := &unstructured.Unstructured{
 			Object: map[string]any{
@@ -289,7 +367,7 @@ func TestGeneratorGenerate(t *testing.T) {
 			},
 		}
 		g := NewGenerator(cfg, outDir)
-		_, err := g.Generate(map[*ResourceSpec][]*unstructured.Unstructured{spec: {one, two}})
+		_, err := g.Generate(map[*ResourceSpec][]*unstructured.Unstructured{&cfg.Resources[0]: {one, two}})
 		require.NoError(t, err)
 
 		_, err = os.Stat(filepath.Join(outDir, "ConfigMap", "dup.yaml"))
@@ -298,15 +376,80 @@ func TestGeneratorGenerate(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("skips empty resource list still writes metadata", func(t *testing.T) {
+	t.Run("same Kind different Required does not clobber prior spec files", func(t *testing.T) {
 		t.Parallel()
 		outDir := t.TempDir()
-		specEmpty := &ResourceSpec{Kind: "Pod", APIVersion: "v1", Required: false}
-		specFilled := &ResourceSpec{Kind: "Namespace", APIVersion: "v1", Required: true}
 		cfg := &RefgenConfig{
 			APIVersion: "refgen/v1",
 			OutputDir:  outDir,
-			Resources:  []ResourceSpec{*specEmpty, *specFilled},
+			Resources: []ResourceSpec{
+				{Kind: "Namespace", APIVersion: "v1", Required: true},
+				{Kind: "Namespace", APIVersion: "v1", Required: false},
+			},
+		}
+		nsOne := &unstructured.Unstructured{
+			Object: map[string]any{
+				"apiVersion": "v1",
+				"kind":       "Namespace",
+				"metadata":   map[string]any{"name": "required-ns"},
+			},
+		}
+		nsTwo := &unstructured.Unstructured{
+			Object: map[string]any{
+				"apiVersion": "v1",
+				"kind":       "Namespace",
+				"metadata":   map[string]any{"name": "optional-ns"},
+			},
+		}
+		g := NewGenerator(cfg, outDir)
+		_, err := g.Generate(map[*ResourceSpec][]*unstructured.Unstructured{
+			&cfg.Resources[0]: {nsOne},
+			&cfg.Resources[1]: {nsTwo},
+		})
+		require.NoError(t, err)
+
+		_, err = os.Stat(filepath.Join(outDir, "Namespace", "required-ns.yaml"))
+		require.NoError(t, err)
+		_, err = os.Stat(filepath.Join(outDir, "Namespace", "optional-ns.yaml"))
+		require.NoError(t, err)
+		metaRaw, err := os.ReadFile(filepath.Join(outDir, "metadata.yaml"))
+		require.NoError(t, err)
+		var meta map[string]any
+		require.NoError(t, yaml.Unmarshal(metaRaw, &meta))
+		parts := meta["parts"].([]any)
+		require.Len(t, parts, 2, "each ResourceSpec row must get its own metadata part even when Kind matches")
+		// Order follows refgen config: required first, then optional.
+		partReq := parts[0].(map[string]any)
+		compReq := partReq["components"].([]any)[0].(map[string]any)
+		_, hasAllReq := compReq["allOf"]
+		_, hasAnyReq := compReq["anyOf"]
+		assert.True(t, hasAllReq)
+		assert.False(t, hasAnyReq)
+		pathsReq := compReq["allOf"].([]any)
+		require.Len(t, pathsReq, 1)
+		assert.Equal(t, "Namespace/required-ns.yaml", pathsReq[0].(map[string]any)["path"])
+
+		partOpt := parts[1].(map[string]any)
+		compOpt := partOpt["components"].([]any)[0].(map[string]any)
+		_, hasAllOpt := compOpt["allOf"]
+		_, hasAnyOpt := compOpt["anyOf"]
+		assert.False(t, hasAllOpt)
+		assert.True(t, hasAnyOpt)
+		pathsOpt := compOpt["anyOf"].([]any)
+		require.Len(t, pathsOpt, 1)
+		assert.Equal(t, "Namespace/optional-ns.yaml", pathsOpt[0].(map[string]any)["path"])
+	})
+
+	t.Run("skips empty resource list still writes metadata", func(t *testing.T) {
+		t.Parallel()
+		outDir := t.TempDir()
+		cfg := &RefgenConfig{
+			APIVersion: "refgen/v1",
+			OutputDir:  outDir,
+			Resources: []ResourceSpec{
+				{Kind: "Pod", APIVersion: "v1", Required: false},
+				{Kind: "Namespace", APIVersion: "v1", Required: true},
+			},
 		}
 		ns := &unstructured.Unstructured{
 			Object: map[string]any{
@@ -317,8 +460,8 @@ func TestGeneratorGenerate(t *testing.T) {
 		}
 		g := NewGenerator(cfg, outDir)
 		_, err := g.Generate(map[*ResourceSpec][]*unstructured.Unstructured{
-			specEmpty:  {},
-			specFilled: {ns},
+			&cfg.Resources[0]: {},
+			&cfg.Resources[1]: {ns},
 		})
 		require.NoError(t, err)
 
@@ -333,11 +476,10 @@ func TestGeneratorGenerate(t *testing.T) {
 	t.Run("sanitized kind directory", func(t *testing.T) {
 		t.Parallel()
 		outDir := t.TempDir()
-		spec := &ResourceSpec{Kind: "Foo/Bar", APIVersion: "v1", Required: true}
 		cfg := &RefgenConfig{
 			APIVersion: "refgen/v1",
 			OutputDir:  outDir,
-			Resources:  []ResourceSpec{*spec},
+			Resources:  []ResourceSpec{{Kind: "Foo/Bar", APIVersion: "v1", Required: true}},
 		}
 		obj := &unstructured.Unstructured{
 			Object: map[string]any{
@@ -347,7 +489,7 @@ func TestGeneratorGenerate(t *testing.T) {
 			},
 		}
 		g := NewGenerator(cfg, outDir)
-		_, err := g.Generate(map[*ResourceSpec][]*unstructured.Unstructured{spec: {obj}})
+		_, err := g.Generate(map[*ResourceSpec][]*unstructured.Unstructured{&cfg.Resources[0]: {obj}})
 		require.NoError(t, err)
 
 		safeKind := sanitizePathSegment("Foo/Bar")
@@ -358,13 +500,12 @@ func TestGeneratorGenerate(t *testing.T) {
 	t.Run("custom omitAnnotations and omitLabels in metadata and CRs", func(t *testing.T) {
 		t.Parallel()
 		outDir := t.TempDir()
-		spec := &ResourceSpec{Kind: "ConfigMap", APIVersion: "v1", Required: true}
 		cfg := &RefgenConfig{
 			APIVersion:      "refgen/v1",
 			OutputDir:       outDir,
 			OmitAnnotations: []string{"company.com/revision"},
 			OmitLabels:      []string{"rollout-id"},
-			Resources:       []ResourceSpec{*spec},
+			Resources:       []ResourceSpec{{Kind: "ConfigMap", APIVersion: "v1", Required: true}},
 		}
 		cm := &unstructured.Unstructured{
 			Object: map[string]any{
@@ -384,7 +525,7 @@ func TestGeneratorGenerate(t *testing.T) {
 			},
 		}
 		g := NewGenerator(cfg, outDir)
-		_, err := g.Generate(map[*ResourceSpec][]*unstructured.Unstructured{spec: {cm}})
+		_, err := g.Generate(map[*ResourceSpec][]*unstructured.Unstructured{&cfg.Resources[0]: {cm}})
 		require.NoError(t, err)
 
 		cmRaw, err := os.ReadFile(filepath.Join(outDir, "ConfigMap", "app.yaml"))

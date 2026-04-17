@@ -178,7 +178,7 @@ func NewCmd(f kcmdutil.Factory, streams genericiooptions.IOStreams) *cobra.Comma
 	}
 
 	cmd := &cobra.Command{
-		Use:                   "cluster-compare -r <Reference File>",
+		Use:                   "cluster-compare (-r <Reference File> | -g <Generate Config>)",
 		DisableFlagsInUseLine: true,
 		Short:                 i18n.T("Compare a reference configuration and a set of cluster configuration CRs."),
 		Long:                  compareLong,
@@ -223,7 +223,7 @@ func NewCmd(f kcmdutil.Factory, streams genericiooptions.IOStreams) *cobra.Comma
 					Factory:        f,
 					Streams:        options.IOStreams,
 				}
-				kcmdutil.CheckErr(genOpts.Run())
+				kcmdutil.CheckErr(genOpts.Run(cmd.Context()))
 				return
 			}
 			// `kubectl cluster-compare` propagates the error code from

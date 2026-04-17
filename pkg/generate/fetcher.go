@@ -3,6 +3,7 @@
 package generate
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -14,15 +15,19 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/klog/v2"
 	kcmdutil "k8s.io/kubectl/pkg/cmd/util"
 )
 
+// defaultListLimit is the page size for server-side List pagination against the API server.
+const defaultListLimit int64 = 500
+
 // Fetcher fetches resources from a cluster or must-gather directory.
 type Fetcher interface {
-	FetchResources(spec *ResourceSpec) ([]*unstructured.Unstructured, error)
+	FetchResources(ctx context.Context, spec *ResourceSpec) ([]*unstructured.Unstructured, error)
 }
 
 // ClusterFetcher fetches resources from a live Kubernetes cluster.
@@ -48,7 +53,10 @@ func NewClusterFetcher(f kcmdutil.Factory) (*ClusterFetcher, error) {
 }
 
 // FetchResources fetches all resources matching the given specification from the cluster.
-func (f *ClusterFetcher) FetchResources(spec *ResourceSpec) ([]*unstructured.Unstructured, error) {
+func (f *ClusterFetcher) FetchResources(ctx context.Context, spec *ResourceSpec) ([]*unstructured.Unstructured, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	gv, err := schema.ParseGroupVersion(spec.APIVersion)
 	if err != nil {
 		return nil, fmt.Errorf("invalid apiVersion %q: %w", spec.APIVersion, err)
@@ -61,35 +69,74 @@ func (f *ClusterFetcher) FetchResources(spec *ResourceSpec) ([]*unstructured.Uns
 	}
 
 	gvr := mapping.Resource
-	var list *unstructured.UnstructuredList
+	var ri dynamic.ResourceInterface
 	if spec.Namespace != "" {
-		list, err = f.dynamicClient.Resource(gvr).Namespace(spec.Namespace).List(context.TODO(), metav1.ListOptions{})
+		ri = f.dynamicClient.Resource(gvr).Namespace(spec.Namespace)
 	} else {
-		list, err = f.dynamicClient.Resource(gvr).List(context.TODO(), metav1.ListOptions{})
-	}
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch %s: %w", spec.Kind, err)
+		ri = f.dynamicClient.Resource(gvr)
 	}
 
-	var result []*unstructured.Unstructured
-	for i := range list.Items {
-		item := &list.Items[i]
-		if len(spec.Names) > 0 {
-			name := item.GetName()
-			found := false
-			for _, n := range spec.Names {
-				if name == n {
-					found = true
-					break
-				}
-			}
-			if !found {
+	var merged []unstructured.Unstructured
+	if len(spec.Names) == 0 {
+		merged, err = listClusterResourcePages(ctx, ri, metav1.ListOptions{})
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch %s: %w", spec.Kind, err)
+		}
+	} else {
+		seen := make(map[string]struct{}, len(spec.Names))
+		for _, name := range spec.Names {
+			if name == "" {
 				continue
 			}
+			if _, dup := seen[name]; dup {
+				continue
+			}
+			seen[name] = struct{}{}
+			base := metav1.ListOptions{
+				FieldSelector: fields.OneTermEqualSelector(metav1.ObjectNameField, name).String(),
+			}
+			batch, err := listClusterResourcePages(ctx, ri, base)
+			if err != nil {
+				return nil, fmt.Errorf("failed to fetch %s %q: %w", spec.Kind, name, err)
+			}
+			merged = append(merged, batch...)
 		}
-		result = append(result, item)
 	}
-	return result, nil
+	return unstructuredPtrSlice(merged), nil
+}
+
+func listClusterResourcePages(ctx context.Context, ri dynamic.ResourceInterface, base metav1.ListOptions) ([]unstructured.Unstructured, error) {
+	opts := base
+	opts.Limit = defaultListLimit
+	var accumulated []unstructured.Unstructured
+	for {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		list, err := ri.List(ctx, opts)
+		if err != nil {
+			return nil, err
+		}
+		accumulated = append(accumulated, list.Items...)
+		if list.GetContinue() == "" {
+			break
+		}
+		opts = metav1.ListOptions{
+			Limit:         defaultListLimit,
+			Continue:      list.GetContinue(),
+			FieldSelector: base.FieldSelector,
+			LabelSelector: base.LabelSelector,
+		}
+	}
+	return accumulated, nil
+}
+
+func unstructuredPtrSlice(items []unstructured.Unstructured) []*unstructured.Unstructured {
+	out := make([]*unstructured.Unstructured, len(items))
+	for i := range items {
+		out[i] = &items[i]
+	}
+	return out
 }
 
 // MustGatherFetcher fetches resources from a must-gather directory.
@@ -118,7 +165,10 @@ func NewMustGatherFetcher(mustGatherDir string) (*MustGatherFetcher, error) {
 }
 
 // FetchResources fetches all resources matching the given specification from must-gather.
-func (f *MustGatherFetcher) FetchResources(spec *ResourceSpec) ([]*unstructured.Unstructured, error) {
+func (f *MustGatherFetcher) FetchResources(ctx context.Context, spec *ResourceSpec) ([]*unstructured.Unstructured, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	resources, err := f.loadAllResources()
 	if err != nil {
 		return nil, err
@@ -152,7 +202,10 @@ func (f *MustGatherFetcher) loadAllResources() ([]*unstructured.Unstructured, er
 	if f.cache != nil {
 		return f.cache, nil
 	}
-	roots := f.findDataRoots()
+	roots, err := f.findDataRoots()
+	if err != nil {
+		return nil, err
+	}
 	if len(roots) == 0 {
 		return nil, fmt.Errorf("no must-gather data found under %s (expected cluster-scoped-resources/ or namespaces/)", f.rootDir)
 	}
@@ -191,11 +244,13 @@ func (f *MustGatherFetcher) loadAllResources() ([]*unstructured.Unstructured, er
 			}
 		}
 	}
-	f.cache = loaded
+	if loaded == nil {
+		loaded = []*unstructured.Unstructured{}
+	}
 	return loaded, nil
 }
 
-func (f *MustGatherFetcher) findDataRoots() []string {
+func (f *MustGatherFetcher) findDataRoots() ([]string, error) {
 	var roots []string
 	seen := make(map[string]bool)
 	err := filepath.Walk(f.rootDir, func(path string, info os.FileInfo, err error) error {
@@ -208,13 +263,14 @@ func (f *MustGatherFetcher) findDataRoots() []string {
 				seen[parent] = true
 				roots = append(roots, parent)
 			}
+			return filepath.SkipDir
 		}
 		return nil
 	})
 	if err != nil {
-		return nil
+		return nil, fmt.Errorf("walking must-gather root %q for data directories: %w", f.rootDir, err)
 	}
-	return roots
+	return roots, nil
 }
 
 func loadResourcesFromFile(path string) ([]*unstructured.Unstructured, error) {
@@ -222,35 +278,39 @@ func loadResourcesFromFile(path string) ([]*unstructured.Unstructured, error) {
 	if err != nil {
 		return nil, err
 	}
-	dec := yamlv3.NewDecoder(strings.NewReader(string(data)))
+	dec := yamlv3.NewDecoder(bytes.NewReader(data))
 	var result []*unstructured.Unstructured
 	for {
 		var raw map[string]any
-		if err := dec.Decode(&raw); err == io.EOF {
-			break
-		} else if err != nil {
-			continue
+		if err := dec.Decode(&raw); err != nil {
+			if err == io.EOF {
+				break
+			}
+			return nil, fmt.Errorf("yaml decode %s: %w", path, err)
 		}
 		if raw == nil {
 			continue
 		}
 		if raw["items"] != nil {
-			items, ok := raw["items"].([]any)
-			if !ok {
-				continue
-			}
-			for _, item := range items {
-				itemMap, ok := item.(map[string]any)
+			kindStr, _ := raw["kind"].(string)
+			if kindStr == "List" || strings.HasSuffix(kindStr, "List") {
+				items, ok := raw["items"].([]any)
 				if !ok {
 					continue
 				}
-				if itemMap["kind"] == nil || itemMap["apiVersion"] == nil {
-					continue
+				for _, item := range items {
+					itemMap, ok := item.(map[string]any)
+					if !ok {
+						continue
+					}
+					if itemMap["kind"] == nil || itemMap["apiVersion"] == nil {
+						continue
+					}
+					obj := &unstructured.Unstructured{Object: itemMap}
+					result = append(result, obj)
 				}
-				obj := &unstructured.Unstructured{Object: itemMap}
-				result = append(result, obj)
+				continue
 			}
-			continue
 		}
 		if raw["kind"] != nil && raw["apiVersion"] != nil {
 			obj := &unstructured.Unstructured{Object: raw}

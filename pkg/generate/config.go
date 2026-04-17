@@ -11,6 +11,11 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
+// validAPIVersions lists supported RefgenConfig.apiVersion values.
+var validAPIVersions = []string{
+	"refgen/v1",
+}
+
 // RefgenConfig is the root configuration for reference generation.
 type RefgenConfig struct {
 	APIVersion string `json:"apiVersion"`
@@ -52,6 +57,16 @@ func LoadConfig(configPath string) (*RefgenConfig, error) {
 	}
 	if config.APIVersion == "" {
 		config.APIVersion = "refgen/v1"
+	}
+	allowedAPIVersion := false
+	for _, v := range validAPIVersions {
+		if config.APIVersion == v {
+			allowedAPIVersion = true
+			break
+		}
+	}
+	if !allowedAPIVersion {
+		return nil, fmt.Errorf("configuration apiVersion %q is invalid; must be one of: %s", config.APIVersion, strings.Join(validAPIVersions, ", "))
 	}
 	if config.OutputDir == "" {
 		config.OutputDir = "./generated-reference"
