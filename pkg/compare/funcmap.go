@@ -138,7 +138,7 @@ func DisplayFuncmap(w io.Writer) {
 func toYAML(v any) string {
 	data, err := yaml.Marshal(v)
 	if err != nil {
-		// Swallow errors inside of a template.
+		klog.Warningf("Failed to marshal value to YAML in template: %v", err)
 		return ""
 	}
 	return strings.TrimSuffix(string(data), "\n")
@@ -195,7 +195,7 @@ func toTOML(v any) string {
 func toJSON(v any) string {
 	data, err := json.Marshal(v)
 	if err != nil {
-		// Swallow errors inside of a template.
+		klog.Warningf("Failed to marshal value to JSON in template: %v", err)
 		return ""
 	}
 	return string(data)

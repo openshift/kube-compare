@@ -349,7 +349,11 @@ func getFieldNameFromStructTag(c *ComponentV2, s ComponentV2Group) string {
 	// Because of embedding we can use the type as the field name to lookup the struct tags
 	x := strings.Split(fmt.Sprintf("%T", s), ".")
 	y := x[len(x)-1]
-	field, _ := reflect.TypeOf(c).Elem().FieldByName(y)
+	field, ok := reflect.TypeOf(c).Elem().FieldByName(y)
+	if !ok {
+		klog.Warningf("Failed to find struct field %q in ComponentV2", y)
+		return y
+	}
 	return strings.Split(field.Tag.Get("json"), ",")[0]
 }
 
