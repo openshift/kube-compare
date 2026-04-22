@@ -784,7 +784,10 @@ func (o *Options) Run() error {
 	clusterCRs := make([]*unstructured.Unstructured, 0)
 	uniqueIDs := make(map[string]bool)
 	for _, info := range infos {
-		clusterCRMapping, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(info.Object)
+		clusterCRMapping, err := runtime.DefaultUnstructuredConverter.ToUnstructured(info.Object)
+		if err != nil {
+			klog.Warningf("Failed to convert resource to unstructured: %v", err)
+		}
 		obj := &unstructured.Unstructured{Object: clusterCRMapping}
 		id := apiKindNamespaceName(obj)
 		if _, exists := uniqueIDs[id]; !exists {

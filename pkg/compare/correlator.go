@@ -350,9 +350,13 @@ func NewOwnerReferenceCorrelator[T CorrelationEntry](templates []T, clusterCRs [
 				continue
 			}
 
-			apiVersion, _, _ := unstructured.NestedString(ownerRef, "apiVersion")
-			kind, _, _ := unstructured.NestedString(ownerRef, "kind")
-			name, _, _ := unstructured.NestedString(ownerRef, "name")
+			apiVersion, _, err1 := unstructured.NestedString(ownerRef, "apiVersion")
+			kind, _, err2 := unstructured.NestedString(ownerRef, "kind")
+			name, _, err3 := unstructured.NestedString(ownerRef, "name")
+			if err1 != nil || err2 != nil || err3 != nil {
+				klog.V(1).Infof("Skipping ownerReference with non-string fields: %v %v %v", err1, err2, err3)
+				continue
+			}
 
 			if apiVersion == "" || kind == "" || name == "" {
 				continue
@@ -436,9 +440,13 @@ func NewSubjectsCorrelator[T CorrelationEntry](templates []T, clusterCRs []*unst
 
 			// Extract subject information
 			// Note: subjects use "kind" not "apiVersion"
-			subjKind, _, _ := unstructured.NestedString(subject, "kind")
-			subjName, _, _ := unstructured.NestedString(subject, "name")
-			subjNamespace, _, _ := unstructured.NestedString(subject, "namespace")
+			subjKind, _, err1 := unstructured.NestedString(subject, "kind")
+			subjName, _, err2 := unstructured.NestedString(subject, "name")
+			subjNamespace, _, err3 := unstructured.NestedString(subject, "namespace")
+			if err1 != nil || err2 != nil || err3 != nil {
+				klog.V(1).Infof("Skipping subject with non-string fields: %v %v %v", err1, err2, err3)
+				continue
+			}
 
 			if subjKind == "" || subjName == "" {
 				continue

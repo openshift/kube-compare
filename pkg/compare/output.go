@@ -37,6 +37,20 @@ type DiffSum struct {
 	Description        string   `json:"description,omitempty"`
 }
 
+func renderTemplate(name, templateStr string, funcs template.FuncMap, data any, fallback string) string {
+	tmpl, err := template.New(name).Funcs(funcs).Parse(templateStr)
+	if err != nil {
+		klog.Warningf("Failed to parse %s template: %v", name, err)
+		return fallback
+	}
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, data); err != nil {
+		klog.Warningf("Failed to execute %s template: %v", name, err)
+		return fallback
+	}
+	return strings.TrimSpace(buf.String())
+}
+
 func (s DiffSum) String() string {
 	t := `
 Cluster CR: {{ .CRName }}
@@ -58,10 +72,8 @@ Patch Reasons:
 {{- end }}
 {{- end }}
 `
-	var buf bytes.Buffer
-	tmpl, _ := template.New("DiffSummary").Funcs(sprig.TxtFuncMap()).Parse(t)
-	_ = tmpl.Execute(&buf, s)
-	return strings.TrimSpace(buf.String())
+	fallback := fmt.Sprintf("Cluster CR: %s\nReference File: %s\nDiff Output: %s", s.CRName, s.CorrelatedTemplate, s.DiffOutput)
+	return renderTemplate("DiffSummary", t, sprig.TxtFuncMap(), s, fallback)
 }
 
 func (s DiffSum) HasDiff() bool {
@@ -158,10 +170,10 @@ Cluster CRs with patches applied: {{ .PatchedCRs }}
 No patched CRs
 {{- end }}
 `
-	var buf bytes.Buffer
-	tmpl, _ := template.New("Summary").Funcs(sprig.TxtFuncMap()).Funcs(template.FuncMap{"toYaml": toYAML}).Parse(t)
-	_ = tmpl.Execute(&buf, s)
-	return strings.TrimSpace(buf.String())
+	funcs := sprig.TxtFuncMap()
+	funcs["toYaml"] = toYAML
+	fallback := fmt.Sprintf("Summary\nCRs with diffs: %d/%d", s.NumDiffCRs, s.TotalCRs)
+	return renderTemplate("Summary", t, funcs, s, fallback)
 }
 
 // Output Contains the complete output of the command

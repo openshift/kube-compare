@@ -6,6 +6,8 @@ import (
 	"regexp"
 	"slices"
 	"sort"
+
+	"k8s.io/klog/v2"
 )
 
 const (
@@ -55,7 +57,11 @@ func (c *capturedValueIndices) getTopLevelIndices() []capturedGroupIndex {
 }
 
 func (id RegexInlineDiff) Diff(regex, crValue string, sharedCapturedValues CapturedValues) (string, CapturedValues) {
-	re, _ := regexp.Compile(regex)
+	re, err := regexp.Compile(regex)
+	if err != nil {
+		klog.V(1).Infof("Failed to compile regex %q in inline diff: %v", regex, err)
+		return regex, sharedCapturedValues
+	}
 	matchedIndices := re.FindStringSubmatchIndex(crValue)
 	if matchedIndices == nil {
 		return regex, sharedCapturedValues
