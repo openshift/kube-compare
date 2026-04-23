@@ -12,7 +12,7 @@ Summary:
   NumMissing: 1
   TotalCRs: 1
   UnmatchedCRS: []
-  ValidationIssuses:
+  ValidationIssues:
     ExamplePart:
       Dashboard:
         CRs:
