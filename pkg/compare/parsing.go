@@ -66,7 +66,7 @@ func GetReference(fsys fs.FS, referenceFileName string) (Reference, error) {
 	versionAny, ok := verCheck["apiVersion"]
 	var version string
 	if !ok {
-		version = "v1"
+		version = ReferenceVersionV1
 	} else {
 		version = strings.TrimSpace(fmt.Sprint(versionAny))
 	}

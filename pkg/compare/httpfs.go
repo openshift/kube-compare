@@ -12,11 +12,15 @@ import (
 	"time"
 )
 
-const defaultHttpGetAttempts = 5
+const (
+	defaultHttpGetAttempts = 5
+	httpScheme             = "http://"
+	httpsScheme            = "https://"
+)
 
 // isURL checks if the given path is a URL by verifying if it starts with "http://" or "https://".
 func isURL(path string) bool {
-	return strings.HasPrefix(path, "http://") || strings.HasPrefix(path, "https://")
+	return strings.HasPrefix(path, httpScheme) || strings.HasPrefix(path, httpsScheme)
 }
 
 // HTTPFS represents a file system that retrieves files from a http server by returning the http response body,

@@ -20,6 +20,12 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
+const (
+	junitFailureTypeDifference = "Difference"
+	junitFailureTypeValidation = "Validation Issue"
+	junitFailureTypeUnmatched  = "Unmatched CR"
+)
+
 // Warning represents a warning message in the output
 type Warning struct {
 	Type      string   `json:"type"`
@@ -274,7 +280,7 @@ func (o Output) junitDiffSuite() junit.TestSuite {
 
 		if diff.DiffOutput != "" {
 			testCase.Failure = &junit.Failure{
-				Type:     "Difference",
+				Type:     junitFailureTypeDifference,
 				Message:  fmt.Sprintf("Differences found in CR: %s, Compared To Reference CR: %s", diff.CRName, diff.CorrelatedTemplate),
 				Contents: diff.DiffOutput,
 			}
@@ -304,7 +310,7 @@ func (o Output) junitValidationIssueSuite() junit.TestSuite {
 				Name:      "Reference validation failure",
 				Classname: fmt.Sprintf("Part:%s Component: %s", partName, componentName),
 				Failure: &junit.Failure{
-					Type:    "Validation Issue",
+					Type:    junitFailureTypeValidation,
 					Message: fmt.Sprintf("%s: %s", validationIssue.Msg, strings.Join(validationIssue.CRs, ",")),
 				},
 			})
@@ -336,7 +342,7 @@ func (o Output) junitUnmatchedCRsSuite() junit.TestSuite {
 		suite.AddCase(junit.TestCase{
 			Name: cr,
 			Failure: &junit.Failure{
-				Type:    "Unmatched CR",
+				Type:    junitFailureTypeUnmatched,
 				Message: fmt.Sprintf("Cluster resource '%s' is unmatched.", cr),
 			},
 		})

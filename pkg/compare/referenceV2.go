@@ -367,6 +367,7 @@ func componentV2GroupUnmarshalJSON(s ComponentV2Group, b []byte) (err error) {
 const (
 	MissingCRsMsg      = "Missing CRs"
 	MatchedMoreThanOne = "Should only match one but matched"
+	oneOfRequired      = "One of the following is required"
 )
 
 type OneOf struct {
@@ -389,7 +390,7 @@ func (g *OneOf) getMissingCRs(matchedTemplates map[string]int) (ValidationIssue,
 	}
 	if len(matched) == 0 {
 		return ValidationIssue{
-			Msg: "One of the following is required",
+			Msg: oneOfRequired,
 			CRs: notMatched,
 		}, 1
 	}
