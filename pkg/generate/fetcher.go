@@ -235,7 +235,7 @@ func (f *MustGatherFetcher) loadAllResources(ctx context.Context) ([]*unstructur
 					return walkErr
 				}
 				if err := ctx.Err(); err != nil {
-					return err
+					return fmt.Errorf("must-gather resource walk: %w", err)
 				}
 				if info.IsDir() || !strings.HasSuffix(path, ".yaml") {
 					return nil
@@ -243,14 +243,14 @@ func (f *MustGatherFetcher) loadAllResources(ctx context.Context) ([]*unstructur
 				objs, err := loadResourcesFromFile(ctx, path)
 				if err != nil {
 					if ctx.Err() != nil && errors.Is(err, ctx.Err()) {
-						return err
+						return fmt.Errorf("must-gather resource walk: %w", err)
 					}
 					klog.V(2).Infof("Skipping %s: %v", path, err)
 					return nil
 				}
 				for _, obj := range objs {
 					if err := ctx.Err(); err != nil {
-						return err
+						return fmt.Errorf("must-gather resource walk: %w", err)
 					}
 					key := fmt.Sprintf("%s/%s/%s/%s", obj.GetAPIVersion(), obj.GetKind(), obj.GetNamespace(), obj.GetName())
 					if seen[key] {
@@ -284,7 +284,7 @@ func (f *MustGatherFetcher) findDataRoots(ctx context.Context) ([]string, error)
 			return walkErr
 		}
 		if err := ctx.Err(); err != nil {
-			return err
+			return fmt.Errorf("must-gather root discovery walk: %w", err)
 		}
 		if info.IsDir() && (filepath.Base(path) == "cluster-scoped-resources" || filepath.Base(path) == "namespaces") {
 			parent := filepath.Dir(path)
