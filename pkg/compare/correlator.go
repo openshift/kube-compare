@@ -10,11 +10,18 @@ import (
 	"strings"
 	"sync"
 
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/klog/v2"
 )
 
 var FieldSeparator = "_"
+
+const (
+	kindClusterRoleBinding = "ClusterRoleBinding"
+	kindRoleBinding        = "RoleBinding"
+	coreAPIVersion         = "v1"
+)
 
 // Correlator provides an abstraction that allow the usage of different Resource correlation logics
 // in the kubectl cluster-compare. The correlation process Matches for each Resource a template.
@@ -423,7 +430,7 @@ func NewSubjectsCorrelator[T CorrelationEntry](templates []T, clusterCRs []*unst
 	for _, clusterCR := range clusterCRs {
 		// Only check RBAC resources (ClusterRoleBinding, RoleBinding)
 		kind := clusterCR.GetKind()
-		if kind != "ClusterRoleBinding" && kind != "RoleBinding" {
+		if kind != kindClusterRoleBinding && kind != kindRoleBinding {
 			continue
 		}
 
@@ -456,9 +463,9 @@ func NewSubjectsCorrelator[T CorrelationEntry](templates []T, clusterCRs []*unst
 			// ServiceAccount subjects use "v1" as apiVersion
 			var apiVersion string
 			switch subjKind {
-			case "ServiceAccount":
-				apiVersion = "v1"
-			case "User", "Group":
+			case rbacv1.ServiceAccountKind:
+				apiVersion = coreAPIVersion
+			case rbacv1.UserKind, rbacv1.GroupKind:
 				// Users and Groups don't have apiVersions in the same way
 				continue
 			default:

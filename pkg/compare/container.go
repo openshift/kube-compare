@@ -16,9 +16,11 @@ type engine struct {
 	tempDir      string
 }
 
+const containerScheme = "container://"
+
 // isContainer reports whether the given path is a reference to a file in a container by verifying if it starts with "container://".
 func isContainer(path string) bool {
-	return strings.HasPrefix(path, "container://")
+	return strings.HasPrefix(path, containerScheme)
 }
 
 type parsedPath struct {
@@ -29,7 +31,7 @@ type parsedPath struct {
 // parsePath returns the image and referencePath (path to the directory for metadata.yaml), given a path
 // of the form container://<IMAGE>:<TAG>:/path_to_metadata.yaml
 func parsePath(path string) (parsedPath, error) {
-	path = strings.TrimPrefix(path, "container://")
+	path = strings.TrimPrefix(path, containerScheme)
 
 	// Split on ':', removing empty strings from slice. Removes errant colons from string,
 	// so container://<IMAGE>:::<TAG>::::::/path/to/metadata.yaml will still work, but
