@@ -20,6 +20,12 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
+const (
+	junitFailureTypeDifference = "Difference"
+	junitFailureTypeValidation = "Validation Issue"
+	junitFailureTypeUnmatched  = "Unmatched CR"
+)
+
 // Warning represents a warning message in the output
 type Warning struct {
 	Type      string   `json:"type"`
@@ -35,6 +41,20 @@ type DiffSum struct {
 	Patched            string   `json:"Patched,omitempty"`
 	OverrideReasons    []string `json:"OverrideReason,omitempty"`
 	Description        string   `json:"description,omitempty"`
+}
+
+func renderTemplate(name, templateStr string, funcs template.FuncMap, data any, fallback string) string {
+	tmpl, err := template.New(name).Funcs(funcs).Parse(templateStr)
+	if err != nil {
+		klog.Warningf("Failed to parse %s template: %v", name, err)
+		return fallback
+	}
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, data); err != nil {
+		klog.Warningf("Failed to execute %s template: %v", name, err)
+		return fallback
+	}
+	return strings.TrimSpace(buf.String())
 }
 
 func (s DiffSum) String() string {
@@ -58,10 +78,8 @@ Patch Reasons:
 {{- end }}
 {{- end }}
 `
-	var buf bytes.Buffer
-	tmpl, _ := template.New("DiffSummary").Funcs(sprig.TxtFuncMap()).Parse(t)
-	_ = tmpl.Execute(&buf, s)
-	return strings.TrimSpace(buf.String())
+	fallback := fmt.Sprintf("Cluster CR: %s\nReference File: %s\nDiff Output: %s", s.CRName, s.CorrelatedTemplate, s.DiffOutput)
+	return renderTemplate("DiffSummary", t, sprig.TxtFuncMap(), s, fallback)
 }
 
 func (s DiffSum) HasDiff() bool {
@@ -158,10 +176,10 @@ Cluster CRs with patches applied: {{ .PatchedCRs }}
 No patched CRs
 {{- end }}
 `
-	var buf bytes.Buffer
-	tmpl, _ := template.New("Summary").Funcs(sprig.TxtFuncMap()).Funcs(template.FuncMap{"toYaml": toYAML}).Parse(t)
-	_ = tmpl.Execute(&buf, s)
-	return strings.TrimSpace(buf.String())
+	funcs := sprig.TxtFuncMap()
+	funcs["toYaml"] = toYAML
+	fallback := fmt.Sprintf("Summary\nCRs with diffs: %d/%d", s.NumDiffCRs, s.TotalCRs)
+	return renderTemplate("Summary", t, funcs, s, fallback)
 }
 
 // Output Contains the complete output of the command
@@ -262,7 +280,7 @@ func (o Output) junitDiffSuite() junit.TestSuite {
 
 		if diff.DiffOutput != "" {
 			testCase.Failure = &junit.Failure{
-				Type:     "Difference",
+				Type:     junitFailureTypeDifference,
 				Message:  fmt.Sprintf("Differences found in CR: %s, Compared To Reference CR: %s", diff.CRName, diff.CorrelatedTemplate),
 				Contents: diff.DiffOutput,
 			}
@@ -292,7 +310,7 @@ func (o Output) junitValidationIssueSuite() junit.TestSuite {
 				Name:      "Reference validation failure",
 				Classname: fmt.Sprintf("Part:%s Component: %s", partName, componentName),
 				Failure: &junit.Failure{
-					Type:    "Validation Issue",
+					Type:    junitFailureTypeValidation,
 					Message: fmt.Sprintf("%s: %s", validationIssue.Msg, strings.Join(validationIssue.CRs, ",")),
 				},
 			})
@@ -324,7 +342,7 @@ func (o Output) junitUnmatchedCRsSuite() junit.TestSuite {
 		suite.AddCase(junit.TestCase{
 			Name: cr,
 			Failure: &junit.Failure{
-				Type:    "Unmatched CR",
+				Type:    junitFailureTypeUnmatched,
 				Message: fmt.Sprintf("Cluster resource '%s' is unmatched.", cr),
 			},
 		})

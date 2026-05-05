@@ -349,7 +349,11 @@ func getFieldNameFromStructTag(c *ComponentV2, s ComponentV2Group) string {
 	// Because of embedding we can use the type as the field name to lookup the struct tags
 	x := strings.Split(fmt.Sprintf("%T", s), ".")
 	y := x[len(x)-1]
-	field, _ := reflect.TypeOf(c).Elem().FieldByName(y)
+	field, ok := reflect.TypeOf(c).Elem().FieldByName(y)
+	if !ok {
+		klog.Warningf("Failed to find struct field %q in ComponentV2", y)
+		return y
+	}
 	return strings.Split(field.Tag.Get("json"), ",")[0]
 }
 
@@ -363,6 +367,7 @@ func componentV2GroupUnmarshalJSON(s ComponentV2Group, b []byte) (err error) {
 const (
 	MissingCRsMsg      = "Missing CRs"
 	MatchedMoreThanOne = "Should only match one but matched"
+	oneOfRequired      = "One of the following is required"
 )
 
 type OneOf struct {
@@ -385,7 +390,7 @@ func (g *OneOf) getMissingCRs(matchedTemplates map[string]int) (ValidationIssue,
 	}
 	if len(matched) == 0 {
 		return ValidationIssue{
-			Msg: "One of the following is required",
+			Msg: oneOfRequired,
 			CRs: notMatched,
 		}, 1
 	}

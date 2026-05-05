@@ -115,9 +115,14 @@ const (
 	skipInvalidResources  = "Skipping %s Input contains additional files from supported file extensions" +
 		" (json/yaml) that do not contain a valid resource, error: %s.\n In case this file is " +
 		"expected to be a valid resource modify it accordingly. "
-	DiffsFoundMsg           = "there are differences between the cluster CRs and the reference CRs"
-	noTemplateForGeneration = "Requested user override generation but no entires for which template to generate overrides for"
-	noReason                = "Reason required when generating overrides"
+	DiffsFoundMsg                   = "there are differences between the cluster CRs and the reference CRs"
+	errMissingKind                  = "Object 'Kind' is missing"
+	errParsing                      = "error parsing"
+	diffLabelMerged                 = "MERGED"
+	diffLabelLive                   = "LIVE"
+	warningTypeInferredNotValidated = "InferredResourcesNotValidated"
+	noTemplateForGeneration         = "Requested user override generation but no entires for which template to generate overrides for"
+	noReason                        = "Reason required when generating overrides"
 )
 
 const (
@@ -699,7 +704,7 @@ func diffAgainstTemplate(temp ReferenceTemplate, clusterCR *unstructured.Unstruc
 		return res, fmt.Errorf("template injection failed: %w", err)
 	}
 
-	differ, err := diff.NewDiffer("MERGED", "LIVE")
+	differ, err := diff.NewDiffer(diffLabelMerged, diffLabelLive)
 	diffOutput := new(bytes.Buffer)
 
 	res.output = diffOutput
@@ -761,7 +766,7 @@ func buildWarnings(sum *Summary) []Warning {
 
 	if len(sum.MatchedByReferenceOnly) > 0 {
 		warnings = append(warnings, Warning{
-			Type:      "InferredResourcesNotValidated",
+			Type:      warningTypeInferredNotValidated,
 			Message:   "Resource(s) found via ownerReferences or RBAC subjects but contents not validated",
 			Resources: sum.MatchedByReferenceOnly,
 		})
@@ -816,11 +821,11 @@ func (o *Options) Run() error {
 		return fmt.Errorf("failed to collect resources: %w", err)
 	}
 	ignoreErrors := func(err error) bool {
-		if strings.Contains(err.Error(), "Object 'Kind' is missing") {
+		if strings.Contains(err.Error(), errMissingKind) {
 			klog.Warningf(skipInvalidResources, extractPath(err.Error(), 3), "'Kind' is missing")
 			return true
 		}
-		if strings.Contains(err.Error(), "error parsing") {
+		if strings.Contains(err.Error(), errParsing) {
 			// TODO: Fix this error message truncation
 			klog.Warningf(skipInvalidResources, extractPath(err.Error(), 2), err.Error()[strings.LastIndex(err.Error(), ":"):])
 			return true
@@ -837,7 +842,10 @@ func (o *Options) Run() error {
 	clusterCRs := make([]*unstructured.Unstructured, 0)
 	uniqueIDs := make(map[string]bool)
 	for _, info := range infos {
-		clusterCRMapping, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(info.Object)
+		clusterCRMapping, err := runtime.DefaultUnstructuredConverter.ToUnstructured(info.Object)
+		if err != nil {
+			klog.Warningf("Failed to convert resource to unstructured: %v", err)
+		}
 		obj := &unstructured.Unstructured{Object: clusterCRMapping}
 		id := apiKindNamespaceName(obj)
 		if _, exists := uniqueIDs[id]; !exists {
