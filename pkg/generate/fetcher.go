@@ -170,12 +170,15 @@ func (f *MustGatherFetcher) FetchResources(ctx context.Context, spec *ResourceSp
 	if err := ctx.Err(); err != nil {
 		return nil, fmt.Errorf("fetch from must-gather: %w", err)
 	}
-	resources, err := f.loadAllResources()
+	resources, err := f.loadAllResources(ctx)
 	if err != nil {
 		return nil, err
 	}
 	var matched []*unstructured.Unstructured
 	for _, r := range resources {
+		if err := ctx.Err(); err != nil {
+			return nil, fmt.Errorf("fetch from must-gather: %w", err)
+		}
 		if r.GetKind() != spec.Kind || r.GetAPIVersion() != spec.APIVersion {
 			continue
 		}
@@ -199,11 +202,14 @@ func (f *MustGatherFetcher) FetchResources(ctx context.Context, spec *ResourceSp
 	return matched, nil
 }
 
-func (f *MustGatherFetcher) loadAllResources() ([]*unstructured.Unstructured, error) {
+func (f *MustGatherFetcher) loadAllResources(ctx context.Context) ([]*unstructured.Unstructured, error) {
 	if f.cache != nil {
 		return f.cache, nil
 	}
-	roots, err := f.findDataRoots()
+	if err := ctx.Err(); err != nil {
+		return nil, fmt.Errorf("load must-gather resources: %w", err)
+	}
+	roots, err := f.findDataRoots(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -213,24 +219,39 @@ func (f *MustGatherFetcher) loadAllResources() ([]*unstructured.Unstructured, er
 	seen := make(map[string]bool)
 	var loaded []*unstructured.Unstructured
 	for _, root := range roots {
+		if err := ctx.Err(); err != nil {
+			return nil, fmt.Errorf("load must-gather resources: %w", err)
+		}
 		for _, subdir := range []string{"cluster-scoped-resources", "namespaces"} {
+			if err := ctx.Err(); err != nil {
+				return nil, fmt.Errorf("load must-gather resources: %w", err)
+			}
 			base := filepath.Join(root, subdir)
 			if _, err := os.Stat(base); os.IsNotExist(err) {
 				continue
 			}
-			err := filepath.Walk(base, func(path string, info os.FileInfo, err error) error {
-				if err != nil {
+			err := filepath.Walk(base, func(path string, info os.FileInfo, walkErr error) error {
+				if walkErr != nil {
+					return walkErr
+				}
+				if err := ctx.Err(); err != nil {
 					return err
 				}
 				if info.IsDir() || !strings.HasSuffix(path, ".yaml") {
 					return nil
 				}
-				objs, err := loadResourcesFromFile(path)
+				objs, err := loadResourcesFromFile(ctx, path)
 				if err != nil {
+					if ctx.Err() != nil && errors.Is(err, ctx.Err()) {
+						return err
+					}
 					klog.V(2).Infof("Skipping %s: %v", path, err)
 					return nil
 				}
 				for _, obj := range objs {
+					if err := ctx.Err(); err != nil {
+						return err
+					}
 					key := fmt.Sprintf("%s/%s/%s/%s", obj.GetAPIVersion(), obj.GetKind(), obj.GetNamespace(), obj.GetName())
 					if seen[key] {
 						continue
@@ -252,11 +273,17 @@ func (f *MustGatherFetcher) loadAllResources() ([]*unstructured.Unstructured, er
 	return loaded, nil
 }
 
-func (f *MustGatherFetcher) findDataRoots() ([]string, error) {
+func (f *MustGatherFetcher) findDataRoots(ctx context.Context) ([]string, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, fmt.Errorf("walking must-gather root %q for data directories: %w", f.rootDir, err)
+	}
 	var roots []string
 	seen := make(map[string]bool)
-	err := filepath.Walk(f.rootDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
+	err := filepath.Walk(f.rootDir, func(path string, info os.FileInfo, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if err := ctx.Err(); err != nil {
 			return err
 		}
 		if info.IsDir() && (filepath.Base(path) == "cluster-scoped-resources" || filepath.Base(path) == "namespaces") {
@@ -275,7 +302,7 @@ func (f *MustGatherFetcher) findDataRoots() ([]string, error) {
 	return roots, nil
 }
 
-func loadResourcesFromFile(path string) ([]*unstructured.Unstructured, error) {
+func loadResourcesFromFile(ctx context.Context, path string) ([]*unstructured.Unstructured, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("read file %s: %w", path, err)
@@ -283,6 +310,9 @@ func loadResourcesFromFile(path string) ([]*unstructured.Unstructured, error) {
 	dec := yamlv3.NewDecoder(bytes.NewReader(data))
 	var result []*unstructured.Unstructured
 	for {
+		if err := ctx.Err(); err != nil {
+			return nil, fmt.Errorf("yaml decode %s: %w", path, err)
+		}
 		var raw map[string]any
 		if err := dec.Decode(&raw); err != nil {
 			if errors.Is(err, io.EOF) {
@@ -301,6 +331,9 @@ func loadResourcesFromFile(path string) ([]*unstructured.Unstructured, error) {
 					continue
 				}
 				for _, item := range items {
+					if err := ctx.Err(); err != nil {
+						return nil, fmt.Errorf("yaml decode %s: %w", path, err)
+					}
 					itemMap, ok := item.(map[string]any)
 					if !ok {
 						continue
