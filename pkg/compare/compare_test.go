@@ -850,8 +850,19 @@ func getResources(t *testing.T, test Test, resourcesDir string) ([]v1.APIResourc
 
 func updateTestDiscoveryClient(tf *cmdtesting.TestFactory, discoveryResources []v1.APIResource) {
 	discoveryClient := cmdtesting.NewFakeCachedDiscoveryClient()
-	ResourceList := v1.APIResourceList{APIResources: discoveryResources}
-	discoveryClient.Resources = append(discoveryClient.Resources, &ResourceList)
-	discoveryClient.PreferredResources = append(discoveryClient.PreferredResources, &ResourceList)
+	// Group resources by GroupVersion to match real Kubernetes API behavior
+	resourcesByGV := make(map[string][]v1.APIResource)
+	for _, res := range discoveryResources {
+		gv := res.Version
+		if res.Group != "" {
+			gv = res.Group + "/" + res.Version
+		}
+		resourcesByGV[gv] = append(resourcesByGV[gv], res)
+	}
+	for gv, resources := range resourcesByGV {
+		list := &v1.APIResourceList{GroupVersion: gv, APIResources: resources}
+		discoveryClient.Resources = append(discoveryClient.Resources, list)
+		discoveryClient.PreferredResources = append(discoveryClient.PreferredResources, list)
+	}
 	tf.WithDiscoveryClient(discoveryClient)
 }
