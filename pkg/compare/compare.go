@@ -108,8 +108,8 @@ var (
 )
 
 const (
-	noRefFileWasPassed    = "\"Reference config file is required\""
-	refFileNotExistsError = "\"Reference config file doesn't exist\""
+	noRefFileWasPassed    = "Reference config file is required"
+	refFileNotExistsError = "Reference config file doesn't exist"
 	emptyTypes            = "templates don't contain any types (kind) of resources that are supported by the cluster"
 	DiffSeparator         = "**********************************\n"
 	skipInvalidResources  = "Skipping %s Input contains additional files from supported file extensions" +
@@ -121,7 +121,7 @@ const (
 	diffLabelMerged                 = "MERGED"
 	diffLabelLive                   = "LIVE"
 	warningTypeInferredNotValidated = "InferredResourcesNotValidated"
-	noTemplateForGeneration         = "Requested user override generation but no entires for which template to generate overrides for"
+	noTemplateForGeneration         = "Requested user override generation but no entries for which template to generate overrides for"
 	noReason                        = "Reason required when generating overrides"
 )
 
@@ -715,7 +715,7 @@ func diffAgainstTemplate(temp ReferenceTemplate, clusterCR *unstructured.Unstruc
 
 	err = differ.Diff(obj, diff.Printer{}, o.ShowManagedFields)
 	if err != nil {
-		return res, fmt.Errorf("error occurered during diff: %w", err)
+		return res, fmt.Errorf("error occurred during diff: %w", err)
 	}
 	err = differ.Run(&diff.DiffProgram{Exec: exec.New(), IOStreams: genericiooptions.IOStreams{In: o.IOStreams.In, Out: diffOutput, ErrOut: o.IOStreams.ErrOut}})
 
@@ -1060,11 +1060,11 @@ func (obj InfoObject) runInlineDiffFuncs() error {
 		}
 		value, exist, err := NestedString(obj.injectedObjFromTemplate.Object, listedPath...)
 		if err != nil {
-			errs = append(errs, fmt.Errorf("failed to acces value in template of field %s that uses inline diff func: %w", pathToKey, err))
+			errs = append(errs, fmt.Errorf("failed to access value in template of field %s that uses inline diff func: %w", pathToKey, err))
 			continue
 		}
 		if !exist {
-			errs = append(errs, fmt.Errorf("failed to acces value in template of field %s that uses inline diff func: Not found", pathToKey))
+			errs = append(errs, fmt.Errorf("failed to access value in template of field %s that uses inline diff func: Not found", pathToKey))
 			continue
 		}
 		clusterValue, exist, err := NestedString(obj.clusterObj.Object, listedPath...)
@@ -1072,7 +1072,7 @@ func (obj InfoObject) runInlineDiffFuncs() error {
 			continue // if value does not appear in cluster CR then there will be a diff anyway and this is not an error
 		}
 		if err != nil {
-			errs = append(errs, fmt.Errorf("failed to acces value in cluster cr of field %s that uses inline diff func: %w", pathToKey, err))
+			errs = append(errs, fmt.Errorf("failed to access value in cluster cr of field %s that uses inline diff func: %w", pathToKey, err))
 			continue
 		}
 		diffFn := InlineDiffs[inlineDiffFunc]
