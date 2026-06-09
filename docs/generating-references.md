@@ -1,6 +1,9 @@
 # Generating References
 
-A user may wish to generate a reference from a running cluster or from an `oc adm must-gather` output. Once a cluster is deployed and all operators are installed and configured, generating a reference from that cluster will allow users to quickly compare and validate other clusters against it. This can be useful when working on a specific blueprint or other application-specific deployment. It can also be helpful in identifying any configuration drift in the cluster, if that output is later ran against the same source cluster.
+A user may wish to generate a reference from a running cluster or from an `oc adm must-gather` output.
+Once a cluster is deployed and all operators are installed and configured, generating a reference from that cluster will allow users to quickly compare and validate other clusters against it.
+This can be useful when working on a specific blueprint or other application-specific deployment.
+It can also be helpful in identifying any configuration drift in the cluster, if that output is later ran against the same source cluster.
 
 This is achieved by first creating a configuration file outlining what to capture, then running the tool with the required options.
 
@@ -81,7 +84,7 @@ The tool is invoked when the `-g <config.yaml>` option is passed to `kubectl clu
 ```
 
 for a live cluster, or
- 
+
 ```bash
 kubectl cluster-compare -g ./refgen-config.yaml -f ./must-gather.123456
 ```
@@ -221,4 +224,3 @@ parts:
 If necessary, `metadata.yaml` can be further modified e.g. to add or remove fields to omit, or changing resource groupings from `allOf` to `anyOf` to suit a particular use case.
 
 See [reference-config-guide-v2.md](./reference-config-guide-v2.md) for more details.
-
