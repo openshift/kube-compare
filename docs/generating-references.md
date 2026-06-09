@@ -79,11 +79,13 @@ The tool is invoked when the `-g <config.yaml>` option is passed to `kubectl clu
 ```bash
  kubectl cluster-compare -g ./refgen-config.yaml
 ```
+
 for a live cluster, or
  
 ```bash
 kubectl cluster-compare -g ./refgen-config.yaml -f ./must-gather.123456
 ```
+
 to create a reference configuration from the must-gather.
 
 Some helpful information will also be displayed on the console:

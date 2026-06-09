@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/openshift/kube-compare/pkg/objectmeta"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -101,7 +102,7 @@ func TestCleanResource(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, "cm1", md["name"])
 	assert.Equal(t, "ns1", md["namespace"])
-	for _, removed := range []string{"resourceVersion", "uid", "creationTimestamp", "generation", "managedFields", "selfLink"} {
+	for _, removed := range objectmeta.ServerManagedMetadataKeys {
 		assert.NotContains(t, md, removed)
 	}
 	assert.NotContains(t, md, "annotations")

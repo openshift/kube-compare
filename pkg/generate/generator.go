@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/openshift/kube-compare/pkg/objectmeta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/yaml"
 )
@@ -20,48 +21,56 @@ var (
 	sanitizePathDashes = regexp.MustCompile(`-+`)
 )
 
+func serverManagedMetadataOmitEntries() []map[string]any {
+	entries := make([]map[string]any, len(objectmeta.ServerManagedMetadataKeys))
+	for i, key := range objectmeta.ServerManagedMetadataKeys {
+		entries[i] = map[string]any{"pathToKey": objectmeta.MetadataPath(key)}
+	}
+	return entries
+}
+
 // defaultFieldsToOmit returns the standard fieldsToOmit configuration for generated metadata.
 func defaultFieldsToOmit() map[string]any {
+	defaults := []map[string]any{
+		{"pathToKey": "metadata.annotations.\"kubernetes.io/metadata.name\""},
+		{"pathToKey": "metadata.annotations.\"openshift.io/sa.scc.uid-range\""},
+		{"pathToKey": "metadata.annotations.\"openshift.io/sa.scc.mcs\""},
+		{"pathToKey": "metadata.annotations.\"openshift.io/sa.scc.supplemental-groups\""},
+		{"pathToKey": "metadata.annotations.\"machineconfiguration.openshift.io/mc-name-suffix\""},
+		{"pathToKey": "metadata.annotations.\"kubectl.kubernetes.io/last-applied-configuration\""},
+		{"pathToKey": "metadata.annotations.\"nmstate.io/webhook-mutating-timestamp\""},
+		{"pathToKey": "metadata.annotations.\"ran.openshift.io/ztp-gitops-generated\""},
+		{"pathToKey": "metadata.annotations.\"include.release.openshift.io/ibm-cloud-managed\""},
+		{"pathToKey": "metadata.annotations.\"include.release.openshift.io/self-managed-high-availability\""},
+		{"pathToKey": "metadata.annotations.\"include.release.openshift.io/single-node-developer\""},
+		{"pathToKey": "metadata.annotations.\"release.openshift.io/create-only\""},
+		{"pathToKey": "metadata.annotations.\"capability.openshift.io/name\""},
+		{"pathToKey": "metadata.annotations.\"olm.providedAPIs\""},
+		{"pathToKey": "metadata.annotations.\"operator.sriovnetwork.openshift.io/last-network-namespace\""},
+		{"pathToKey": "metadata.annotations.\"k8s.v1.cni.cncf.io/resourceName\""},
+		{"pathToKey": "metadata.annotations.\"security.openshift.io/MinimallySufficientPodSecurityStandard\""},
+		{"pathToKey": "metadata.labels.\"kubernetes.io/metadata.name\""},
+		// OLM and PSA inject multiple label keys under these prefixes; omit by prefix so
+		// metadata.yaml matches kube-compare ManifestPathV1 isPrefix semantics.
+		{"pathToKey": `metadata.labels."pod-security.kubernetes.io/"`, "isPrefix": true},
+		{"pathToKey": `metadata.labels."operators.coreos.com/"`, "isPrefix": true},
+		{"pathToKey": "metadata.labels.\"security.openshift.io/scc.podSecurityLabelSync\""},
+		{"pathToKey": "metadata.labels.\"lca.openshift.io/target-ocp-version\""},
+		{"pathToKey": "metadata.labels.\"olm.operatorgroup.uid\""},
+	}
+	defaults = append(defaults, serverManagedMetadataOmitEntries()...)
+	defaults = append(defaults,
+		map[string]any{"pathToKey": "metadata.finalizers"},
+		map[string]any{"pathToKey": "metadata.ownerReferences"},
+		map[string]any{"pathToKey": "spec.finalizers"},
+		map[string]any{"pathToKey": "spec.ownerReferences"},
+		map[string]any{"pathToKey": "spec.clusterID"},
+		map[string]any{"pathToKey": "spec.filters"},
+	)
 	return map[string]any{
 		"defaultOmitRef": "all",
 		"items": map[string]any{
-			"defaults": []map[string]any{
-				{"pathToKey": "metadata.annotations.\"kubernetes.io/metadata.name\""},
-				{"pathToKey": "metadata.annotations.\"openshift.io/sa.scc.uid-range\""},
-				{"pathToKey": "metadata.annotations.\"openshift.io/sa.scc.mcs\""},
-				{"pathToKey": "metadata.annotations.\"openshift.io/sa.scc.supplemental-groups\""},
-				{"pathToKey": "metadata.annotations.\"machineconfiguration.openshift.io/mc-name-suffix\""},
-				{"pathToKey": "metadata.annotations.\"kubectl.kubernetes.io/last-applied-configuration\""},
-				{"pathToKey": "metadata.annotations.\"nmstate.io/webhook-mutating-timestamp\""},
-				{"pathToKey": "metadata.annotations.\"ran.openshift.io/ztp-gitops-generated\""},
-				{"pathToKey": "metadata.annotations.\"include.release.openshift.io/ibm-cloud-managed\""},
-				{"pathToKey": "metadata.annotations.\"include.release.openshift.io/self-managed-high-availability\""},
-				{"pathToKey": "metadata.annotations.\"include.release.openshift.io/single-node-developer\""},
-				{"pathToKey": "metadata.annotations.\"release.openshift.io/create-only\""},
-				{"pathToKey": "metadata.annotations.\"capability.openshift.io/name\""},
-				{"pathToKey": "metadata.annotations.\"olm.providedAPIs\""},
-				{"pathToKey": "metadata.annotations.\"operator.sriovnetwork.openshift.io/last-network-namespace\""},
-				{"pathToKey": "metadata.annotations.\"k8s.v1.cni.cncf.io/resourceName\""},
-				{"pathToKey": "metadata.annotations.\"security.openshift.io/MinimallySufficientPodSecurityStandard\""},
-				{"pathToKey": "metadata.labels.\"kubernetes.io/metadata.name\""},
-				// OLM and PSA inject multiple label keys under these prefixes; omit by prefix so
-				// metadata.yaml matches kube-compare ManifestPathV1 isPrefix semantics.
-				{"pathToKey": `metadata.labels."pod-security.kubernetes.io/"`, "isPrefix": true},
-				{"pathToKey": `metadata.labels."operators.coreos.com/"`, "isPrefix": true},
-				{"pathToKey": "metadata.labels.\"security.openshift.io/scc.podSecurityLabelSync\""},
-				{"pathToKey": "metadata.labels.\"lca.openshift.io/target-ocp-version\""},
-				{"pathToKey": "metadata.labels.\"olm.operatorgroup.uid\""},
-				{"pathToKey": "metadata.resourceVersion"},
-				{"pathToKey": "metadata.uid"},
-				{"pathToKey": "metadata.creationTimestamp"},
-				{"pathToKey": "metadata.generation"},
-				{"pathToKey": "metadata.finalizers"},
-				{"pathToKey": "metadata.ownerReferences"},
-				{"pathToKey": "spec.finalizers"},
-				{"pathToKey": "spec.ownerReferences"},
-				{"pathToKey": "spec.clusterID"},
-				{"pathToKey": "spec.filters"},
-			},
+			"defaults": defaults,
 			"all": []map[string]any{
 				{"include": "defaults"},
 				{"pathToKey": "status"},
@@ -260,7 +269,7 @@ func sanitizePathSegment(s string) string {
 func cleanResource(obj *unstructured.Unstructured, fto map[string]any) map[string]any {
 	result := obj.DeepCopy().Object
 	if metadata, ok := result["metadata"].(map[string]any); ok {
-		for _, key := range []string{"resourceVersion", "uid", "creationTimestamp", "generation", "managedFields", "selfLink"} {
+		for _, key := range objectmeta.ServerManagedMetadataKeys {
 			delete(metadata, key)
 		}
 		annExact, annPrefix, lblExact, lblPrefix := omitAnnotationAndLabelKeys(fto)

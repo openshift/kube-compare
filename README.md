@@ -62,7 +62,7 @@ Extract a reference configuration from a container image and compare with a loca
 kubectl cluster-compare -r container://<IMAGE>:<TAG>:/home/ztp/reference/metadata.yaml -f ./crsdir -R
 ```
 
-The tool can also be used to generate a reference configuration, from either a running cluster or against an `oc must-gather` output. A configuration file must be created to specify what resources should be captured. An example configuration is available [here](./docs/example/generate-config.yaml).
+The tool can also be used to generate a reference configuration, from either a running cluster or against an `oc must-gather` output. A configuration file must be created to specify what resources should be captured. An example configuration is available: [generate-config.yaml](./docs/example/generate-config.yaml).
 
 Generate a reference configuration from a running cluster:
 

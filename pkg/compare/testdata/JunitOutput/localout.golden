@@ -2,7 +2,7 @@
 <testsuites name="Comparison results of known valid reference configuration and a set of specific cluster CRs" tests="3" failures="2" errors="0" skipped="0" time="TIME">
 	<testsuite tests="1" failures="1" skipped="0" time="TIME" name="Detected Differences Between Cluster CRs and Expected CRs" timestamp="TIME">
 		<properties>
-			<property name="MetadataHash" value="aa4c94f1307788e1da81f57718a9f1364d35d4ff6099fc633724bcf9d051a094"></property>
+			<property name="MetadataHash" value="f077accb087abd9b771f530230261cf5de002fe007c62a2bae1c11e1a516cec8"></property>
 			<property name="TotalCRs" value="1"></property>
 		</properties>
 		<testcase classname="Matching Reference CR: deploymentMetrics.yaml" name="CR: apps/v1_Deployment_kubernetes-dashboard_dashboard-metrics-scraper" time="">
@@ -12,7 +12,7 @@
 	</testsuite>
 	<testsuite tests="1" failures="1" skipped="0" time="TIME" name="Reference validation" timestamp="TIME">
 		<properties>
-			<property name="MetadataHash" value="aa4c94f1307788e1da81f57718a9f1364d35d4ff6099fc633724bcf9d051a094"></property>
+			<property name="MetadataHash" value="f077accb087abd9b771f530230261cf5de002fe007c62a2bae1c11e1a516cec8"></property>
 			<property name="TotalCRs" value="1"></property>
 		</properties>
 		<testcase classname="Part:ExamplePart Component: Dashboard" name="Reference validation failure" time="">
@@ -22,7 +22,7 @@
 	</testsuite>
 	<testsuite tests="1" failures="0" skipped="0" time="TIME" name="Unmatched Cluster Resources" timestamp="TIME">
 		<properties>
-			<property name="MetadataHash" value="aa4c94f1307788e1da81f57718a9f1364d35d4ff6099fc633724bcf9d051a094"></property>
+			<property name="MetadataHash" value="f077accb087abd9b771f530230261cf5de002fe007c62a2bae1c11e1a516cec8"></property>
 			<property name="TotalCRs" value="1"></property>
 		</properties>
 		<testcase classname="" name="All Cluster CRs are matched to reference CRs " time="">
