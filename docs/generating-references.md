@@ -1,13 +1,40 @@
 # Generating References
 
-A user may wish to generate a reference from a running cluster or from an `oc adm must-gather` output.
-Once a cluster is deployed and all operators are installed and configured, generating a reference from that cluster will allow users to quickly compare and validate other clusters against it.
-This can be useful when working on a specific blueprint or other application-specific deployment.
-It can also be helpful in identifying any configuration drift in the cluster, if that output is later ran against the same source cluster.
+A reference configuration is a directory containing a `metadata.yaml` and one YAML file per captured object. You can build that directory by hand, or bootstrap it from a running cluster or an `oc adm must-gather` archive using the `-g` generate option of the `cluster-compare` tool.
 
-This is achieved by first creating a configuration file outlining what to capture, then running the tool with the required options.
+Once a cluster is deployed and operators are configured, a generated reference lets you compare and validate other clusters against it. This is useful for blueprints, application-specific deployments, and drift detection on the source cluster itself.
 
-## Creating A Generator Configuration File
+The sections below describe the generator configuration file and the `-g` command. The first section describes how generation fits in the full reference workflow.
+
+## Overview
+
+Defining a robust reference is an iterative process. In general, the flow is:
+
+1. **Collect** the specific objects that are critical to the given blueprint or application.
+2. **Create `metadata.yaml`** to group those objects and define which are optional versus required.
+3. **Add exclusion rules** to ignore annotations, labels, and other runtime fields that are not germane to the application or blueprint.
+4. **Edit the captured objects** to inject template stanzas that define allowable variations.
+5. Iterate/repeat.
+
+As the reference is run against additional clusters, false positives can be reduced by iterating on the steps above:
+
+- Adjusting `metadata.yaml` to refine which objects are optional or how they are grouped (`allOf`, `anyOf`, etc.).
+- Adding field omissions to ignore additional labels, annotations, or other fields.
+- Adding templates to individual objects to define allowable variations and other enhanced comparison behavior. See [reference-config-guide-v2.md](./reference-config-guide-v2.md) for details.
+
+The **Generate** feature (`kubectl cluster-compare -g`) automates steps 1–3 to bootstrap an initial reference. Step 4 and further iteration are manual refinements after generation.
+
+| Workflow step | Automated by `-g`? | Where in this document |
+|---------------|--------------------|-------------------------|
+| Collect critical objects | Yes | [Generator config `resources`](#creating-a-generator-configuration-file) |
+| Create `metadata.yaml` | Yes | [Generated output](#generated-output) |
+| Add exclusion rules | Yes (defaults + optional overrides) | [`omitAnnotations` / `omitLabels`](#creating-a-generator-configuration-file), [generated `fieldsToOmit`](#generated-output) |
+| Inject template stanzas | No | [Next steps](#next-steps-after-generation) → [reference-config-guide-v2.md](./reference-config-guide-v2.md) |
+| Iterate on false positives | Partially (re-run or hand-edit) | [Next steps](#next-steps-after-generation) |
+
+## Creating a generator configuration file
+
+This file corresponds to **workflow steps 1 and 3**: which objects to collect, which are required or optional, and any extra annotation/label keys to omit beyond the built-in defaults.
 
 Here is the basic structure of generate config:
 
@@ -73,14 +100,14 @@ resources:
 
 Resources should be fully defined, with an `apiVersion` and `kind` specified. To mark a resource as optional, set `required: false`. The `metadata.yaml` and YAML files will be created under the location specified under `outputDir`.
 
-Runtime annotations and labels are automatically removed, however additional fields can be specified via the `omitAnnotations` and `omitLabels` parameters.
+Runtime metadata (for example `status`, `resourceVersion`, `uid`, and common OpenShift-injected annotations and labels) is stripped automatically and registered in the generated `metadata.yaml` under `fieldsToOmit`. Use `omitAnnotations` and `omitLabels` to extend that list for application-specific keys.
 
-## Generating a Reference Configuration
+## Generating a reference
 
 The tool is invoked when the `-g <config.yaml>` option is passed to `kubectl cluster-compare`:
 
 ```bash
- kubectl cluster-compare -g ./refgen-config.yaml
+kubectl cluster-compare -g ./refgen-config.yaml
 ```
 
 for a live cluster, or
@@ -100,6 +127,10 @@ $ kubectl cluster-compare -g my-config.yaml
 Warning: No resources found for:
   - SriovFecClusterConfig (sriovfec.intel.com/v2) in namespace vran-acceleration-operators
 ```
+
+## Generated output
+
+This corresponds to **workflow step 2**: a `metadata.yaml` with `parts`/`components` groupings and a set of captured CR files. Generated YAML files are plain snapshots; they do not yet include template stanzas (step 4).
 
 The structure of the output matches what `kubectl cluster-compare -r` expects:
 
@@ -127,7 +158,7 @@ generated-reference/
 
 Note that re-running the tool will not overwrite already generated resource files, but will create new files with a number appended to it, e.g. `generated-reference/PerformanceProfile/openshift-node-performance-profile-1.yaml`.
 
-The `metadata.yaml` file conforms to what `kubectl cluster-compare -r` expects:
+Here's what a generated `metadata.yaml` file should look like:
 
 ```yaml
 apiVersion: v2
@@ -221,6 +252,21 @@ parts:
   name: required-performanceprofile
 ```
 
-If necessary, `metadata.yaml` can be further modified e.g. to add or remove fields to omit, or changing resource groupings from `allOf` to `anyOf` to suit a particular use case.
+## Next steps after generation
 
-See [reference-config-guide-v2.md](./reference-config-guide-v2.md) for more details.
+Generation produces a usable starting point, but not necessarily a finished reference. A typical follow-up work-flow consists of:
+
+1. **Run a comparison** against the source cluster to confirm the bootstrap is clean:
+
+   ```bash
+   kubectl cluster-compare -r ./generated-reference/metadata.yaml
+   ```
+
+2. **Compare against other clusters** and note false positives (unexpected diffs that are acceptable variation).
+
+3. **Iterate** using the same levers as in [Overview](#overview):
+   - Edit `metadata.yaml` — change optional/required groupings, switch `allOf` to `anyOf`, add `fieldsToOmit` entries.
+   - Re-run `-g` with an updated generator config, or hand-edit captured YAML under the output directory (existing files are not overwritten; new captures get a numeric suffix).
+   - Add template annotations and stanzas to individual CR files for allowable variation, correlation overrides, and other comparison behavior.
+
+For template syntax, grouping semantics, and advanced comparison rules, see [reference-config-guide-v2.md](./reference-config-guide-v2.md).
