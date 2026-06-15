@@ -2,19 +2,19 @@
 # layered on top of the Linux cli image.
 ARG SRC_DIR=/go/src/github.com/openshift/kube-compare
 
-FROM registry.ci.openshift.org/ocp/builder:rhel-8-golang-1.25-openshift-4.22 AS builder-rhel-8
+FROM registry.ci.openshift.org/ocp/builder:rhel-8-golang-1.26-openshift-5.0 AS builder-rhel-8
 ARG SRC_DIR
 WORKDIR ${SRC_DIR}
 COPY . .
 RUN make cross-build --warn-undefined-variables
 
-FROM registry.ci.openshift.org/ocp/builder:rhel-9-golang-1.25-openshift-4.22 AS builder-rhel-9
+FROM registry.ci.openshift.org/ocp/builder:rhel-9-golang-1.26-openshift-5.0 AS builder-rhel-9
 ARG SRC_DIR
 WORKDIR ${SRC_DIR}
 COPY . .
 RUN make cross-build --warn-undefined-variables
 
-FROM registry.ci.openshift.org/ocp/4.22:cli AS final-builder
+FROM registry.ci.openshift.org/ocp/5.0:cli AS final-builder
 ARG SRC_DIR
 
 COPY --from=builder-rhel-9 ${SRC_DIR}/_output/bin/ /usr/share/openshift/
