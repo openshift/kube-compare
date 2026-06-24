@@ -12,6 +12,7 @@ import (
 	"text/template"
 	"text/template/parse"
 
+	"github.com/openshift/kube-compare/pkg/objectmeta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/yaml"
@@ -307,17 +308,21 @@ func (rf *ReferenceTemplateV1) postExecValidate() error { return nil }
 
 const builtInPathsKey = "cluster-compare-built-in"
 
-var builtInPathsV1 = []*ManifestPathV1{
-	{PathToKey: "metadata.resourceVersion"},
-	{PathToKey: "metadata.generation"},
-	{PathToKey: "metadata.uid"},
-	{PathToKey: "metadata.generateName"},
-	{PathToKey: "metadata.creationTimestamp"},
-	{PathToKey: "metadata.finalizers"},
-	{PathToKey: `"kubectl.kubernetes.io/last-applied-configuration"`},
-	{PathToKey: `metadata.annotations."kubectl.kubernetes.io/last-applied-configuration"`},
-	{PathToKey: "status"},
+func initBuiltInPathsV1() []*ManifestPathV1 {
+	paths := make([]*ManifestPathV1, 0, len(objectmeta.ServerManagedMetadataKeys)+5)
+	for _, key := range objectmeta.ServerManagedMetadataKeys {
+		paths = append(paths, &ManifestPathV1{PathToKey: objectmeta.MetadataPath(key)})
+	}
+	return append(paths,
+		&ManifestPathV1{PathToKey: "metadata.generateName"},
+		&ManifestPathV1{PathToKey: "metadata.finalizers"},
+		&ManifestPathV1{PathToKey: `"kubectl.kubernetes.io/last-applied-configuration"`},
+		&ManifestPathV1{PathToKey: `metadata.annotations."kubectl.kubernetes.io/last-applied-configuration"`},
+		&ManifestPathV1{PathToKey: "status"},
+	)
 }
+
+var builtInPathsV1 = initBuiltInPathsV1()
 
 type ManifestPathV1 struct {
 	PathToKey string `json:"pathToKey"`

@@ -7,7 +7,7 @@ Diffs:
     \       k8s-app: kubernetes-dashboard\n+        k8s-app: kubernetes-dashboard-diff\n
     \    spec:\n       containers:\n       - args:\n"
 Summary:
-  MetadataHash: aa4c94f1307788e1da81f57718a9f1364d35d4ff6099fc633724bcf9d051a094
+  MetadataHash: f077accb087abd9b771f530230261cf5de002fe007c62a2bae1c11e1a516cec8
   NumDiffCRs: 1
   NumMissing: 1
   TotalCRs: 1
