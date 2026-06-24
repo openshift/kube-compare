@@ -11,7 +11,6 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/Masterminds/sprig/v3"
 	"github.com/openshift/kube-compare/pkg/junit"
 	"github.com/samber/lo"
 
@@ -79,7 +78,7 @@ Patch Reasons:
 {{- end }}
 `
 	fallback := fmt.Sprintf("Cluster CR: %s\nReference File: %s\nDiff Output: %s", s.CRName, s.CorrelatedTemplate, s.DiffOutput)
-	return renderTemplate("DiffSummary", t, sprig.TxtFuncMap(), s, fallback)
+	return renderTemplate("DiffSummary", t, FuncMap(), s, fallback)
 }
 
 func (s DiffSum) HasDiff() bool {
@@ -176,8 +175,7 @@ Cluster CRs with patches applied: {{ .PatchedCRs }}
 No patched CRs
 {{- end }}
 `
-	funcs := sprig.TxtFuncMap()
-	funcs["toYaml"] = toYAML
+	funcs := FuncMap()
 	fallback := fmt.Sprintf("Summary\nCRs with diffs: %d/%d", s.NumDiffCRs, s.TotalCRs)
 	return renderTemplate("Summary", t, funcs, s, fallback)
 }
