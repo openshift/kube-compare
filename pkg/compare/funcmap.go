@@ -41,6 +41,7 @@ func FuncMap() template.FuncMap {
 	f := sprig.TxtFuncMap()
 	delete(f, "env")
 	delete(f, "expandenv")
+	delete(f, "getHostByName")
 
 	for key := range f {
 		FuncHelp[key] = SprigImportFlag
