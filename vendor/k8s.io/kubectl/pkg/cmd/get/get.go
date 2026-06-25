@@ -173,7 +173,7 @@ func NewCmdGet(parent string, f cmdutil.Factory, streams genericiooptions.IOStre
 			cmdutil.CheckErr(o.Validate())
 			cmdutil.CheckErr(o.Run(f, args))
 		},
-		SuggestFor: []string{"list", "ps"},
+		SuggestFor: []string{"list", "ls"},
 	}
 
 	o.PrintFlags.AddFlags(cmd)
@@ -628,9 +628,6 @@ func (o *GetOptions) watch(f cmdutil.Factory, args []string) error {
 			return nil
 		}
 		return err
-	}
-	if multipleGVKsRequested(infos) {
-		return i18n.Errorf("watch is only supported on individual resources and resource collections - more than 1 resource was found")
 	}
 
 	info := infos[0]
