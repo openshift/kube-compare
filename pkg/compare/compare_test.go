@@ -447,6 +447,8 @@ func TestCompareRun(t *testing.T) {
 			withUserConfig(userConfigFileName),
 		defaultTest("Ref With Template Functions Renders As Expected").
 			withModes([]Mode{{Live, LocalRef}, {Local, LocalRef}, {Local, URL}}),
+		defaultTest("Include Function").
+			withModes([]Mode{{Live, LocalRef}, {Local, LocalRef}}),
 		defaultTest("YAML Output").
 			withRealHash().
 			withOutputFormat(Yaml).

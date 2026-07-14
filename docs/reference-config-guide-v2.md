@@ -148,7 +148,7 @@ inclusion/exclusion of content. The following types of user variation are expect
 
 GO templating allows use of custom and built in functions to allow complex use cases. In this version all Go built-in
 functions are supported along with the functions in the Sprig library. Also this version follows the Helm templating
-behavior and supports all custom functions that are used in helm (example: toYaml).
+behavior and supports several Helm-style helper functions (e.g. toYaml, toJson, fromYaml, fromJson, include).
 
 ```yaml
 apiVersion: v1
@@ -251,6 +251,40 @@ Returns the matching object if there is exactly one.  The `$apiVersion` and
 `$kind` arguments are required.  Both `$namespace` and `$name` can be blank or
 have the value `*` to match any namespace or name.  If multiple objects are
 matched, this returns `nil`.
+
+#### include
+
+Execute a named template and return its output as a string. This matches
+Helm's `include` function and is the primary way to use reusable template
+snippets defined with `{{define}}` when you need to post-process the output
+(e.g. with `indent` or `nindent`).
+
+Unlike Go's built-in `{{template}}` action which writes directly to the output
+stream, `include` returns a string that can be piped through other functions.
+
+Usage:
+
+First, define a reusable template (typically in a `_helpers.tpl` file listed
+in `templateFunctionFiles`):
+
+```yaml
+{{- define "mychart.labels" -}}
+app: my-app
+chart: my-chart
+{{- end -}}
+```
+
+Then use `include` in your templates:
+
+```yaml
+metadata:
+  labels:
+{{ include "mychart.labels" . | indent 4 }}
+```
+
+The first argument is the template name, and the second is the data to pass
+(typically `.` for the current context). A recursion guard prevents infinite
+loops if a template includes itself.
 
 #### doNotMatch
 

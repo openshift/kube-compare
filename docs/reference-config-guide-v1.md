@@ -84,7 +84,7 @@ inclusion/exclusion of content. The following types of user variation are expect
 
 GO templating allows use of custom and built in functions to allow complex use cases. In this version all Go built-in
 functions are supported along with the functions in the Sprig library. Also this version follows the Helm templating
-behavior and supports all custom functions that are used in helm (example: toYaml).
+behavior and supports several Helm-style helper functions (e.g. toYaml, toJson, fromYaml, fromJson, include).
 
 ```yaml
 apiVersion: v1

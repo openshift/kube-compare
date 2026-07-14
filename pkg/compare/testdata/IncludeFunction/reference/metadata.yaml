@@ -1,0 +1,10 @@
+parts:
+  - name: ExamplePart
+    components:
+      - name: IncludeTest
+        type: Required
+        requiredTemplates:
+          - path: cm.yaml
+
+templateFunctionFiles:
+  - _helpers.tpl

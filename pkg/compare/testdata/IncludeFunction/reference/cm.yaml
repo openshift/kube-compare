@@ -1,0 +1,7 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  labels:
+{{ include "mychart.labels" . | indent 4 }}
+  name: my-configmap
+  namespace: default

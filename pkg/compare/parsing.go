@@ -154,6 +154,7 @@ func parseTemplatesCommon[T parsableTemplate](templates []T, functionFiles []str
 				continue
 			}
 		}
+		InitInclude(parsedTemp)
 		temp.setTemplate(parsedTemp)
 		temp.prepareForExec()
 		klog.V(1).Infof("Pre-processing template %s with empty data", temp.GetPath())
