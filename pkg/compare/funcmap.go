@@ -24,6 +24,11 @@ var FuncHelp = make(map[string]string)
 
 const SprigImportFlag = `<<sprig>>`
 
+// recursionMaxNums is the maximum number of times a template may be
+// recursively included before we assume an infinite loop and bail out.
+// This matches Helm's recursion limit.
+const recursionMaxNums = 1000
+
 // FuncMap returns a mapping of all of the functions that Engine has.
 //
 // Because some functions are late-bound (e.g. contain context-sensitive
@@ -32,11 +37,11 @@ const SprigImportFlag = `<<sprig>>`
 //
 // Known late-bound functions:
 //
-//   - "include"
-//   - "tpl"
+//   - "include": executes a named template and returns its output as a string.
 //
-// These are late-bound in Engine.Render().  The
-// version included in the FuncMap is a placeholder.
+// These are late-bound after template parsing via InitInclude.
+// The version included in the FuncMap is a placeholder that will
+// return an error if called before binding.
 func FuncMap() template.FuncMap {
 	f := sprig.TxtFuncMap()
 	delete(f, "env")
@@ -46,6 +51,13 @@ func FuncMap() template.FuncMap {
 	for key := range f {
 		FuncHelp[key] = SprigImportFlag
 	}
+
+	// Add a placeholder for the late-bound "include" function.
+	// The real implementation is injected after template parsing via InitInclude.
+	f["include"] = func(name string, data any) (string, error) {
+		return "", fmt.Errorf("include is not yet bound to a template; this is a placeholder")
+	}
+	FuncHelp["include"] = "Execute a named template and return its output as a string (like Helm's include)"
 
 	// Add some extra functionality
 	extra := map[string]struct {
@@ -289,4 +301,37 @@ func (e DoNotMatch) Error() string {
 
 func doNotMatch(reason string) (string, error) {
 	return "", &DoNotMatch{Reason: reason}
+}
+
+// includeFun returns a function that executes a named template and returns
+// its output as a string. This matches Helm's include semantics.
+// It includes a recursion guard to prevent infinite loops.
+func includeFun(t *template.Template, includedNames map[string]int) func(string, any) (string, error) {
+	return func(name string, data any) (string, error) {
+		var buf strings.Builder
+		if v, ok := includedNames[name]; ok {
+			if v > recursionMaxNums {
+				return "", fmt.Errorf(
+					"rendering template has a nested reference name: %s: unable to execute template",
+					name)
+			}
+			includedNames[name]++
+		} else {
+			includedNames[name] = 1
+		}
+		err := t.ExecuteTemplate(&buf, name, data)
+		includedNames[name]--
+		return buf.String(), err
+	}
+}
+
+// InitInclude binds the late-bound "include" template function to a parsed
+// template. This must be called after template parsing but before execution.
+// It replaces the placeholder include function with a real implementation
+// that can execute named sub-templates.
+func InitInclude(t *template.Template) {
+	includedNames := make(map[string]int)
+	t.Funcs(template.FuncMap{
+		"include": includeFun(t, includedNames),
+	})
 }
