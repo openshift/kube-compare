@@ -713,7 +713,7 @@ func diffAgainstTemplate(temp ReferenceTemplate, clusterCR *unstructured.Unstruc
 	}
 	defer differ.TearDown()
 
-	err = differ.Diff(obj, diff.Printer{}, o.ShowManagedFields)
+	err = differ.Diff(obj, diff.Printer{}, o.ShowManagedFields, false)
 	if err != nil {
 		return res, fmt.Errorf("error occurered during diff: %w", err)
 	}
