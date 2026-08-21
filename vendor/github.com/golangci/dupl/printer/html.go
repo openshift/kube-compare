@@ -3,6 +3,7 @@ package printer
 import (
 	"bytes"
 	"fmt"
+	"html"
 	"io"
 	"regexp"
 	"sort"
@@ -10,32 +11,54 @@ import (
 	"github.com/golangci/dupl/syntax"
 )
 
-type html struct {
+type htmlprinter struct {
 	iota int
 	w    io.Writer
 	ReadFile
 }
 
 func NewHTML(w io.Writer, fread ReadFile) Printer {
-	return &html{w: w, ReadFile: fread}
+	return &htmlprinter{w: w, ReadFile: fread}
 }
 
-func (p *html) PrintHeader() error {
+func (p *htmlprinter) PrintHeader() error {
 	_, err := fmt.Fprint(p.w, `<!DOCTYPE html>
 <meta charset="utf-8"/>
 <title>Duplicates</title>
 <style>
+	body {
+		max-width: 56em;
+		margin: 0 auto;
+		padding: 0 1em;
+		font-family: sans-serif;
+	}
+	h1 {
+		font-size: 1.3em;
+		margin-top: 2em;
+		border-bottom: 1px solid #ddd;
+		padding-bottom: 0.3em;
+	}
+	h2 {
+		font-size: 0.95em;
+		font-weight: normal;
+		color: #555;
+	}
 	pre {
+		tab-size: 4;
 		background-color: #FFD;
 		border: 1px solid #E2E2E2;
-		padding: 1ex;
+		border-radius: 4px;
+		padding: 1em;
+		overflow-x: auto;
+		font-size: 0.85em;
+		line-height: 1.5;
 	}
 </style>
 `)
 	return err
 }
 
-func (p *html) PrintClones(dups [][]*syntax.Node) error {
+func (p *htmlprinter) PrintClones(dups [][]*syntax.Node) error {
 	p.iota++
 	fmt.Fprintf(p.w, "<h1>#%d found %d clones</h1>\n", p.iota, len(dups))
 
@@ -63,12 +86,13 @@ func (p *html) PrintClones(dups [][]*syntax.Node) error {
 
 	sort.Sort(byNameAndLine(clones))
 	for _, cl := range clones {
-		fmt.Fprintf(p.w, "<h2>%s:%d</h2>\n<pre>%s</pre>\n", cl.filename, cl.lineStart, cl.fragment)
+		fmt.Fprintf(p.w, "<h2>%s:%d</h2>\n<pre>%s</pre>\n", cl.filename, cl.lineStart,
+			html.EscapeString(string(cl.fragment)))
 	}
 	return nil
 }
 
-func (*html) PrintFooter() error { return nil }
+func (*htmlprinter) PrintFooter() error { return nil }
 
 func findLineBeg(file []byte, index int) int {
 	for i := index; i >= 0; i-- {

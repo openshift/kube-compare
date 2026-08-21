@@ -346,9 +346,11 @@ func matchErrorRegexCheck(msg string) Check {
 
 const ExpectedPanic = "Expected Error Test Case"
 
-func startWithCleanEnv() {
+func startWithCleanEnv(t *testing.T) {
 	for envName := range envVarKeys {
-		os.Unsetenv(envName)
+		if err := os.Unsetenv(envName); err != nil {
+			t.Errorf("failed to unset environment variable %s: %v", envName, err)
+		}
 	}
 }
 
@@ -716,7 +718,7 @@ func TestCompareRun(t *testing.T) {
 	_ = testFlags.Parse([]string{"--skip_headers"})
 
 	for _, test := range tests {
-		startWithCleanEnv()
+		startWithCleanEnv(t)
 		for evName, evValue := range test.envVar {
 			t.Setenv(evName, evValue)
 		}
@@ -822,8 +824,8 @@ func setClient(t *testing.T, resources []*unstructured.Unstructured, tf *cmdtest
 	tf.UnstructuredClient = &fake.RESTClient{
 		NegotiatedSerializer: resource.UnstructuredPlusDefaultContentConfig().NegotiatedSerializer,
 		Client: fake.CreateHTTPClient(func(req *http.Request) (*http.Response, error) {
-			switch p, m := req.URL.Path, req.Method; {
-			case m == "GET":
+			switch p, m := req.URL.Path, req.Method; m {
+			case "GET":
 				a := unstructured.Unstructured{}
 				exampleResource := resourcesByKind[p][0]
 				a.SetKind(exampleResource.GetKind() + "List")

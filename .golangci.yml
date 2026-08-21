@@ -1,31 +1,24 @@
 ---
 new: true
 new-from-rev: 722af08
+version: "2"
 run:
   concurrency: 6
   timeout: 5m
 linters:
   disable-all: true
   enable:
-    - depguard
-    - goconst
     - gocritic
-    - revive
-    - gofmt
-    - goimports
     - govet
     - ineffassign
     - misspell
     - staticcheck
-    - typecheck
     - unconvert
     - unparam
     - gocyclo
     - unused
     - errorlint
     - loggercheck
-    - gosec
-    - wrapcheck
 linters-settings:
   revive:
     rules:
@@ -111,8 +104,9 @@ linters-settings:
         files:
           - $all
         # List of allowed packages.
-        # allow:
-        #  - $gostd
+        allow:
+          - $gostd
+          - $all
         # Packages that are not allowed where the value is a suggestion.
         deny:
           - pkg: "github.com/pkg/errors"

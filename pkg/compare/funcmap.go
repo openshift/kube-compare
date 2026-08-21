@@ -114,7 +114,7 @@ func FuncMap() template.FuncMap {
 	return f
 }
 
-func DisplayFuncmap(w io.Writer) {
+func DisplayFuncmap(w io.Writer) error {
 	if len(FuncHelp) == 0 {
 		// Populate the help text
 		FuncMap()
@@ -131,17 +131,34 @@ func DisplayFuncmap(w io.Writer) {
 	slices.Sort(customNames)
 	slices.Sort(sprigNames)
 
-	fmt.Fprintln(w, "Available Template Functions")
-	fmt.Fprintln(w, "============================")
-	fmt.Fprintln(w, "")
-	for _, name := range customNames {
-		fmt.Fprintf(w, "%s:\n  %s\n", name, strings.Join(strings.Split(FuncHelp[name], "\n"), "\n  "))
+	if _, err := fmt.Fprintln(w, "Available Template Functions"); err != nil {
+		return err
 	}
-	fmt.Fprintln(w, "")
-	fmt.Fprintln(w, "Imported from https://masterminds.github.io/sprig/")
-	fmt.Fprintln(w, "--------------------------------------------------")
-	fmt.Fprintln(w, "")
-	fmt.Fprintln(w, strings.Join(sprigNames, ", "))
+	if _, err := fmt.Fprintln(w, "============================"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, ""); err != nil {
+		return err
+	}
+	for _, name := range customNames {
+		if _, err := fmt.Fprintf(w, "%s:\n  %s\n", name, strings.Join(strings.Split(FuncHelp[name], "\n"), "\n  ")); err != nil {
+			return err
+		}
+	}
+	if _, err := fmt.Fprintln(w, ""); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, "Imported from https://masterminds.github.io/sprig/"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, "--------------------------------------------------"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, ""); err != nil {
+		return err
+	}
+	_, err := fmt.Fprintln(w, strings.Join(sprigNames, ", "))
+	return err
 }
 
 // toYAML takes an interface, marshals it to yaml, and returns a string. It will

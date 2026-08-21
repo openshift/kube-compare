@@ -254,7 +254,7 @@ const noValue = "<no value>"
 
 func (rf ReferenceTemplateV1) Exec(params map[string]any) (*unstructured.Unstructured, error) {
 	var buf bytes.Buffer
-	err := rf.Template.Execute(&buf, params)
+	err := rf.Execute(&buf, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to constuct template: %w", err)
 	}

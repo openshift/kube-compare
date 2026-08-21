@@ -222,7 +222,7 @@ func capturegroupSubstitution(content, compName string, helmValues map[string]an
 			}
 			if dflt, ok := dflts[group.Name]; ok {
 				fmt.Fprintf(os.Stderr, "  %s replacing CaptureGroup (?<%s>...) at [%d:%d] with default: %v\n", compName, group.Name, group.Start, group.End, dflt)
-				contentBuilder.WriteString(fmt.Sprintf("%v", dflt))
+				_, _ = fmt.Fprintf(&contentBuilder, "%v", dflt)
 			} else {
 				contentBuilder.WriteString(content[group.Start:group.End])
 			}

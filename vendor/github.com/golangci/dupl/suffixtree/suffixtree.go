@@ -38,10 +38,10 @@ func New() *STree {
 	return t
 }
 
-// Update refreshes the suffix tree to by new data.
+// Update refreshes the suffix tree with new data.
 func (t *STree) Update(data ...Token) {
 	t.data = append(t.data, data...)
-	for _ = range data {
+	for range data {
 		t.update()
 		t.s, t.start = t.canonize(t.s, t.start, t.end)
 		t.end++
@@ -79,8 +79,8 @@ func (t *STree) update() {
 }
 
 // testAndSplit tests whether a state with canonical ref. pair
-// (s, (start, end)) is the end point, that is, a state that have
-// a c-transition. If not, then state (exs, (start, end)) is made
+// (s, (start, end)) is the end point, that is, a state that has
+// a c-transition. If not, then the state (exs, (start, end)) is made
 // explicit (if not already so).
 func (t *STree) testAndSplit(s *state, start, end Pos) (exs *state, endPoint bool) {
 	c := t.data[t.end]
@@ -148,11 +148,11 @@ func (t *STree) String() string {
 	return buf.String()
 }
 
-func printState(buf *bytes.Buffer, s *state, ident int) {
+func printState(buf *bytes.Buffer, s *state, indent int) {
 	for _, tr := range s.trans {
-		fmt.Fprint(buf, strings.Repeat("  ", ident))
+		fmt.Fprint(buf, strings.Repeat("  ", indent))
 		fmt.Fprintf(buf, "* (%d, %d)\n", tr.start, tr.ActEnd())
-		printState(buf, tr.state, ident+1)
+		printState(buf, tr.state, indent+1)
 	}
 }
 

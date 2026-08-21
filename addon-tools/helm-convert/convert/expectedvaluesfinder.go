@@ -14,7 +14,6 @@ func (v *ExpectedValuesFinder) Visit() func(parse.Node) bool {
 		switch n := node.(type) {
 		case *parse.FieldNode:
 			v.expected = append(v.expected, getNodeField(n)...)
-			break
 		case *parse.RangeNode:
 			for _, fieldRangedOn := range getFieldsAccessInNode(n.Pipe) { // for complex range statements get the path of the map/slice to be ranged on
 				// in case of range, the minimum list length will be always in length 1, including only element with index 0:
@@ -33,10 +32,8 @@ func (v *ExpectedValuesFinder) Visit() func(parse.Node) bool {
 					switch node := n.Args[2].(type) { // n.Args[2] is the second argument for index function
 					case *parse.NumberNode:
 						text = node.Text
-						break
 					case *parse.StringNode:
 						text = node.Text
-						break
 					}
 					v.expected = append(v.expected, append(fieldRangedOn, text))
 				}

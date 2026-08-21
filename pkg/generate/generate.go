@@ -87,17 +87,25 @@ func (o *Options) Run(ctx context.Context) error {
 		return err
 	}
 
-	fmt.Fprintf(o.Streams.Out, "Generated reference at: %s\n", outputPath)
-	fmt.Fprintf(o.Streams.Out, "  Total resources captured: %d\n", totalResources)
+	if _, err := fmt.Fprintf(o.Streams.Out, "Generated reference at: %s\n", outputPath); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(o.Streams.Out, "  Total resources captured: %d\n", totalResources); err != nil {
+		return err
+	}
 	capturedTypes := 0
 	for _, resources := range resourcesBySpec {
 		if len(resources) > 0 {
 			capturedTypes++
 		}
 	}
-	fmt.Fprintf(o.Streams.Out, "  Resource types: %d\n", capturedTypes)
+	if _, err := fmt.Fprintf(o.Streams.Out, "  Resource types: %d\n", capturedTypes); err != nil {
+		return err
+	}
 	if len(missingSpecs) > 0 {
-		fmt.Fprintf(o.Streams.ErrOut, "Warning: No resources found for:\n")
+		if _, err := fmt.Fprintf(o.Streams.ErrOut, "Warning: No resources found for:\n"); err != nil {
+			return err
+		}
 		for _, spec := range missingSpecs {
 			details := fmt.Sprintf("%s (%s)", spec.Kind, spec.APIVersion)
 			if spec.Namespace != "" {
@@ -106,7 +114,9 @@ func (o *Options) Run(ctx context.Context) error {
 			if len(spec.Names) > 0 {
 				details = fmt.Sprintf("%s with names %v", details, spec.Names)
 			}
-			fmt.Fprintf(o.Streams.ErrOut, "  - %s\n", details)
+			if _, err := fmt.Fprintf(o.Streams.ErrOut, "  - %s\n", details); err != nil {
+				return err
+			}
 		}
 	}
 	return nil

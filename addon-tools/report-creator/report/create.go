@@ -69,12 +69,14 @@ func NewCmd() *cobra.Command {
 			f, err := os.Create(options.outputFile)
 			if err != nil {
 				return fmt.Errorf("failed to create output file: %w", err)
-
 			}
-			defer f.Close()
 			err = junit.Write(f, *compareOutput.JunitReport())
 			if err != nil {
+				_ = f.Close()
 				return fmt.Errorf("failed to write junit report: %w", err)
+			}
+			if err := f.Close(); err != nil {
+				return fmt.Errorf("failed to close output file: %w", err)
 			}
 			return nil
 		},

@@ -213,7 +213,9 @@ func TestHelperProcess(t *testing.T) {
 	if os.Getenv("MOCK_DOCKER_FAIL") == "1" {
 		os.Exit(1)
 	}
-	fmt.Fprint(os.Stdout, dockerRunResult)
+	if _, err := fmt.Fprint(os.Stdout, dockerRunResult); err != nil {
+		os.Exit(1)
+	}
 	os.Exit(0)
 }
 

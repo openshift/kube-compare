@@ -1,0 +1,174 @@
+--- a/addon-tools/helm-convert/convert/convert_test.go
++++ b/addon-tools/helm-convert/convert/convert_test.go
+@@ -95,7 +95,11 @@
+ 		t.Run(test.name, func(t *testing.T) {
+ 			cmd := NewCmd()
+ 			dirName, err := os.MkdirTemp("", strings.ReplaceAll(test.name, " ", ""))
+-			defer func() { _ = os.RemoveAll(dirName) }()
++			defer func() {
++				if err := os.RemoveAll(dirName); err != nil {
++					t.Errorf("failed to clean up temporary directory: %v", err)
++				}
++			}()
+ 			chartDir := path.Join(dirName, test.name)
+ 			require.NoError(t, err)
+ 
+@@ -163,17 +167,23 @@
+ 	return nil
+ }
+ 
+-func copyFile(srcFile, dstFile string) error {
++func copyFile(srcFile, dstFile string) (err error) {
+ 	in, err := os.Open(srcFile)
+ 	if err != nil {
+ 		return fmt.Errorf("failed to open source file: %w", err)
+ 	}
+-	defer func() { _ = in.Close() }()
++	defer func() {
++		if cerr := in.Close(); cerr != nil && err == nil {
++			err = fmt.Errorf("failed to close source file: %w", cerr)
++		}
++	}()
+ 
+ 	out, err := os.Create(dstFile)
+ 	if err != nil {
+ 		return fmt.Errorf("failed to create destination file: %w", err)
+ 	}
+-	defer func() { _ = out.Close() }()
++	defer func() {
++		if cerr := out.Close(); cerr != nil && err == nil {
++			err = fmt.Errorf("failed to close destination file: %w", cerr)
++		}
++	}()
+ 
+ 	_, err = io.Copy(out, in)
+ 	if err != nil {
+--- a/pkg/testutils/testutils.go
++++ b/pkg/testutils/testutils.go
+@@ -29,7 +29,11 @@
+ func getTempRegex(t *testing.T) *regexp.Regexp {
+ 	if tempRegex == nil {
+ 		tDir, err := os.MkdirTemp("", "tempDirProbe")
+-		defer func() { _ = os.RemoveAll(tDir) }()
++		defer func() {
++			if err := os.RemoveAll(tDir); err != nil {
++				t.Errorf("failed to remove temporary probe directory: %v", err)
++			}
++		}()
+ 		require.NoError(t, err)
+ 		tempRegex = regexp.MustCompile(path.Dir(tDir) + `/(?:LIVE|MERGED)-[0-9]*`)
+ 	}
+--- a/pkg/compare/compare.go
++++ b/pkg/compare/compare.go
+@@ -211,7 +211,11 @@
+ 				klog.Warningf("temporary directory could not be created %s", err)
+ 			} else {
+ 				options.TmpDir = tmpDir
+-				defer func() { _ = os.RemoveAll(options.TmpDir) }()
++				defer func() {
++					if err := os.RemoveAll(options.TmpDir); err != nil {
++						klog.Warningf("failed to clean up temporary directory %s: %v", options.TmpDir, err)
++					}
++				}()
+ 			}
+ 			kcmdutil.CheckDiffErr(options.Complete(f, cmd, args))
+ 			// In generate mode, run generate and exit.
+@@ -241,7 +245,9 @@
+ 			if err := options.Run(); err != nil {
+ 				// FIXME: Handle clean up of temporary directory more gracefully.
+ 				// See above FIXME for details
+-				_ = os.RemoveAll(options.TmpDir)
++				if err := os.RemoveAll(options.TmpDir); err != nil {
++					klog.Warningf("failed to clean up temporary directory %s: %v", options.TmpDir, err)
++				}
+ 				if exitErr := diffError(err); exitErr != nil {
+ 					kcmdutil.CheckErr(kcmdutil.ErrExit)
+ 				}
+--- a/pkg/compare/compare_test.go
++++ b/pkg/compare/compare_test.go
+@@ -346,9 +346,11 @@
+ 	})
+ }
+ 
+-func startWithCleanEnv() {
++func startWithCleanEnv(t *testing.T) {
+ 	for envName := range envVarKeys {
+-		_ = os.Unsetenv(envName)
++		if err := os.Unsetenv(envName); err != nil {
++			t.Errorf("failed to unset environment variable %s: %v", envName, err)
++		}
+ 	}
+ }
+ 
+@@ -358,7 +360,7 @@
+ 	var mode runMode
+ 
+ 	for _, test := range tests {
+-		startWithCleanEnv()
++		startWithCleanEnv(t)
+ 		setModeEnvs(test)
+ 
+ 		name := strings.ReplaceAll(test.name, " ", "_")
+--- a/addon-tools/helm-convert/convert/convert.go
++++ b/addon-tools/helm-convert/convert/convert.go
+@@ -222,7 +222,7 @@
+ 			}
+ 			if dflt, ok := dflts[group.Name]; ok {
+ 				fmt.Fprintf(os.Stderr, "  %s replacing CaptureGroup (?<%s>...) at [%d:%d] with default: %v\n", compName, group.Name, group.Start, group.End, dflt)
+-				fmt.Fprintf(&contentBuilder, "%v", dflt)
++				contentBuilder.WriteString(fmt.Sprintf("%v", dflt))
+ 			} else {
+ 				contentBuilder.WriteString(content[group.Start:group.End])
+ 			}
+--- a/pkg/compare/funcmap.go
++++ b/pkg/compare/funcmap.go
+@@ -126,22 +126,38 @@
+ 	return f
+ }
+ 
+-func DisplayFuncmap(w io.Writer) {
++func DisplayFuncmap(w io.Writer) error {
+ 	customNames := maps.Keys(FuncHelp)
+ 	sprigNames := maps.Keys(sprig.FuncMap())
+ 
+ 	slices.Sort(customNames)
+ 	slices.Sort(sprigNames)
+ 
+-	_, _ = fmt.Fprintln(w, "Available Template Functions")
+-	_, _ = fmt.Fprintln(w, "============================")
+-	_, _ = fmt.Fprintln(w, "")
++	if _, err := fmt.Fprintln(w, "Available Template Functions"); err != nil {
++		return err
++	}
++	if _, err := fmt.Fprintln(w, "============================"); err != nil {
++		return err
++	}
++	if _, err := fmt.Fprintln(w, ""); err != nil {
++		return err
++	}
+ 	for _, name := range customNames {
+-		_, _ = fmt.Fprintf(w, "%s:\n  %s\n", name, strings.Join(strings.Split(FuncHelp[name], "\n"), "\n  "))
++		if _, err := fmt.Fprintf(w, "%s:\n  %s\n", name, strings.Join(strings.Split(FuncHelp[name], "\n"), "\n  ")); err != nil {
++			return err
++		}
++	}
++	if _, err := fmt.Fprintln(w, ""); err != nil {
++		return err
++	}
++	if _, err := fmt.Fprintln(w, "Imported from https://masterminds.github.io/sprig/"); err != nil {
++		return err
++	}
++	if _, err := fmt.Fprintln(w, "--------------------------------------------------"); err != nil {
++		return err
++	}
++	if _, err := fmt.Fprintln(w, ""); err != nil {
++		return err
+ 	}
+-	_, _ = fmt.Fprintln(w, "")
+-	_, _ = fmt.Fprintln(w, "Imported from https://masterminds.github.io/sprig/")
+-	_, _ = fmt.Fprintln(w, "--------------------------------------------------")
+-	_, _ = fmt.Fprintln(w, "")
+-	_, _ = fmt.Fprintln(w, strings.Join(sprigNames, ", "))
++	_, err := fmt.Fprintln(w, strings.Join(sprigNames, ", "))
++	return err
+ }

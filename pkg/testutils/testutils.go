@@ -29,7 +29,11 @@ func GetFile(t *testing.T, fileName, value string, update bool) string {
 func getTempRegex(t *testing.T) *regexp.Regexp {
 	if tempRegex == nil {
 		tDir, err := os.MkdirTemp("", "tempDirProbe")
-		defer os.RemoveAll(tDir)
+		defer func() {
+			if err := os.RemoveAll(tDir); err != nil {
+				t.Errorf("failed to remove temporary probe directory: %v", err)
+			}
+		}()
 		require.NoError(t, err)
 		tempRegex = regexp.MustCompile(path.Dir(tDir) + `/(?:LIVE|MERGED)-[0-9]*`)
 	}
