@@ -2,10 +2,12 @@ package convert
 
 import "text/template/parse"
 
+// ExpectedValuesFinder finds expected values in templates.
 type ExpectedValuesFinder struct {
 	expected [][]string
 }
 
+// Visit visits parse nodes to find expected values.
 func (v *ExpectedValuesFinder) Visit() func(parse.Node) bool {
 	return func(node parse.Node) bool {
 		if node == nil {

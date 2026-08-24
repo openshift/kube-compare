@@ -1,3 +1,4 @@
+// Package convert handles helm conversion.
 package convert
 
 import (
@@ -22,6 +23,7 @@ const helpersFileName = "_helpers.tpl"
 const valuesFileName = "values.yaml"
 const helmTemplatesDir = "templates"
 
+// NewCmd creates a new convert command.
 func NewCmd() *cobra.Command {
 	options := Options{}
 	cmd := &cobra.Command{
@@ -33,7 +35,7 @@ Optionally, you can specify a directory containing existing custom resources (CR
 The resulting Helm chart will include templates for each reference and will use the values.yaml file to define the variables needed to create CRs. 
 The tool helps automate the creation of values.yaml and supports default values extraction from existing CRs. For detailed usage and examples, refer to the documentation.`,
 
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, _ []string) error {
 			if options.refPath == "" {
 				return fmt.Errorf("path to reference config file is required, pass by -r/--reference")
 			}
@@ -49,6 +51,7 @@ The tool helps automate the creation of values.yaml and supports default values 
 	return cmd
 }
 
+// Options holds the options for the command.
 type Options struct {
 	refPath          string
 	outputDir        string
@@ -101,7 +104,7 @@ func convertToHelm(o *Options) error {
 		}
 		helmTemplates[t.GetIdentifier()] = helmTemplate
 
-		val, err := getValuesFromJson(crsWithDefaults[path.Base(t.GetIdentifier())], visitor.expected)
+		val, err := getValuesFromJSON(crsWithDefaults[path.Base(t.GetIdentifier())], visitor.expected)
 		if err != nil {
 			return err
 		}
@@ -240,6 +243,7 @@ func capturegroupSubstitution(content, compName string, helmValues map[string]an
 
 const lookupRoot = "$.Values.global.lookup_substitutions"
 
+// Lookup is used for template matching.
 type Lookup struct {
 	Text  string
 	Array bool

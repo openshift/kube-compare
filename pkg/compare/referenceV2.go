@@ -14,8 +14,10 @@ import (
 	"k8s.io/klog/v2"
 )
 
+// ReferenceVersionV2 is the v2 reference version.
 const ReferenceVersionV2 string = "v2"
 
+// ReferenceV2 is a v2 reference.
 type ReferenceV2 struct {
 	Version           string `json:"apiVersion,omitempty"`
 	normalisedVersion string
@@ -25,6 +27,7 @@ type ReferenceV2 struct {
 	FieldsToOmit          *FieldsToOmitV2 `json:"fieldsToOmit,omitempty"`
 }
 
+// GetAPIVersion returns the API version.
 func (r *ReferenceV2) GetAPIVersion() string {
 	return r.normalisedVersion
 }
@@ -38,6 +41,7 @@ func (r *ReferenceV2) getTemplates() []*ReferenceTemplateV2 {
 	return templates
 }
 
+// GetTemplates returns the templates.
 func (r *ReferenceV2) GetTemplates() []ReferenceTemplate {
 	var templates []ReferenceTemplate
 	// Repackage getTemplates into []ReferenceTemplate
@@ -48,10 +52,12 @@ func (r *ReferenceV2) GetTemplates() []ReferenceTemplate {
 	return templates
 }
 
+// GetFieldsToOmit returns the fields to omit.
 func (r *ReferenceV2) GetFieldsToOmit() FieldsToOmit {
 	return r.FieldsToOmit
 }
 
+// GetTemplateFunctionFiles returns the template function files.
 func (r *ReferenceV2) GetTemplateFunctionFiles() []string {
 	return r.TemplateFunctionFiles
 }
@@ -69,6 +75,7 @@ func (r *ReferenceV2) validate() error {
 	return errors.Join(errs...)
 }
 
+// GetValidationIssues returns the validation issues.
 func (r *ReferenceV2) GetValidationIssues(matchedTemplates map[string]int) (map[string]map[string]ValidationIssue, int) {
 	crs := make(map[string]map[string]ValidationIssue)
 	count := 0
@@ -90,16 +97,19 @@ func getbuiltInPathsV2() []*FieldsToOmitV2Entry {
 	return res
 }
 
+// FieldsToOmitV2 holds fields to omit for v2.
 type FieldsToOmitV2 struct {
 	DefaultOmitRef string                            `json:"defaultOmitRef,omitempty"`
 	Items          map[string][]*FieldsToOmitV2Entry `json:"items,omitempty"`
 	items          map[string][]*ManifestPathV1
 }
 
+// GetDefault returns the default fields to omit.
 func (toOmit *FieldsToOmitV2) GetDefault() string {
 	return toOmit.DefaultOmitRef
 }
 
+// GetItems returns the items.
 func (toOmit *FieldsToOmitV2) GetItems() map[string][]*ManifestPathV1 {
 	return toOmit.items
 }
@@ -163,6 +173,7 @@ func processFieldsToOmitEntries(key string, toOmit *FieldsToOmitV2, previousKeys
 	return paths, errors.Join(errs...)
 }
 
+// FieldsToOmitV2Entry holds fields to omit for v2 entry.
 type FieldsToOmitV2Entry struct {
 	*ManifestPathV1
 	Include         string `json:"include,omitempty"`
@@ -212,6 +223,7 @@ func (entry *FieldsToOmitV2Entry) process(previousKeys []string, toOmit *FieldsT
 	return paths, entry.processingError
 }
 
+// ReferenceTemplateV2 represents a reference template in v2.
 type ReferenceTemplateV2 struct {
 	Config    ReferenceTemplateConfigV2 `json:"config,omitempty"`
 	part      *PartV2                   `json:"-"`
@@ -219,10 +231,12 @@ type ReferenceTemplateV2 struct {
 	ReferenceTemplateV1
 }
 
+// GetConfig returns the template config.
 func (rf ReferenceTemplateV2) GetConfig() TemplateConfig {
 	return rf.Config
 }
 
+// GetDescription returns the description.
 func (rf ReferenceTemplateV2) GetDescription() string {
 	switch {
 	case rf.Description != "":
@@ -235,13 +249,15 @@ func (rf ReferenceTemplateV2) GetDescription() string {
 	return ""
 }
 
+// ReferenceTemplateConfigV2 holds configuration.
 type ReferenceTemplateConfigV2 struct {
 	PerField []*PerFieldConfigV2 `json:"perField,omitempty"`
 	ReferenceTemplateConfigV1
 }
 
-func (config ReferenceTemplateConfigV2) GetInlineDiffFuncs() map[string]inlineDiffType {
-	diffFuncs := make(map[string]inlineDiffType)
+// GetInlineDiffFuncs returns inline diff funcs.
+func (config ReferenceTemplateConfigV2) GetInlineDiffFuncs() map[string]InlineDiffType {
+	diffFuncs := make(map[string]InlineDiffType)
 	for _, fieldConf := range config.PerField {
 		diffFuncs[fieldConf.PathToKey] = fieldConf.InlineDiffFunc
 	}
@@ -274,23 +290,28 @@ func (rf ReferenceTemplateV2) validateConfigPerField() error {
 	return nil
 }
 
+// PerFieldConfigV2 holds per field config.
 type PerFieldConfigV2 struct {
 	PathToKey      string         `json:"pathToKey,omitempty"`
-	InlineDiffFunc inlineDiffType `json:"inlineDiffFunc,omitempty"`
+	InlineDiffFunc InlineDiffType `json:"inlineDiffFunc,omitempty"`
 }
 
-type inlineDiffType string
+// InlineDiffType represents the type of inline diff.
+type InlineDiffType string
 
-var InlineDiffs = map[inlineDiffType]InlineDiff{
+// InlineDiffs maps diff types to implementations.
+var InlineDiffs = map[InlineDiffType]InlineDiff{
 	regex:         RegexInlineDiff{},
 	capturegroups: CapturegroupsInlineDiff{},
 }
 
+// InlineDiff defines an inline diff.
 type InlineDiff interface {
 	Diff(templateValue, crValue string, sharedCapturedValues CapturedValues) (string, CapturedValues)
 	Validate(templateValue string) error
 }
 
+// PartV2 defines a part in v2.
 type PartV2 struct {
 	Name        string         `json:"name"`
 	Description string         `json:"description,omitempty"`
@@ -310,6 +331,7 @@ func (p *PartV2) getValidationIssues(matchedTemplates map[string]int) (map[strin
 	return issues, count
 }
 
+// ComponentV2 defines a component in v2.
 type ComponentV2 struct {
 	Name        string `json:"name"`
 	Description string `json:"description,omitempty"`
@@ -322,6 +344,7 @@ type ComponentV2 struct {
 	parts       []ComponentV2Group
 }
 
+// ComponentV2Group defines a component group.
 type ComponentV2Group interface {
 	SetTemplates([]*ReferenceTemplateV2)
 	GetTemplates(*PartV2, *ComponentV2) []*ReferenceTemplateV2
@@ -365,15 +388,19 @@ func componentV2GroupUnmarshalJSON(s ComponentV2Group, b []byte) (err error) {
 }
 
 const (
+	// MissingCRsMsg is the missing CRs message.
 	MissingCRsMsg      = "Missing CRs"
+	// MatchedMoreThanOne is returned when more than one matches.
 	MatchedMoreThanOne = "Should only match one but matched"
 	oneOfRequired      = "One of the following is required"
 )
 
+// OneOf requires one of the components.
 type OneOf struct {
 	componentGroup
 }
 
+// UnmarshalJSON unmarshals JSON.
 func (g *OneOf) UnmarshalJSON(b []byte) (err error) {
 	return componentV2GroupUnmarshalJSON(g, b)
 }
@@ -403,10 +430,12 @@ func (g *OneOf) getMissingCRs(matchedTemplates map[string]int) (ValidationIssue,
 	return ValidationIssue{}, 0
 }
 
+// NoneOf requires none of the components.
 type NoneOf struct {
 	componentGroup
 }
 
+// UnmarshalJSON unmarshals JSON.
 func (g *NoneOf) UnmarshalJSON(b []byte) (err error) {
 	return componentV2GroupUnmarshalJSON(g, b)
 }
@@ -428,10 +457,12 @@ func (g *NoneOf) getMissingCRs(matchedTemplates map[string]int) (ValidationIssue
 
 }
 
+// AllOf requires all of the components.
 type AllOf struct {
 	componentGroup
 }
 
+// UnmarshalJSON unmarshals JSON.
 func (g *AllOf) UnmarshalJSON(b []byte) (err error) {
 	return componentV2GroupUnmarshalJSON(g, b)
 }
@@ -459,22 +490,26 @@ func (g *AllOf) getMissingCRs(matchedTemplates map[string]int) (ValidationIssue,
 	return ValidationIssue{}, 0
 }
 
+// AnyOf requires any of the components.
 type AnyOf struct {
 	componentGroup
 }
 
+// UnmarshalJSON unmarshals JSON.
 func (g *AnyOf) UnmarshalJSON(b []byte) (err error) {
 	return componentV2GroupUnmarshalJSON(g, b)
 }
 
-func (g *AnyOf) getMissingCRs(matchedTemplates map[string]int) (ValidationIssue, int) {
+func (g *AnyOf) getMissingCRs(_ map[string]int) (ValidationIssue, int) {
 	return ValidationIssue{}, 0
 }
 
+// AnyOneOf requires any one of the components.
 type AnyOneOf struct {
 	componentGroup
 }
 
+// UnmarshalJSON unmarshals JSON.
 func (g *AnyOneOf) UnmarshalJSON(b []byte) (err error) {
 	return componentV2GroupUnmarshalJSON(g, b)
 }
@@ -495,10 +530,12 @@ func (g *AnyOneOf) getMissingCRs(matchedTemplates map[string]int) (ValidationIss
 	return ValidationIssue{}, 0
 }
 
+// AllOrNoneOf requires all or none of the components.
 type AllOrNoneOf struct {
 	componentGroup
 }
 
+// UnmarshalJSON unmarshals JSON.
 func (g *AllOrNoneOf) UnmarshalJSON(b []byte) (err error) {
 	return componentV2GroupUnmarshalJSON(g, b)
 }
@@ -600,6 +637,7 @@ func getReferenceV2(fsys fs.FS, referenceFileName string) (*ReferenceV2, error) 
 	return result, nil
 }
 
+// ParseV2Templates parses v2 templates.
 func ParseV2Templates(ref *ReferenceV2, fsys fs.FS) ([]ReferenceTemplate, error) {
 	return parseTemplatesCommon(ref.getTemplates(), ref.TemplateFunctionFiles, fsys, ref.FieldsToOmit)
 }

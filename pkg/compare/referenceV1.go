@@ -18,8 +18,10 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
+// ReferenceVersionV1 is the v1 reference version.
 const ReferenceVersionV1 string = "v1"
 
+// ReferenceV1 is a v1 reference.
 type ReferenceV1 struct {
 	Version           string `json:"apiVersion,omitempty"`
 	normalisedVersion string
@@ -29,18 +31,23 @@ type ReferenceV1 struct {
 	FieldsToOmit          *FieldsToOmitV1 `json:"fieldsToOmit,omitempty"`
 }
 
+// PartV1 is a v1 part.
 type PartV1 struct {
 	Name       string        `json:"name"`
 	Components []ComponentV1 `json:"components"`
 }
 
+// ComponentTypeV1 is a v1 component type.
 type ComponentTypeV1 string
 
 const (
+	// Required is a required component type.
 	Required ComponentTypeV1 = "Required"
+	// Optional is an optional component.
 	Optional ComponentTypeV1 = "Optional"
 )
 
+// ComponentV1 is a v1 component.
 type ComponentV1 struct {
 	Name              string                 `json:"name"`
 	Type              ComponentTypeV1        `json:"type,omitempty"`
@@ -48,6 +55,7 @@ type ComponentV1 struct {
 	OptionalTemplates []*ReferenceTemplateV1 `json:"optionalTemplates,omitempty"`
 }
 
+// GetAPIVersion returns the API version.
 func (r *ReferenceV1) GetAPIVersion() string {
 	return r.normalisedVersion
 }
@@ -62,6 +70,7 @@ func (r *ReferenceV1) getTemplates() []*ReferenceTemplateV1 {
 	return templates
 }
 
+// GetTemplates returns the templates.
 func (r *ReferenceV1) GetTemplates() []ReferenceTemplate {
 	var templates []ReferenceTemplate
 	// Repackage getTemplates into []ReferenceTemplate
@@ -72,10 +81,12 @@ func (r *ReferenceV1) GetTemplates() []ReferenceTemplate {
 	return templates
 }
 
+// GetFieldsToOmit returns the fields to omit.
 func (r *ReferenceV1) GetFieldsToOmit() FieldsToOmit {
 	return r.FieldsToOmit
 }
 
+// GetTemplateFunctionFiles returns the template function files.
 func (r *ReferenceV1) GetTemplateFunctionFiles() []string {
 	return r.TemplateFunctionFiles
 }
@@ -114,6 +125,7 @@ func (p *PartV1) getMissingCRs(matchedTemplates map[string]int) (map[string]Vali
 	return crs, count
 }
 
+// GetValidationIssues returns the validation issues.
 func (r *ReferenceV1) GetValidationIssues(matchedTemplates map[string]int) (map[string]map[string]ValidationIssue, int) {
 	crs := make(map[string]map[string]ValidationIssue)
 	count := 0
@@ -144,15 +156,18 @@ func getReferenceV1(fsys fs.FS, referenceFileName string) (*ReferenceV1, error) 
 	return result, nil
 }
 
+// FieldsToOmitV1 holds fields to omit for v1.
 type FieldsToOmitV1 struct {
 	DefaultOmitRef string                       `json:"defaultOmitRef,omitempty"`
 	Items          map[string][]*ManifestPathV1 `json:"items,omitempty"`
 }
 
+// GetDefault returns the default fields to omit.
 func (toOmit *FieldsToOmitV1) GetDefault() string {
 	return toOmit.DefaultOmitRef
 }
 
+// GetItems returns the items to omit.
 func (toOmit *FieldsToOmitV1) GetItems() map[string][]*ManifestPathV1 {
 	return toOmit.Items
 }
@@ -194,23 +209,28 @@ func (toOmit *FieldsToOmitV1) process() error {
 	return errors.Join(errs...)
 }
 
+// ReferenceTemplateConfigV1 holds configuration for v1 reference templates.
 type ReferenceTemplateConfigV1 struct {
 	AllowMerge       bool     `json:"ignore-unspecified-fields,omitempty"`
 	FieldsToOmitRefs []string `json:"fieldsToOmitRefs,omitempty"`
 }
 
+// GetAllowMerge returns whether merging is allowed.
 func (config ReferenceTemplateConfigV1) GetAllowMerge() bool {
 	return config.AllowMerge
 }
 
-func (config ReferenceTemplateConfigV1) GetInlineDiffFuncs() map[string]inlineDiffType {
-	return map[string]inlineDiffType{}
+// GetInlineDiffFuncs returns the inline diff functions.
+func (config ReferenceTemplateConfigV1) GetInlineDiffFuncs() map[string]InlineDiffType {
+	return map[string]InlineDiffType{}
 }
 
+// GetFieldsToOmitRefs returns the fields to omit references.
 func (config ReferenceTemplateConfigV1) GetFieldsToOmitRefs() []string {
 	return config.FieldsToOmitRefs
 }
 
+// ReferenceTemplateV1 is a v1 reference template.
 type ReferenceTemplateV1 struct {
 	*template.Template `json:"-"`
 	Path               string                    `json:"path"`
@@ -219,6 +239,7 @@ type ReferenceTemplateV1 struct {
 	metadata           *unstructured.Unstructured
 }
 
+// GetFieldsToOmit returns the fields to omit for this template.
 func (rf ReferenceTemplateV1) GetFieldsToOmit(fieldsToOmit FieldsToOmit) []*ManifestPathV1 {
 	result := make([]*ManifestPathV1, 0)
 	// ValidateFieldsToOmit should check the ok
@@ -239,6 +260,7 @@ const (
 	fieldsToOmitRefsNotFound = `fieldsToOmitRefs entry "%s" not found it fieldsToOmit Items`
 )
 
+// ValidateFieldsToOmit validates the fields to omit.
 func (rf ReferenceTemplateV1) ValidateFieldsToOmit(fieldsToOmit FieldsToOmit) error {
 	errs := make([]error, 0)
 	items := fieldsToOmit.GetItems()
@@ -252,6 +274,7 @@ func (rf ReferenceTemplateV1) ValidateFieldsToOmit(fieldsToOmit FieldsToOmit) er
 
 const noValue = "<no value>"
 
+// Exec executes the template.
 func (rf ReferenceTemplateV1) Exec(params map[string]any) (*unstructured.Unstructured, error) {
 	var buf bytes.Buffer
 	err := rf.Execute(&buf, params)
@@ -270,26 +293,32 @@ func (rf ReferenceTemplateV1) Exec(params map[string]any) (*unstructured.Unstruc
 	return &unstructured.Unstructured{Object: data}, nil
 }
 
+// GetPath returns the template path.
 func (rf ReferenceTemplateV1) GetPath() string {
 	return rf.Path
 }
 
+// GetIdentifier returns the template identifier.
 func (rf ReferenceTemplateV1) GetIdentifier() string {
 	return rf.GetPath()
 }
 
+// GetDescription returns the template description.
 func (rf ReferenceTemplateV1) GetDescription() string {
 	return rf.Description
 }
 
+// GetMetadata returns the template metadata.
 func (rf ReferenceTemplateV1) GetMetadata() *unstructured.Unstructured {
 	return rf.metadata
 }
 
+// GetConfig returns the template config.
 func (rf ReferenceTemplateV1) GetConfig() TemplateConfig {
 	return rf.Config
 }
 
+// GetTemplateTree returns the parsed template tree.
 func (rf ReferenceTemplateV1) GetTemplateTree() *parse.Tree {
 	return rf.Tree
 }
@@ -324,12 +353,14 @@ func initBuiltInPathsV1() []*ManifestPathV1 {
 
 var builtInPathsV1 = initBuiltInPathsV1()
 
+// ManifestPathV1 represents a manifest path in v1.
 type ManifestPathV1 struct {
 	PathToKey string `json:"pathToKey"`
 	IsPrefix  bool   `json:"isPrefix,omitempty"`
 	parts     []string
 }
 
+// Process processes the manifest path.
 func (p *ManifestPathV1) Process() error {
 	if len(p.parts) > 0 {
 		return nil
@@ -350,6 +381,7 @@ func pathToList(path string) ([]string, error) {
 	return fields, nil
 }
 
+// ParseV1Templates parses templates for a v1 reference.
 func ParseV1Templates(ref *ReferenceV1, fsys fs.FS) ([]ReferenceTemplate, error) {
 	return parseTemplatesCommon(ref.getTemplates(), ref.TemplateFunctionFiles, fsys, ref.FieldsToOmit)
 }

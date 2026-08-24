@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	defaultHttpGetAttempts = 5
+	defaultHTTPGetAttempts = 5
 	httpScheme             = "http://"
 	httpsScheme            = "https://"
 )
@@ -39,7 +39,7 @@ func (fs HTTPFS) Open(name string) (fs.File, error) {
 	if err != nil {
 		return HTTPFile{}, fmt.Errorf("could not construct url: %w", err)
 	}
-	body, contentLength, err := readHttpWithRetries(fs.httpGet, 5*time.Millisecond, fullURL, defaultHttpGetAttempts)
+	body, contentLength, err := readHTTPWithRetries(fs.httpGet, 5*time.Millisecond, fullURL, defaultHTTPGetAttempts)
 	if err != nil {
 		return HTTPFile{}, err
 	}
@@ -56,8 +56,8 @@ func httpgetImpl(url string) (int, string, io.ReadCloser, int64, error) {
 	return resp.StatusCode, resp.Status, resp.Body, resp.ContentLength, nil
 }
 
-// readHttpWithRetries tries to http.Get the v.URL retries times before giving up.
-func readHttpWithRetries(get httpget, duration time.Duration, u string, attempts int) (io.ReadCloser, int64, error) {
+// readHTTPWithRetries tries to http.Get the v.URL retries times before giving up.
+func readHTTPWithRetries(get httpget, duration time.Duration, u string, attempts int) (io.ReadCloser, int64, error) {
 	var err error
 	if attempts <= 0 {
 		return nil, 0, fmt.Errorf("http attempts must be greater than 0, was %d", attempts)
@@ -94,10 +94,9 @@ func readHttpWithRetries(get httpget, duration time.Duration, u string, attempts
 		if statusCode >= 500 && statusCode < 600 {
 			// Retry 500's
 			continue
-		} else {
-			// Don't retry other StatusCodes
-			break
 		}
+		// Don't retry other StatusCodes
+		break
 	}
 	return nil, 0, err
 }

@@ -11,7 +11,7 @@ import (
 	"k8s.io/kubectl/pkg/cmd/get"
 )
 
-func buildJsonPath(pathParts []string) (string, error) {
+func buildJSONPath(pathParts []string) (string, error) {
 	var parts []string
 	for i, part := range pathParts {
 		escapedPart := strings.ReplaceAll(part, ".", "\\.")
@@ -29,11 +29,11 @@ func buildJsonPath(pathParts []string) (string, error) {
 }
 
 // Function to get values from JSON using jsonpath expressions
-func getValuesFromJson(jsonData map[string]interface{}, paths [][]string) (map[*[]string]interface{}, error) {
+func getValuesFromJSON(jsonData map[string]interface{}, paths [][]string) (map[*[]string]interface{}, error) {
 	results := make(map[*[]string]interface{})
 
 	for _, pathParts := range paths {
-		jsonPathExpr, err := buildJsonPath(pathParts)
+		jsonPathExpr, err := buildJSONPath(pathParts)
 		if err != nil {
 			return nil, err
 		}
@@ -59,6 +59,7 @@ func isSliceIndex(part string) bool {
 	return len(part) > 2 && part[0] == '[' && part[len(part)-1] == ']'
 }
 
+// ExtractIntFromBrackets extracts an integer from bracketed strings.
 func ExtractIntFromBrackets(s string) (int, error) {
 	if !isSliceIndex(s) {
 		return 0, fmt.Errorf("input string is not properly formatted")

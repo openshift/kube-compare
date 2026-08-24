@@ -20,8 +20,10 @@ import (
 
 // This File is almost identical to the FuncMap used in Helm to match Helm templating behaviour.
 
+// FuncHelp holds documentation for functions.
 var FuncHelp = make(map[string]string)
 
+// SprigImportFlag is used to flag sprig imports.
 const SprigImportFlag = `<<sprig>>`
 
 // recursionMaxNums is the maximum number of times a template may be
@@ -54,7 +56,7 @@ func FuncMap() template.FuncMap {
 
 	// Add a placeholder for the late-bound "include" function.
 	// The real implementation is injected after template parsing via InitInclude.
-	f["include"] = func(name string, data any) (string, error) {
+	f["include"] = func(_ string, _ any) (string, error) {
 		return "", fmt.Errorf("include is not yet bound to a template; this is a placeholder")
 	}
 	FuncHelp["include"] = "Execute a named template and return its output as a string (like Helm's include)"
@@ -114,6 +116,7 @@ func FuncMap() template.FuncMap {
 	return f
 }
 
+// DisplayFuncmap writes the available functions to the writer.
 func DisplayFuncmap(w io.Writer) error {
 	if len(FuncHelp) == 0 {
 		// Populate the help text
@@ -261,7 +264,7 @@ func fromJSONArray(str string) []any {
 	return a
 }
 
-// In order to use `lookupCRs` and `lookupCR`, AllCRs must be populated
+// AllCRs holds all custom resources. In order to use `lookupCRs` and `lookupCR`, AllCRs must be populated.
 var AllCRs []*unstructured.Unstructured
 
 // lookupCRs looks for all known CRS that match the given fields.
@@ -308,6 +311,7 @@ func lookupCR(apiVersion, kind, namespace, name string) map[string]any {
 	return all[0]
 }
 
+// DoNotMatch indicates a regex should not match.
 type DoNotMatch struct {
 	Reason string
 }

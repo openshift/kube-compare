@@ -1,3 +1,4 @@
+// Package compare provides compare utilities.
 package compare
 
 import (
@@ -12,9 +13,10 @@ import (
 )
 
 const (
-	capturegroups inlineDiffType = "capturegroups"
+	capturegroups InlineDiffType = "capturegroups"
 )
 
+// CapturedValues holds captured values from regex.
 type CapturedValues struct {
 	caps map[string][]string
 }
@@ -42,23 +44,25 @@ func (c *CapturedValues) groupValues(name string) string {
 	if matches, ok := c.caps[name]; ok {
 		if len(matches) == 1 {
 			return matches[0]
-		} else {
-			// Multiple matches detected, so call attention to them
-			return fmt.Sprintf("(?<%s>=%s)", name, matches[0])
 		}
+		// Multiple matches detected, so call attention to them
+		return fmt.Sprintf("(?<%s>=%s)", name, matches[0])
 	}
 	return ""
 }
 
+// CapturegroupsInlineDiff handles inline diffs for capture groups.
 type CapturegroupsInlineDiff struct{}
 
-type diffInfo struct {
+// DiffInfo holds info about a diff.
+type DiffInfo struct {
 	dmp   *diffmatchpatch.DiffMatchPatch
 	diffs []diffmatchpatch.Diff
 	cg    []CgInfo
 	CapturedValues
 }
 
+// CgInfo holds information about a capture group.
 type CgInfo struct {
 	Name  string
 	Full  string
@@ -72,7 +76,7 @@ type CgInfo struct {
 // Otherwise only do so when a capture group begins or ends the string.
 var quoteEscapeFull = false
 
-// Return a list of the valid-looking capturegroup indices within the given pattern string.
+// CapturegroupIndex returns a list of the valid-looking capturegroup indices within the given pattern string.
 // Each inner list is a tuple of start:end indices that can be used to extract a capture group.
 // For example:
 //
@@ -139,7 +143,7 @@ func CapturegroupIndex(pattern string) []CgInfo {
 	return result
 }
 
-// Transforms all non-capturegroup text in the pattern via Regex.QuoteMeta(),
+// CapturegroupQuoteMeta transforms all non-capturegroup text in the pattern via Regex.QuoteMeta(),
 // reusing previously-computed group indices Additionally this will add
 // appropriate word or end-of-string anchors to capturegroups and/or the whole
 // pattern according to the global 'quoteEscapeFull' option
@@ -184,15 +188,17 @@ func CapturegroupQuoteMeta(pattern string, groups []CgInfo) string {
 	return strings.Join(results, "")
 }
 
-func NewDiffInfo(pattern string, sharedCapturedValues CapturedValues) *diffInfo {
-	o := diffInfo{CapturedValues: sharedCapturedValues}
+// NewDiffInfo creates a new DiffInfo.
+func NewDiffInfo(pattern string, sharedCapturedValues CapturedValues) DiffInfo {
+
+	o := DiffInfo{CapturedValues: sharedCapturedValues}
 	o.dmp = diffmatchpatch.New()
 	o.cg = CapturegroupIndex(pattern)
-	return &o
+	return o
 }
 
 // Using the 'deletion' side as the pattern, record all matching capturegroups
-func (id *diffInfo) captureAllGroups(deletion, insertion diffmatchpatch.Diff) error {
+func (id *DiffInfo) captureAllGroups(deletion, insertion diffmatchpatch.Diff) error {
 	// Quick sanity check
 	if deletion.Type != diffmatchpatch.DiffDelete || insertion.Type != diffmatchpatch.DiffInsert {
 		return fmt.Errorf("deletion.Type %s!=DiffDelete or insertion.Type %s!=DiffInsert", deletion.Type.String(), insertion.Type.String())
@@ -237,7 +243,7 @@ func (id *diffInfo) captureAllGroups(deletion, insertion diffmatchpatch.Diff) er
 }
 
 // Perform the diff or a per-character basis, recording the parts in id.diffs
-func (id *diffInfo) doDiff(pattern, value string) {
+func (id *DiffInfo) doDiff(pattern, value string) {
 	id.diffs = id.dmp.DiffMain(pattern, value, false)
 }
 
@@ -245,7 +251,7 @@ func (id *diffInfo) doDiff(pattern, value string) {
 // id.diffs[i+1] represents an insert-then-delete pair or delete-then-insert
 // pair), or nil if i+1 is out of bounds or does not constitute a proper
 // potentially-comparable pair.
-func (id *diffInfo) comparableDiffPair(i int) (*diffmatchpatch.Diff, *diffmatchpatch.Diff) {
+func (id *DiffInfo) comparableDiffPair(i int) (*diffmatchpatch.Diff, *diffmatchpatch.Diff) {
 	a := id.diffs[i]
 	if i+1 < len(id.diffs) {
 		b := id.diffs[i+1]
@@ -259,7 +265,7 @@ func (id *diffInfo) comparableDiffPair(i int) (*diffmatchpatch.Diff, *diffmatchp
 	return nil, nil
 }
 
-func (id *diffInfo) escapeCaptureGroups(pattern string) (string, map[rune]string) {
+func (id *DiffInfo) escapeCaptureGroups(pattern string) (string, map[rune]string) {
 	escapes := make(map[rune]string)
 	replacedPatternBuilder := strings.Builder{}
 	idx := 0
@@ -279,7 +285,7 @@ func (id *diffInfo) escapeCaptureGroups(pattern string) (string, map[rune]string
 	return replacedPatternBuilder.String(), escapes
 }
 
-func (id *diffInfo) unescapeCaptureGroupDiffs(escapes map[rune]string) {
+func (id *DiffInfo) unescapeCaptureGroupDiffs(escapes map[rune]string) {
 	// With the main diff complete, replace the placeholder runes with the real capturegroups
 	fixedDiffs := make([]diffmatchpatch.Diff, len(id.diffs))
 	for i, diff := range id.diffs {
@@ -297,7 +303,7 @@ func (id *diffInfo) unescapeCaptureGroupDiffs(escapes map[rune]string) {
 	id.diffs = fixedDiffs
 }
 
-// Main entrypoint called by compare.go
+// Diff is the main entrypoint called by compare.go
 func (id CapturegroupsInlineDiff) Diff(pattern, value string, sharedCapturedValues CapturedValues) (string, CapturedValues) {
 	// General approach:
 	//  - Match all relevant capturegroups
@@ -356,7 +362,7 @@ func (id CapturegroupsInlineDiff) Diff(pattern, value string, sharedCapturedValu
 	return reconciledString, cgDiff.CapturedValues
 }
 
-// Validation entrypoint called by referenceV2.go
+// Validate is the validation entrypoint called by referenceV2.go
 func (id CapturegroupsInlineDiff) Validate(pattern string) error {
 	var errs error
 	for i, line := range strings.Split(pattern, "\n") {

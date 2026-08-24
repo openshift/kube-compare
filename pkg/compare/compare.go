@@ -111,10 +111,12 @@ const (
 	noRefFileWasPassed    = "\"Reference config file is required\""
 	refFileNotExistsError = "\"Reference config file doesn't exist\""
 	emptyTypes            = "templates don't contain any types (kind) of resources that are supported by the cluster"
+	// DiffSeparator separates diff outputs.
 	DiffSeparator         = "**********************************\n"
 	skipInvalidResources  = "Skipping %s Input contains additional files from supported file extensions" +
 		" (json/yaml) that do not contain a valid resource, error: %s.\n In case this file is " +
 		"expected to be a valid resource modify it accordingly. "
+	// DiffsFoundMsg is the diffs found message.
 	DiffsFoundMsg                   = "there are differences between the cluster CRs and the reference CRs"
 	errMissingKind                  = "Object 'Kind' is missing"
 	errParsing                      = "error parsing"
@@ -126,14 +128,20 @@ const (
 )
 
 const (
-	Json      string = "json"
+	// JSON is json format.
+	JSON      string = "json"
+	// Yaml is yaml format.
 	Yaml      string = "yaml"
+	// PatchYaml is patch yaml format.
 	PatchYaml string = "generate-patches"
+	// Junit is junit format.
 	Junit     string = "junit"
 )
 
-var OutputFormats = []string{Json, Yaml, PatchYaml, Junit}
+// OutputFormats defines the available output formats.
+var OutputFormats = []string{JSON, Yaml, PatchYaml, Junit}
 
+// Options holds command options.
 type Options struct {
 	CRs                resource.FilenameOptions
 	ReferenceConfig    string
@@ -173,6 +181,7 @@ type Options struct {
 	showTemplateFunctions bool
 }
 
+// NewCmd creates a new compare command.
 func NewCmd(f kcmdutil.Factory, streams genericiooptions.IOStreams) *cobra.Command {
 	options := NewOptions(streams)
 	example := compareExample
@@ -262,7 +271,7 @@ func NewCmd(f kcmdutil.Factory, streams genericiooptions.IOStreams) *cobra.Comma
 	// Flag errors exit with code 1, however according to the diff
 	// command it means changes were found.
 	// Thus, it should return status code greater than 1.
-	cmd.SetFlagErrorFunc(func(command *cobra.Command, err error) error {
+	cmd.SetFlagErrorFunc(func(_ *cobra.Command, err error) error {
 		kcmdutil.CheckDiffErr(kcmdutil.UsageErrorf(cmd, "%s", err.Error()))
 		return nil
 	})
@@ -287,7 +296,7 @@ func NewCmd(f kcmdutil.Factory, streams genericiooptions.IOStreams) *cobra.Comma
 	cmd.Flags().StringVarP(&options.OutputFormat, "output", "o", "", fmt.Sprintf(`Output format. One of: (%s)`, strings.Join(OutputFormats, ", ")))
 	kcmdutil.CheckErr(cmd.RegisterFlagCompletionFunc(
 		"output",
-		func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		func(_ *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 			var comps []string
 			for _, format := range OutputFormats {
 				if strings.HasPrefix(format, toComplete) {
@@ -301,6 +310,7 @@ func NewCmd(f kcmdutil.Factory, streams genericiooptions.IOStreams) *cobra.Comma
 	return cmd
 }
 
+// NewOptions creates new options.
 func NewOptions(ioStreams genericiooptions.IOStreams) *Options {
 	return &Options{
 		IOStreams: ioStreams,
@@ -321,6 +331,7 @@ func diffError(err error) exec.ExitError {
 	return nil
 }
 
+// GetRefFS returns the reference file system.
 func (o *Options) GetRefFS() (fs.FS, error) {
 	referenceDir := filepath.Dir(o.ReferenceConfig)
 	if isURL(o.ReferenceConfig) {
@@ -348,6 +359,7 @@ func (o *Options) GetRefFS() (fs.FS, error) {
 	}
 	return os.DirFS(rootPath), nil
 }
+// Complete completes the options.
 func (o *Options) Complete(f kcmdutil.Factory, cmd *cobra.Command, args []string) error {
 	var err error
 
@@ -908,7 +920,7 @@ func (o *Options) Run() error {
 		o.metricsTracker.addMatch(bestMatch.temp)
 
 		if bestMatch.IsDiff() {
-			numDiffCRs += 1
+			numDiffCRs++
 		}
 
 		if bestMatch.userOverride != nil && slices.Contains(o.templatesToGenerateOverridesFor, bestMatch.temp.GetPath()) {
@@ -925,7 +937,7 @@ func (o *Options) Run() error {
 					reasons = append(reasons, uo.Reason)
 				}
 			}
-			numPatched += 1
+			numPatched++
 		}
 
 		diffs = append(diffs, DiffSum{
@@ -975,7 +987,7 @@ type InfoObject struct {
 	FieldsToOmit            []*ManifestPathV1
 	allowMerge              bool
 	userOverrides           []*UserOverride
-	templateFieldConf       map[string]inlineDiffType
+	templateFieldConf       map[string]InlineDiffType
 }
 
 // Live Returns the cluster version of the object
@@ -983,6 +995,7 @@ func (obj InfoObject) Live() runtime.Object {
 	return obj.clusterObj
 }
 
+// MergeError represents an error during merge.
 type MergeError struct {
 	obj *InfoObject
 	err error
@@ -1031,6 +1044,7 @@ func (obj InfoObject) Merged() (runtime.Object, error) {
 	return obj.injectedObjFromTemplate, nil
 }
 
+// InlineDiffError represents an inline diff error.
 type InlineDiffError struct {
 	obj *InfoObject
 	err error
@@ -1180,6 +1194,7 @@ func MergeManifests(localRef, clusterCR *unstructured.Unstructured) (updateLocal
 	return &unstructured.Unstructured{Object: localRefUpdatedObj}, nil
 }
 
+// Name returns the name of the object.
 func (obj InfoObject) Name() string {
 	return slug.Make(apiKindNamespaceName(obj.clusterObj))
 }

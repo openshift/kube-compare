@@ -43,6 +43,7 @@ func NestedField(obj any, fields ...string) (any, bool, error) {
 	return val, true, nil
 }
 
+// NestedString returns the string value of a nested field.
 func NestedString(obj any, fields ...string) (string, bool, error) {
 	val, found, err := NestedField(obj, fields...)
 	if !found || err != nil {
@@ -54,6 +55,7 @@ func NestedString(obj any, fields ...string) (string, bool, error) {
 	return "", found, fmt.Errorf("%v accessor error: %v is of the type %T, expected string", jsonPath(fields), val, val)
 }
 
+// SetNestedString sets the string value of a nested field.
 func SetNestedString(obj any, value string, fields ...string) error {
 	parentPath := fields[:len(fields)-1]
 	leafPath := fields[len(fields)-1]

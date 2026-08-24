@@ -21,7 +21,7 @@ func (expected testExpectation) matches(t *testing.T, actual junit.TestSuite) {
 	for _, f := range actual.TestCases {
 		if f.Failure != nil {
 			assert.Contains(t, expected.failures, f.Failure.Contents)
-			actualFailCount += 1
+			actualFailCount++
 		}
 	}
 	assert.Equal(t, len(expected.failures), actualFailCount)
@@ -29,7 +29,7 @@ func (expected testExpectation) matches(t *testing.T, actual junit.TestSuite) {
 	actualSkipCount := 0
 	for _, s := range actual.TestCases {
 		if s.SkipMessage != nil {
-			actualSkipCount += 1
+			actualSkipCount++
 		}
 	}
 	assert.Equal(t, expected.skips, actualSkipCount)

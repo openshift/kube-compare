@@ -90,7 +90,7 @@ func checkCompatibilityWithCompareOutput(t *testing.T, test Test, update bool) {
 	require.NoError(t, cmpCmd.Flags().Set("reference", path.Join(compareTestRefsDir, test.referenceDir, "reference/metadata.yaml")))
 	require.NoError(t, cmpCmd.Flags().Set("filename", path.Join(compareTestRefsDir, test.referenceDir, "resources")))
 	require.NoError(t, cmpCmd.Flags().Set("recursive", "true"))
-	require.NoError(t, cmpCmd.Flags().Set("output", compare.Json))
+	require.NoError(t, cmpCmd.Flags().Set("output", compare.JSON))
 	cmpCmd.Run(cmpCmd, []string{})
 	result := testutils.GetFile(t, test.getJSONPath(), testutils.RemoveInconsistentInfo(t, out.String(), testutils.FixupOptions{}), update)
 	require.Equal(t, result, testutils.RemoveInconsistentInfo(t, out.String(), testutils.FixupOptions{}))

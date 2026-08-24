@@ -15,6 +15,7 @@ import (
 	"k8s.io/klog/v2"
 )
 
+// FieldSeparator is the default field separator.
 var FieldSeparator = "_"
 
 const (
@@ -50,14 +51,17 @@ type MultiCorrelator[T CorrelationEntry] struct {
 	correlators []Correlator[T]
 }
 
+// NewMultiCorrelator creates a new multi correlator.
 func NewMultiCorrelator[T CorrelationEntry](correlators []Correlator[T]) *MultiCorrelator[T] {
 	return &MultiCorrelator[T]{correlators: correlators}
 }
 
+// AddCorrelator adds a correlator to the multi correlator.
 func (c *MultiCorrelator[T]) AddCorrelator(correlator Correlator[T]) {
 	c.correlators = append(c.correlators, correlator)
 }
 
+// Match matches the object using all correlators.
 func (c MultiCorrelator[T]) Match(object *unstructured.Unstructured) ([]T, error) {
 	var errs []error
 	for _, core := range c.correlators {
@@ -71,6 +75,7 @@ func (c MultiCorrelator[T]) Match(object *unstructured.Unstructured) ([]T, error
 	return res, errors.Join(errs...) // nolint:wrapcheck
 }
 
+// CorrelationEntry is an interface for correlation entries.
 type CorrelationEntry interface {
 	GetIdentifier() string
 	GetMetadata() *unstructured.Unstructured
@@ -83,6 +88,7 @@ type ExactMatchCorrelator[T CorrelationEntry] struct {
 	apiKindNamespaceName map[string]T
 }
 
+// NewExactMatchCorrelator creates a new exact match correlator.
 func NewExactMatchCorrelator[T CorrelationEntry](matchPairs map[string]string, templates []T) (*ExactMatchCorrelator[T], error) {
 	core := ExactMatchCorrelator[T]{}
 	core.apiKindNamespaceName = make(map[string]T)
@@ -101,6 +107,7 @@ func NewExactMatchCorrelator[T CorrelationEntry](matchPairs map[string]string, t
 	return &core, nil
 }
 
+// Match matches the object using exact matching.
 func (c ExactMatchCorrelator[T]) Match(object *unstructured.Unstructured) ([]T, error) {
 	temp, ok := c.apiKindNamespaceName[apiKindNamespaceName(object)]
 	if !ok {
@@ -172,7 +179,7 @@ type templateHashFunc func(*unstructured.Unstructured, string) (group string, er
 
 // createGroupHashFunc creates a hashing function for a specific field group
 func createGroupHashFunc(fieldGroup [][]string) templateHashFunc {
-	groupHashFunc := func(cr *unstructured.Unstructured, replaceEmptyWith string) (group string, err error) {
+	groupHashFunc := func(cr *unstructured.Unstructured, _ string) (group string, err error) {
 		var values []string
 		for _, fields := range fieldGroup {
 			value, isFound, NotStringErr := NestedString(cr.Object, fields...)
@@ -198,6 +205,7 @@ func getTemplatesNames[T CorrelationEntry](templates []T) string {
 	return strings.Join(names, ", ")
 }
 
+// Match matches the object using group matching.
 func (c *GroupCorrelator[T]) Match(object *unstructured.Unstructured) ([]T, error) {
 	for _, fc := range c.fieldCorrelators {
 		temp, err := fc.Match(object)
@@ -219,6 +227,7 @@ type MetricsTracker struct {
 	matchedLock           sync.Mutex
 }
 
+// NewMetricsTracker creates a new metrics tracker.
 func NewMetricsTracker() *MetricsTracker {
 	cr := MetricsTracker{
 		UnMatchedCRs:          []*unstructured.Unstructured{},
@@ -252,7 +261,7 @@ func containOnly(err error, errTypes []error) bool {
 
 func (c *MetricsTracker) addMatch(temp ReferenceTemplate) {
 	c.matchedLock.Lock()
-	c.MatchedTemplatesNames[temp.GetIdentifier()] += 1
+	c.MatchedTemplatesNames[temp.GetIdentifier()]++
 	c.matchedLock.Unlock()
 }
 
@@ -270,12 +279,14 @@ func (c *MetricsTracker) getTotalCRs() int {
 	return count
 }
 
+// FieldCorrelator correlates by field.
 type FieldCorrelator[T CorrelationEntry] struct {
 	Fields   [][]string
 	hashFunc templateHashFunc
 	objects  map[string][]T
 }
 
+// ClaimTemplates claims templates.
 func (f *FieldCorrelator[T]) ClaimTemplates(templates []T) []T {
 	if f.objects == nil {
 		f.objects = make(map[string][]T)
@@ -295,6 +306,7 @@ func (f *FieldCorrelator[T]) ClaimTemplates(templates []T) []T {
 	return discarded
 }
 
+// ValidateTemplates validates templates.
 func (f *FieldCorrelator[T]) ValidateTemplates() error {
 	errs := make([]error, 0)
 	for _, values := range f.objects {
@@ -312,12 +324,13 @@ func (f *FieldCorrelator[T]) ValidateTemplates() error {
 	return errors.Join(errs...)
 }
 
+// Match matches the object.
 func (f FieldCorrelator[T]) Match(object *unstructured.Unstructured) ([]T, error) {
-	group_hash, err := f.hashFunc(object, "")
+	groupHash, err := f.hashFunc(object, "")
 	if err != nil {
 		return nil, err
 	}
-	objs, ok := f.objects[group_hash]
+	objs, ok := f.objects[groupHash]
 	if !ok {
 		return nil, UnknownMatch{Resource: object}
 	}

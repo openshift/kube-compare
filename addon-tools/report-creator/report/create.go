@@ -1,3 +1,4 @@
+// Package report provides report creation utilities.
 package report
 
 import (
@@ -45,11 +46,13 @@ func getParsed(raw string) (compare.Output, error) {
 	return output, nil
 }
 
+// Options holds the options for report creator.
 type Options struct {
 	compareOutputPath string
 	outputFile        string
 }
 
+// NewCmd creates a new report command.
 func NewCmd() *cobra.Command {
 	options := Options{}
 	cmd := &cobra.Command{
@@ -57,7 +60,7 @@ func NewCmd() *cobra.Command {
 		Short: "report-creator: A CLI tool for generating JUnit test reports from kubectl cluster-compare plugin output, categorizing results into diff, missing CRs, and unmatched CRs test suites.",
 		Long:  longDesc,
 
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, _ []string) error {
 			jsonInput, err := os.ReadFile(options.compareOutputPath)
 			if err != nil {
 				return fmt.Errorf("failed to read comparison file: %w", err)

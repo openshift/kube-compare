@@ -1,6 +1,5 @@
 ---
 new: true
-new-from-rev: 722af08
 version: "2"
 run:
   concurrency: 6
@@ -19,6 +18,8 @@ linters:
     - unused
     - errorlint
     - loggercheck
+    - revive
+    - errcheck
 linters-settings:
   revive:
     rules:
@@ -76,41 +77,6 @@ linters-settings:
       - typeUnparen
       - unnecessaryBlock
       - paramTypeCombine
-  depguard:
-    # Rules to apply.
-    #
-    # Variables:
-    # - File Variables
-    #   you can still use and exclamation mark ! in front of a variable to say not to use it.
-    #   Example !$test will match any file that is not a go test file.
-    #
-    #   `$all` - matches all go files
-    #   `$test` - matches all go test files
-    #
-    # - Package Variables
-    #
-    #  `$gostd` - matches all of go's standard library (Pulled from `GOROOT`)
-    #
-    # Default: Only allow $gostd in all files.
-    rules:
-      # Name of a rule.
-      main:
-        # Used to determine the package matching priority.
-        # There are three different modes: `original`, `strict`, and `lax`.
-        # Default: "original"
-        list-mode: lax
-        # List of file globs that will match this list of settings to compare against.
-        # Default: $all
-        files:
-          - $all
-        # List of allowed packages.
-        allow:
-          - $gostd
-          - $all
-        # Packages that are not allowed where the value is a suggestion.
-        deny:
-          - pkg: "github.com/pkg/errors"
-            desc: Should be replaced by standard lib errors package
   wrapcheck:
     ignoreSigs:
       # defaults
