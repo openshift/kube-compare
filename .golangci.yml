@@ -19,6 +19,7 @@ linters:
     - errorlint
     - loggercheck
     - revive
+    - wrapcheck
     - errcheck
 linters-settings:
   revive:

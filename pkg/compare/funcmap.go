@@ -135,33 +135,35 @@ func DisplayFuncmap(w io.Writer) error {
 	slices.Sort(sprigNames)
 
 	if _, err := fmt.Fprintln(w, "Available Template Functions"); err != nil {
-		return err
+		return fmt.Errorf("failed to write: %w", err)
 	}
 	if _, err := fmt.Fprintln(w, "============================"); err != nil {
-		return err
+		return fmt.Errorf("failed to write: %w", err)
 	}
 	if _, err := fmt.Fprintln(w, ""); err != nil {
-		return err
+		return fmt.Errorf("failed to write: %w", err)
 	}
 	for _, name := range customNames {
 		if _, err := fmt.Fprintf(w, "%s:\n  %s\n", name, strings.Join(strings.Split(FuncHelp[name], "\n"), "\n  ")); err != nil {
-			return err
+			return fmt.Errorf("failed to write: %w", err)
 		}
 	}
 	if _, err := fmt.Fprintln(w, ""); err != nil {
-		return err
+		return fmt.Errorf("failed to write: %w", err)
 	}
 	if _, err := fmt.Fprintln(w, "Imported from https://masterminds.github.io/sprig/"); err != nil {
-		return err
+		return fmt.Errorf("failed to write: %w", err)
 	}
 	if _, err := fmt.Fprintln(w, "--------------------------------------------------"); err != nil {
-		return err
+		return fmt.Errorf("failed to write: %w", err)
 	}
 	if _, err := fmt.Fprintln(w, ""); err != nil {
-		return err
+		return fmt.Errorf("failed to write: %w", err)
 	}
-	_, err := fmt.Fprintln(w, strings.Join(sprigNames, ", "))
-	return err
+	if _, err := fmt.Fprintln(w, strings.Join(sprigNames, ", ")); err != nil {
+		return fmt.Errorf("failed to write: %w", err)
+	}
+	return nil
 }
 
 // toYAML takes an interface, marshals it to yaml, and returns a string. It will

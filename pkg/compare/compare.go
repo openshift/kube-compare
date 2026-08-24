@@ -366,16 +366,16 @@ func (o *Options) Complete(f kcmdutil.Factory, cmd *cobra.Command, args []string
 	// Generate mode: -g and -r are mutually exclusive.
 	if o.generateConfig != "" {
 		if o.ReferenceConfig != "" {
-			return kcmdutil.UsageErrorf(cmd, "cannot use -r and -g together; use -r for compare or -g for generate")
+			return fmt.Errorf("usage error: %w", kcmdutil.UsageErrorf(cmd, "cannot use -r and -g together; use -r for compare or -g for generate"))
 		}
 		if len(args) != 0 {
-			return kcmdutil.UsageErrorf(cmd, "Unexpected args: %v", args)
+			return fmt.Errorf("usage error: %w", kcmdutil.UsageErrorf(cmd, "Unexpected args: %v", args))
 		}
 		if o.CRs.Kustomize != "" {
-			return kcmdutil.UsageErrorf(cmd, "cannot use -k with -g; use -f with a must-gather directory path, or omit -f for a live cluster")
+			return fmt.Errorf("usage error: %w", kcmdutil.UsageErrorf(cmd, "cannot use -k with -g; use -f with a must-gather directory path, or omit -f for a live cluster"))
 		}
 		if len(o.CRs.Filenames) > 1 {
-			return kcmdutil.UsageErrorf(cmd, "with -g, specify at most one must-gather path with -f (or omit -f to use the live cluster)")
+			return fmt.Errorf("usage error: %w", kcmdutil.UsageErrorf(cmd, "with -g, specify at most one must-gather path with -f (or omit -f to use the live cluster)"))
 		}
 		return nil
 	}
@@ -384,16 +384,16 @@ func (o *Options) Complete(f kcmdutil.Factory, cmd *cobra.Command, args []string
 
 	if o.OutputFormat == PatchYaml {
 		if len(o.templatesToGenerateOverridesFor) == 0 {
-			return kcmdutil.UsageErrorf(cmd, noTemplateForGeneration)
+			return fmt.Errorf("usage error: %w", kcmdutil.UsageErrorf(cmd, noTemplateForGeneration))
 		}
 
 		if o.overrideReason == "" {
-			return kcmdutil.UsageErrorf(cmd, noReason)
+			return fmt.Errorf("usage error: %w", kcmdutil.UsageErrorf(cmd, noReason))
 		}
 	}
 
 	if o.ReferenceConfig == "" {
-		return kcmdutil.UsageErrorf(cmd, noRefFileWasPassed)
+		return fmt.Errorf("usage error: %w", kcmdutil.UsageErrorf(cmd, noRefFileWasPassed))
 	}
 	if _, err := os.Stat(o.ReferenceConfig); os.IsNotExist(err) && !isURL(o.ReferenceConfig) && !isContainer(o.ReferenceConfig) {
 		return errors.New(refFileNotExistsError)
@@ -440,7 +440,7 @@ func (o *Options) Complete(f kcmdutil.Factory, cmd *cobra.Command, args []string
 	}
 
 	if len(args) != 0 {
-		return kcmdutil.UsageErrorf(cmd, "Unexpected args: %v", args)
+		return fmt.Errorf("usage error: %w", kcmdutil.UsageErrorf(cmd, "Unexpected args: %v", args))
 	}
 	err = o.CRs.RequireFilenameOrKustomize()
 

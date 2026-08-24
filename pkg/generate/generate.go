@@ -88,10 +88,10 @@ func (o *Options) Run(ctx context.Context) error {
 	}
 
 	if _, err := fmt.Fprintf(o.Streams.Out, "Generated reference at: %s\n", outputPath); err != nil {
-		return err
+		return fmt.Errorf("failed to write: %w", err)
 	}
 	if _, err := fmt.Fprintf(o.Streams.Out, "  Total resources captured: %d\n", totalResources); err != nil {
-		return err
+		return fmt.Errorf("failed to write: %w", err)
 	}
 	capturedTypes := 0
 	for _, resources := range resourcesBySpec {
@@ -100,11 +100,11 @@ func (o *Options) Run(ctx context.Context) error {
 		}
 	}
 	if _, err := fmt.Fprintf(o.Streams.Out, "  Resource types: %d\n", capturedTypes); err != nil {
-		return err
+		return fmt.Errorf("failed to write: %w", err)
 	}
 	if len(missingSpecs) > 0 {
 		if _, err := fmt.Fprintf(o.Streams.ErrOut, "Warning: No resources found for:\n"); err != nil {
-			return err
+			return fmt.Errorf("failed to write: %w", err)
 		}
 		for _, spec := range missingSpecs {
 			details := fmt.Sprintf("%s (%s)", spec.Kind, spec.APIVersion)
@@ -115,7 +115,7 @@ func (o *Options) Run(ctx context.Context) error {
 				details = fmt.Sprintf("%s with names %v", details, spec.Names)
 			}
 			if _, err := fmt.Fprintf(o.Streams.ErrOut, "  - %s\n", details); err != nil {
-				return err
+				return fmt.Errorf("failed to write: %w", err)
 			}
 		}
 	}
