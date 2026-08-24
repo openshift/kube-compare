@@ -389,7 +389,7 @@ func componentV2GroupUnmarshalJSON(s ComponentV2Group, b []byte) (err error) {
 
 const (
 	// MissingCRsMsg is the missing CRs message.
-	MissingCRsMsg      = "Missing CRs"
+	MissingCRsMsg = "Missing CRs"
 	// MatchedMoreThanOne is returned when more than one matches.
 	MatchedMoreThanOne = "Should only match one but matched"
 	oneOfRequired      = "One of the following is required"

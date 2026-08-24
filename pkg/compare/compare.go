@@ -112,8 +112,8 @@ const (
 	refFileNotExistsError = "\"Reference config file doesn't exist\""
 	emptyTypes            = "templates don't contain any types (kind) of resources that are supported by the cluster"
 	// DiffSeparator separates diff outputs.
-	DiffSeparator         = "**********************************\n"
-	skipInvalidResources  = "Skipping %s Input contains additional files from supported file extensions" +
+	DiffSeparator        = "**********************************\n"
+	skipInvalidResources = "Skipping %s Input contains additional files from supported file extensions" +
 		" (json/yaml) that do not contain a valid resource, error: %s.\n In case this file is " +
 		"expected to be a valid resource modify it accordingly. "
 	// DiffsFoundMsg is the diffs found message.
@@ -129,13 +129,13 @@ const (
 
 const (
 	// JSON is json format.
-	JSON      string = "json"
+	JSON string = "json"
 	// Yaml is yaml format.
-	Yaml      string = "yaml"
+	Yaml string = "yaml"
 	// PatchYaml is patch yaml format.
 	PatchYaml string = "generate-patches"
 	// Junit is junit format.
-	Junit     string = "junit"
+	Junit string = "junit"
 )
 
 // OutputFormats defines the available output formats.
@@ -359,6 +359,7 @@ func (o *Options) GetRefFS() (fs.FS, error) {
 	}
 	return os.DirFS(rootPath), nil
 }
+
 // Complete completes the options.
 func (o *Options) Complete(f kcmdutil.Factory, cmd *cobra.Command, args []string) error {
 	var err error

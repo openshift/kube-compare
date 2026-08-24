@@ -1,8 +1,8 @@
 // Package objectmeta provides object metadata utilities.
 package objectmeta
+
 // Package objectmeta provides object metadata utilities.
 // SPDX-License-Identifier:Apache-2.0
-
 
 // ServerManagedMetadataKeys lists ObjectMeta JSON field names populated by the
 // API server. They are not part of desired-state manifests and should be stripped

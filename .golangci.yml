@@ -21,6 +21,9 @@ linters:
     - revive
     - wrapcheck
     - errcheck
+formatters:
+  enable:
+    - gofmt
 linters-settings:
   revive:
     rules:
