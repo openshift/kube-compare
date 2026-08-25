@@ -1,3 +1,4 @@
+// Package junit provides junit utilities.
 package junit
 
 import (
@@ -23,6 +24,7 @@ type TestSuites struct {
 	Suites   []TestSuite
 }
 
+// NewTestSuites creates a new TestSuites.
 func NewTestSuites(name string) *TestSuites {
 	testSuites := TestSuites{
 		Name: name,
@@ -31,6 +33,7 @@ func NewTestSuites(name string) *TestSuites {
 	return &testSuites
 }
 
+// AddSuite adds a TestSuite.
 func (id *TestSuites) AddSuite(suite TestSuite) {
 	id.Suites = append(id.Suites, suite)
 	id.Tests += suite.Tests
@@ -38,6 +41,7 @@ func (id *TestSuites) AddSuite(suite TestSuite) {
 	id.Skipped += suite.Skipped
 }
 
+// WithSuite adds a TestSuite and returns TestSuites.
 func (id *TestSuites) WithSuite(suite TestSuite) *TestSuites {
 	id.AddSuite(suite)
 	return id
@@ -57,19 +61,21 @@ type TestSuite struct {
 	Timestamp  string `xml:"timestamp,attr"`
 }
 
+// AddCase adds a TestCase.
 func (id *TestSuite) AddCase(tcase TestCase) {
 	if tcase.Time == "" {
 		tcase.Time = zeroDuration
 	}
 	id.TestCases = append(id.TestCases, tcase)
-	id.Tests += 1
+	id.Tests++
 	if tcase.Failure != nil {
-		id.Failures += 1
+		id.Failures++
 	} else if tcase.SkipMessage != nil {
-		id.Skipped += 1
+		id.Skipped++
 	}
 }
 
+// WithCase adds a TestCase and returns TestSuite.
 func (id *TestSuite) WithCase(tcase TestCase) *TestSuite {
 	id.AddCase(tcase)
 	return id
@@ -104,6 +110,7 @@ type Failure struct {
 	Contents string `xml:",chardata"`
 }
 
+// NewTestSuite creates a new TestSuite.
 func NewTestSuite(name string) TestSuite {
 	return TestSuite{
 		Name:      name,
@@ -112,6 +119,7 @@ func NewTestSuite(name string) TestSuite {
 	}
 }
 
+// Marshal marshals TestSuites to XML.
 func Marshal(suites TestSuites) ([]byte, error) {
 	doc, err := xml.MarshalIndent(suites, "", "\t")
 	if err != nil {
@@ -120,6 +128,7 @@ func Marshal(suites TestSuites) ([]byte, error) {
 	return append([]byte(xml.Header), append(doc, "\n"...)...), nil
 }
 
+// Write writes TestSuites XML to writer.
 func Write(out io.Writer, suites TestSuites) error {
 	content, err := Marshal(suites)
 	if err != nil {

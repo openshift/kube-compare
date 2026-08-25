@@ -81,10 +81,12 @@ Patch Reasons:
 	return renderTemplate("DiffSummary", t, FuncMap(), s, fallback)
 }
 
+// HasDiff returns whether there is a diff.
 func (s DiffSum) HasDiff() bool {
 	return s.DiffOutput != ""
 }
 
+// WasPatched returns whether it was patched.
 func (s DiffSum) WasPatched() bool {
 	return s.Patched != ""
 }
@@ -105,10 +107,10 @@ func newSummary(reference Reference, c *MetricsTracker, numDiffCRs int, template
 	s := Summary{NumDiffCRs: numDiffCRs, PatchedCRs: numPatchedCRs}
 	s.ValidationIssues, s.NumMissing = reference.GetValidationIssues(c.MatchedTemplatesNames)
 	s.TotalCRs = c.getTotalCRs()
-	s.UnmatchedCRS = lo.Map(c.UnMatchedCRs, func(r *unstructured.Unstructured, i int) string {
+	s.UnmatchedCRS = lo.Map(c.UnMatchedCRs, func(r *unstructured.Unstructured, _ int) string {
 		return apiKindNamespaceName(r)
 	})
-	s.MatchedByReferenceOnly = lo.Map(matchedByReferenceOnly, func(t ReferenceTemplate, i int) string {
+	s.MatchedByReferenceOnly = lo.Map(matchedByReferenceOnly, func(t ReferenceTemplate, _ int) string {
 		return t.GetIdentifier()
 	})
 
@@ -210,13 +212,14 @@ func (o Output) String(showEmptyDiffs bool) string {
 	return fmt.Sprintf("%s%s\n", str, o.Summary.String())
 }
 
+// Print outputs the results.
 func (o Output) Print(format string, out io.Writer, showEmptyDiffs bool) (int, error) {
 	var (
 		content []byte
 		err     error
 	)
 	switch format {
-	case Json:
+	case JSON:
 		content, err = json.Marshal(o)
 		if err != nil {
 			return 0, fmt.Errorf("failed to marshal output to json: %w", err)

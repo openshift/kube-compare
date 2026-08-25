@@ -11,9 +11,10 @@ import (
 )
 
 const (
-	regex inlineDiffType = "regex"
+	regex InlineDiffType = "regex"
 )
 
+// RegexInlineDiff handles inline diffs for regex.
 type RegexInlineDiff struct{}
 
 type capturedGroupIndex struct {
@@ -56,6 +57,7 @@ func (c *capturedValueIndices) getTopLevelIndices() []capturedGroupIndex {
 	return c.topLevelCapturedGroups
 }
 
+// Diff returns the inline diff for regex.
 func (id RegexInlineDiff) Diff(regex, crValue string, sharedCapturedValues CapturedValues) (string, CapturedValues) {
 	re, err := regexp.Compile(regex)
 	if err != nil {
@@ -88,6 +90,7 @@ func (id RegexInlineDiff) Diff(regex, crValue string, sharedCapturedValues Captu
 	return result, capturedValues.CapturedValues
 }
 
+// Validate validates a regex.
 func (id RegexInlineDiff) Validate(regex string) error {
 	if _, err := regexp.Compile(regex); err != nil {
 		return fmt.Errorf("invalid regex passed to inline regex diff function: %w", err)

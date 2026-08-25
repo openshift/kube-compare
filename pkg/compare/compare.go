@@ -111,29 +111,37 @@ const (
 	noRefFileWasPassed    = "\"Reference config file is required\""
 	refFileNotExistsError = "\"Reference config file doesn't exist\""
 	emptyTypes            = "templates don't contain any types (kind) of resources that are supported by the cluster"
-	DiffSeparator         = "**********************************\n"
-	skipInvalidResources  = "Skipping %s Input contains additional files from supported file extensions" +
+	// DiffSeparator separates diff outputs.
+	DiffSeparator        = "**********************************\n"
+	skipInvalidResources = "Skipping %s Input contains additional files from supported file extensions" +
 		" (json/yaml) that do not contain a valid resource, error: %s.\n In case this file is " +
 		"expected to be a valid resource modify it accordingly. "
+	// DiffsFoundMsg is the diffs found message.
 	DiffsFoundMsg                   = "there are differences between the cluster CRs and the reference CRs"
 	errMissingKind                  = "Object 'Kind' is missing"
 	errParsing                      = "error parsing"
 	diffLabelMerged                 = "MERGED"
 	diffLabelLive                   = "LIVE"
 	warningTypeInferredNotValidated = "InferredResourcesNotValidated"
-	noTemplateForGeneration         = "Requested user override generation but no entires for which template to generate overrides for"
+	noTemplateForGeneration         = "Requested user override generation but no entries for which template to generate overrides for"
 	noReason                        = "Reason required when generating overrides"
 )
 
 const (
-	Json      string = "json"
-	Yaml      string = "yaml"
+	// JSON is json format.
+	JSON string = "json"
+	// Yaml is yaml format.
+	Yaml string = "yaml"
+	// PatchYaml is patch yaml format.
 	PatchYaml string = "generate-patches"
-	Junit     string = "junit"
+	// Junit is junit format.
+	Junit string = "junit"
 )
 
-var OutputFormats = []string{Json, Yaml, PatchYaml, Junit}
+// OutputFormats defines the available output formats.
+var OutputFormats = []string{JSON, Yaml, PatchYaml, Junit}
 
+// Options holds command options.
 type Options struct {
 	CRs                resource.FilenameOptions
 	ReferenceConfig    string
@@ -173,6 +181,7 @@ type Options struct {
 	showTemplateFunctions bool
 }
 
+// NewCmd creates a new compare command.
 func NewCmd(f kcmdutil.Factory, streams genericiooptions.IOStreams) *cobra.Command {
 	options := NewOptions(streams)
 	example := compareExample
@@ -199,7 +208,10 @@ func NewCmd(f kcmdutil.Factory, streams genericiooptions.IOStreams) *cobra.Comma
 			_ = flagSet.Parse([]string{"--v", klogVerbosity})
 
 			if options.showTemplateFunctions {
-				DisplayFuncmap(os.Stdout)
+				err := DisplayFuncmap(os.Stdout)
+				if err != nil {
+					klog.Warningf("Failed to print template functions: %v", err)
+				}
 				return
 			}
 
@@ -211,7 +223,11 @@ func NewCmd(f kcmdutil.Factory, streams genericiooptions.IOStreams) *cobra.Comma
 				klog.Warningf("temporary directory could not be created %s", err)
 			} else {
 				options.TmpDir = tmpDir
-				defer os.RemoveAll(options.TmpDir)
+				defer func() {
+					if err := os.RemoveAll(options.TmpDir); err != nil {
+						klog.Warningf("failed to clean up temporary directory %s: %v", options.TmpDir, err)
+					}
+				}()
 			}
 			kcmdutil.CheckDiffErr(options.Complete(f, cmd, args))
 			// In generate mode, run generate and exit.
@@ -241,7 +257,9 @@ func NewCmd(f kcmdutil.Factory, streams genericiooptions.IOStreams) *cobra.Comma
 			if err := options.Run(); err != nil {
 				// FIXME: Handle clean up of temporary directory more gracefully.
 				// See above FIXME for details
-				os.RemoveAll(options.TmpDir)
+				if err := os.RemoveAll(options.TmpDir); err != nil {
+					klog.Warningf("failed to clean up temporary directory %s: %v", options.TmpDir, err)
+				}
 				if exitErr := diffError(err); exitErr != nil {
 					kcmdutil.CheckErr(kcmdutil.ErrExit)
 				}
@@ -253,7 +271,7 @@ func NewCmd(f kcmdutil.Factory, streams genericiooptions.IOStreams) *cobra.Comma
 	// Flag errors exit with code 1, however according to the diff
 	// command it means changes were found.
 	// Thus, it should return status code greater than 1.
-	cmd.SetFlagErrorFunc(func(command *cobra.Command, err error) error {
+	cmd.SetFlagErrorFunc(func(_ *cobra.Command, err error) error {
 		kcmdutil.CheckDiffErr(kcmdutil.UsageErrorf(cmd, "%s", err.Error()))
 		return nil
 	})
@@ -278,7 +296,7 @@ func NewCmd(f kcmdutil.Factory, streams genericiooptions.IOStreams) *cobra.Comma
 	cmd.Flags().StringVarP(&options.OutputFormat, "output", "o", "", fmt.Sprintf(`Output format. One of: (%s)`, strings.Join(OutputFormats, ", ")))
 	kcmdutil.CheckErr(cmd.RegisterFlagCompletionFunc(
 		"output",
-		func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		func(_ *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 			var comps []string
 			for _, format := range OutputFormats {
 				if strings.HasPrefix(format, toComplete) {
@@ -292,6 +310,7 @@ func NewCmd(f kcmdutil.Factory, streams genericiooptions.IOStreams) *cobra.Comma
 	return cmd
 }
 
+// NewOptions creates new options.
 func NewOptions(ioStreams genericiooptions.IOStreams) *Options {
 	return &Options{
 		IOStreams: ioStreams,
@@ -312,6 +331,7 @@ func diffError(err error) exec.ExitError {
 	return nil
 }
 
+// GetRefFS returns the reference file system.
 func (o *Options) GetRefFS() (fs.FS, error) {
 	referenceDir := filepath.Dir(o.ReferenceConfig)
 	if isURL(o.ReferenceConfig) {
@@ -339,22 +359,24 @@ func (o *Options) GetRefFS() (fs.FS, error) {
 	}
 	return os.DirFS(rootPath), nil
 }
+
+// Complete completes the options.
 func (o *Options) Complete(f kcmdutil.Factory, cmd *cobra.Command, args []string) error {
 	var err error
 
 	// Generate mode: -g and -r are mutually exclusive.
 	if o.generateConfig != "" {
 		if o.ReferenceConfig != "" {
-			return kcmdutil.UsageErrorf(cmd, "cannot use -r and -g together; use -r for compare or -g for generate")
+			return fmt.Errorf("usage error: %w", kcmdutil.UsageErrorf(cmd, "cannot use -r and -g together; use -r for compare or -g for generate"))
 		}
 		if len(args) != 0 {
-			return kcmdutil.UsageErrorf(cmd, "Unexpected args: %v", args)
+			return fmt.Errorf("usage error: %w", kcmdutil.UsageErrorf(cmd, "Unexpected args: %v", args))
 		}
 		if o.CRs.Kustomize != "" {
-			return kcmdutil.UsageErrorf(cmd, "cannot use -k with -g; use -f with a must-gather directory path, or omit -f for a live cluster")
+			return fmt.Errorf("usage error: %w", kcmdutil.UsageErrorf(cmd, "cannot use -k with -g; use -f with a must-gather directory path, or omit -f for a live cluster"))
 		}
 		if len(o.CRs.Filenames) > 1 {
-			return kcmdutil.UsageErrorf(cmd, "with -g, specify at most one must-gather path with -f (or omit -f to use the live cluster)")
+			return fmt.Errorf("usage error: %w", kcmdutil.UsageErrorf(cmd, "with -g, specify at most one must-gather path with -f (or omit -f to use the live cluster)"))
 		}
 		return nil
 	}
@@ -363,16 +385,16 @@ func (o *Options) Complete(f kcmdutil.Factory, cmd *cobra.Command, args []string
 
 	if o.OutputFormat == PatchYaml {
 		if len(o.templatesToGenerateOverridesFor) == 0 {
-			return kcmdutil.UsageErrorf(cmd, noTemplateForGeneration)
+			return fmt.Errorf("usage error: %w", kcmdutil.UsageErrorf(cmd, noTemplateForGeneration))
 		}
 
 		if o.overrideReason == "" {
-			return kcmdutil.UsageErrorf(cmd, noReason)
+			return fmt.Errorf("usage error: %w", kcmdutil.UsageErrorf(cmd, noReason))
 		}
 	}
 
 	if o.ReferenceConfig == "" {
-		return kcmdutil.UsageErrorf(cmd, noRefFileWasPassed)
+		return fmt.Errorf("usage error: %w", kcmdutil.UsageErrorf(cmd, noRefFileWasPassed))
 	}
 	if _, err := os.Stat(o.ReferenceConfig); os.IsNotExist(err) && !isURL(o.ReferenceConfig) && !isContainer(o.ReferenceConfig) {
 		return errors.New(refFileNotExistsError)
@@ -419,7 +441,7 @@ func (o *Options) Complete(f kcmdutil.Factory, cmd *cobra.Command, args []string
 	}
 
 	if len(args) != 0 {
-		return kcmdutil.UsageErrorf(cmd, "Unexpected args: %v", args)
+		return fmt.Errorf("usage error: %w", kcmdutil.UsageErrorf(cmd, "Unexpected args: %v", args))
 	}
 	err = o.CRs.RequireFilenameOrKustomize()
 
@@ -717,7 +739,7 @@ func diffAgainstTemplate(temp ReferenceTemplate, clusterCR *unstructured.Unstruc
 	if err != nil {
 		return res, fmt.Errorf("error occurered during diff: %w", err)
 	}
-	err = differ.Run(&diff.DiffProgram{Exec: exec.New(), IOStreams: genericiooptions.IOStreams{In: o.IOStreams.In, Out: diffOutput, ErrOut: o.IOStreams.ErrOut}})
+	err = differ.Run(&diff.DiffProgram{Exec: exec.New(), IOStreams: genericiooptions.IOStreams{In: o.In, Out: diffOutput, ErrOut: o.ErrOut}})
 
 	// If the diff tool runs without issues and detects differences at this level of the code, we would like to report that there are no issues
 	var exitErr exec.ExitError
@@ -899,7 +921,7 @@ func (o *Options) Run() error {
 		o.metricsTracker.addMatch(bestMatch.temp)
 
 		if bestMatch.IsDiff() {
-			numDiffCRs += 1
+			numDiffCRs++
 		}
 
 		if bestMatch.userOverride != nil && slices.Contains(o.templatesToGenerateOverridesFor, bestMatch.temp.GetPath()) {
@@ -916,7 +938,7 @@ func (o *Options) Run() error {
 					reasons = append(reasons, uo.Reason)
 				}
 			}
-			numPatched += 1
+			numPatched++
 		}
 
 		diffs = append(diffs, DiffSum{
@@ -966,7 +988,7 @@ type InfoObject struct {
 	FieldsToOmit            []*ManifestPathV1
 	allowMerge              bool
 	userOverrides           []*UserOverride
-	templateFieldConf       map[string]inlineDiffType
+	templateFieldConf       map[string]InlineDiffType
 }
 
 // Live Returns the cluster version of the object
@@ -974,6 +996,7 @@ func (obj InfoObject) Live() runtime.Object {
 	return obj.clusterObj
 }
 
+// MergeError represents an error during merge.
 type MergeError struct {
 	obj *InfoObject
 	err error
@@ -1022,6 +1045,7 @@ func (obj InfoObject) Merged() (runtime.Object, error) {
 	return obj.injectedObjFromTemplate, nil
 }
 
+// InlineDiffError represents an inline diff error.
 type InlineDiffError struct {
 	obj *InfoObject
 	err error
@@ -1171,6 +1195,7 @@ func MergeManifests(localRef, clusterCR *unstructured.Unstructured) (updateLocal
 	return &unstructured.Unstructured{Object: localRefUpdatedObj}, nil
 }
 
+// Name returns the name of the object.
 func (obj InfoObject) Name() string {
 	return slug.Make(apiKindNamespaceName(obj.clusterObj))
 }

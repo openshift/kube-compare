@@ -20,8 +20,10 @@ import (
 
 // This File is almost identical to the FuncMap used in Helm to match Helm templating behaviour.
 
+// FuncHelp holds documentation for functions.
 var FuncHelp = make(map[string]string)
 
+// SprigImportFlag is used to flag sprig imports.
 const SprigImportFlag = `<<sprig>>`
 
 // recursionMaxNums is the maximum number of times a template may be
@@ -54,7 +56,7 @@ func FuncMap() template.FuncMap {
 
 	// Add a placeholder for the late-bound "include" function.
 	// The real implementation is injected after template parsing via InitInclude.
-	f["include"] = func(name string, data any) (string, error) {
+	f["include"] = func(_ string, _ any) (string, error) {
 		return "", fmt.Errorf("include is not yet bound to a template; this is a placeholder")
 	}
 	FuncHelp["include"] = "Execute a named template and return its output as a string (like Helm's include)"
@@ -114,7 +116,8 @@ func FuncMap() template.FuncMap {
 	return f
 }
 
-func DisplayFuncmap(w io.Writer) {
+// DisplayFuncmap writes the available functions to the writer.
+func DisplayFuncmap(w io.Writer) error {
 	if len(FuncHelp) == 0 {
 		// Populate the help text
 		FuncMap()
@@ -131,17 +134,36 @@ func DisplayFuncmap(w io.Writer) {
 	slices.Sort(customNames)
 	slices.Sort(sprigNames)
 
-	fmt.Fprintln(w, "Available Template Functions")
-	fmt.Fprintln(w, "============================")
-	fmt.Fprintln(w, "")
-	for _, name := range customNames {
-		fmt.Fprintf(w, "%s:\n  %s\n", name, strings.Join(strings.Split(FuncHelp[name], "\n"), "\n  "))
+	if _, err := fmt.Fprintln(w, "Available Template Functions"); err != nil {
+		return fmt.Errorf("failed to write: %w", err)
 	}
-	fmt.Fprintln(w, "")
-	fmt.Fprintln(w, "Imported from https://masterminds.github.io/sprig/")
-	fmt.Fprintln(w, "--------------------------------------------------")
-	fmt.Fprintln(w, "")
-	fmt.Fprintln(w, strings.Join(sprigNames, ", "))
+	if _, err := fmt.Fprintln(w, "============================"); err != nil {
+		return fmt.Errorf("failed to write: %w", err)
+	}
+	if _, err := fmt.Fprintln(w, ""); err != nil {
+		return fmt.Errorf("failed to write: %w", err)
+	}
+	for _, name := range customNames {
+		if _, err := fmt.Fprintf(w, "%s:\n  %s\n", name, strings.Join(strings.Split(FuncHelp[name], "\n"), "\n  ")); err != nil {
+			return fmt.Errorf("failed to write: %w", err)
+		}
+	}
+	if _, err := fmt.Fprintln(w, ""); err != nil {
+		return fmt.Errorf("failed to write: %w", err)
+	}
+	if _, err := fmt.Fprintln(w, "Imported from https://masterminds.github.io/sprig/"); err != nil {
+		return fmt.Errorf("failed to write: %w", err)
+	}
+	if _, err := fmt.Fprintln(w, "--------------------------------------------------"); err != nil {
+		return fmt.Errorf("failed to write: %w", err)
+	}
+	if _, err := fmt.Fprintln(w, ""); err != nil {
+		return fmt.Errorf("failed to write: %w", err)
+	}
+	if _, err := fmt.Fprintln(w, strings.Join(sprigNames, ", ")); err != nil {
+		return fmt.Errorf("failed to write: %w", err)
+	}
+	return nil
 }
 
 // toYAML takes an interface, marshals it to yaml, and returns a string. It will
@@ -244,7 +266,7 @@ func fromJSONArray(str string) []any {
 	return a
 }
 
-// In order to use `lookupCRs` and `lookupCR`, AllCRs must be populated
+// AllCRs holds all custom resources. In order to use `lookupCRs` and `lookupCR`, AllCRs must be populated.
 var AllCRs []*unstructured.Unstructured
 
 // lookupCRs looks for all known CRS that match the given fields.
@@ -291,6 +313,7 @@ func lookupCR(apiVersion, kind, namespace, name string) map[string]any {
 	return all[0]
 }
 
+// DoNotMatch indicates a regex should not match.
 type DoNotMatch struct {
 	Reason string
 }

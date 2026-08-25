@@ -164,11 +164,11 @@ func TestNewEngine(t *testing.T) {
 
 	for _, test := range tests {
 		// Customize behavior based on test case
-		lookPath = func(cmd string) (string, error) {
-			if (test.available == podman || test.available == "both") && cmd == podman {
+		lookPath = func(c string) (string, error) {
+			if (test.available == podman || test.available == "both") && c == podman {
 				return "/usr/bin/podman", nil
 			}
-			if (test.available == docker || test.available == "docker-sudo" || test.available == "both") && cmd == docker {
+			if (test.available == docker || test.available == "docker-sudo" || test.available == "both") && c == docker {
 				return "/usr/bin/docker", nil
 			}
 			return "", errors.New("not found")
@@ -205,7 +205,7 @@ func TestNewEngine(t *testing.T) {
 	}
 }
 
-func TestHelperProcess(t *testing.T) {
+func TestHelperProcess(_ *testing.T) {
 	if os.Getenv("GO_WANT_HELPER_PROCESS") != "1" {
 		return
 	}
@@ -213,7 +213,9 @@ func TestHelperProcess(t *testing.T) {
 	if os.Getenv("MOCK_DOCKER_FAIL") == "1" {
 		os.Exit(1)
 	}
-	fmt.Fprint(os.Stdout, dockerRunResult)
+	if _, err := fmt.Fprint(os.Stdout, dockerRunResult); err != nil {
+		os.Exit(1)
+	}
 	os.Exit(0)
 }
 
@@ -284,7 +286,7 @@ func TestExtractReferences(t *testing.T) {
 	}
 }
 
-func TestCleanup(t *testing.T) {
+func TestCleanup(_ *testing.T) {
 	// Override execCommand with a fake function
 	execCommand = fakeExecCommand
 	defer func() { execCommand = exec.Command }()
@@ -328,7 +330,7 @@ func TestGetReferencesFromContainer(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		lookPath = func(cmd string) (string, error) {
+		lookPath = func(_ string) (string, error) {
 			if test.podmanOrDockerAvailable == false {
 				return "", errors.New("not found")
 			}

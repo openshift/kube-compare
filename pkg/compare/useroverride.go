@@ -21,9 +21,10 @@ const (
 	gotemplate = "go-template"
 )
 
+// UserOverride represents a user override.
 type UserOverride struct {
 	Name         string    `json:"name,omitempty"`
-	ApiVersion   string    `json:"apiVersion,omitempty"`
+	APIVersion   string    `json:"apiVersion,omitempty"`
 	Kind         string    `json:"kind,omitempty"`
 	Namespace    string    `json:"namespace,omitempty"`
 	ExactMatch   string    `json:"exactMatch,omitempty"`
@@ -33,19 +34,22 @@ type UserOverride struct {
 	TemplatePath string    `json:"templatePath"`
 }
 
+// GetIdentifier returns the identifier.
 func (o UserOverride) GetIdentifier() string {
 	// This just has to be something unique to the override
 	// Eqiv. to the template path.
 	return fmt.Sprintf("%v", o)
 }
 
+// GetName returns the name.
 func (o UserOverride) GetName() string {
 	return o.Name
 }
 
+// GetMetadata returns the metadata.
 func (o UserOverride) GetMetadata() *unstructured.Unstructured {
 	metadata := unstructured.Unstructured{Object: map[string]any{
-		"apiVersion": o.ApiVersion,
+		"apiVersion": o.APIVersion,
 		"kind":       o.Kind,
 		"metadata": map[string]any{
 			"name":      o.Name,
@@ -98,6 +102,7 @@ func applyPatch(rendered, live *unstructured.Unstructured, patch []byte, patchTy
 	return data, fmt.Errorf("unknown patch type: %s", patchType)
 }
 
+// Apply applies the override.
 func (o UserOverride) Apply(rendered, live *unstructured.Unstructured) (*unstructured.Unstructured, error) {
 	modified, err := applyPatch(rendered, live, []byte(o.Patch), o.Type)
 	if err != nil {
@@ -112,6 +117,7 @@ func (o UserOverride) Apply(rendered, live *unstructured.Unstructured) (*unstruc
 	return &unstructured.Unstructured{Object: updatedObj}, nil
 }
 
+// CreateMergePatch creates a merge patch.
 func CreateMergePatch(temp ReferenceTemplate, obj *InfoObject, reason string) (*UserOverride, error) {
 	localRefRuntime, err := obj.Merged()
 	if err != nil {
@@ -141,7 +147,7 @@ func CreateMergePatch(temp ReferenceTemplate, obj *InfoObject, reason string) (*
 
 	override := UserOverride{
 		Name:         clusterCR.GetName(),
-		ApiVersion:   clusterCR.GetAPIVersion(),
+		APIVersion:   clusterCR.GetAPIVersion(),
 		Kind:         clusterCR.GetKind(),
 		Namespace:    clusterCR.GetNamespace(),
 		Type:         mergePatch,
@@ -153,6 +159,7 @@ func CreateMergePatch(temp ReferenceTemplate, obj *InfoObject, reason string) (*
 	return &override, nil
 }
 
+// LoadUserOverrides loads user overrides.
 func LoadUserOverrides(path string) ([]*UserOverride, error) {
 	result := make([]*UserOverride, 0)
 

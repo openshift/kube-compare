@@ -346,9 +346,11 @@ func matchErrorRegexCheck(msg string) Check {
 
 const ExpectedPanic = "Expected Error Test Case"
 
-func startWithCleanEnv() {
+func startWithCleanEnv(t *testing.T) {
 	for envName := range envVarKeys {
-		os.Unsetenv(envName)
+		if err := os.Unsetenv(envName); err != nil {
+			t.Errorf("failed to unset environment variable %s: %v", envName, err)
+		}
 	}
 }
 
@@ -457,7 +459,7 @@ func TestCompareRun(t *testing.T) {
 			}),
 		defaultTest("JSON Output").
 			withRealHash().
-			withOutputFormat(Json),
+			withOutputFormat(JSON),
 		defaultTest("Junit Output").
 			withRealHash().
 			withOutputFormat(Junit),
@@ -716,7 +718,7 @@ func TestCompareRun(t *testing.T) {
 	_ = testFlags.Parse([]string{"--skip_headers"})
 
 	for _, test := range tests {
-		startWithCleanEnv()
+		startWithCleanEnv(t)
 		for evName, evValue := range test.envVar {
 			t.Setenv(evName, evValue)
 		}
@@ -822,15 +824,15 @@ func setClient(t *testing.T, resources []*unstructured.Unstructured, tf *cmdtest
 	tf.UnstructuredClient = &fake.RESTClient{
 		NegotiatedSerializer: resource.UnstructuredPlusDefaultContentConfig().NegotiatedSerializer,
 		Client: fake.CreateHTTPClient(func(req *http.Request) (*http.Response, error) {
-			switch p, m := req.URL.Path, req.Method; {
-			case m == "GET":
+			switch p, m := req.URL.Path, req.Method; m {
+			case "GET":
 				a := unstructured.Unstructured{}
 				exampleResource := resourcesByKind[p][0]
 				a.SetKind(exampleResource.GetKind() + "List")
 				a.SetAPIVersion(exampleResource.GetAPIVersion())
 				a.SetResourceVersion(exampleResource.GetResourceVersion())
 
-				requestedResources := lo.Map(resourcesByKind[p], func(value *unstructured.Unstructured, index int) any {
+				requestedResources := lo.Map(resourcesByKind[p], func(value *unstructured.Unstructured, _ int) any {
 					return value.Object
 				})
 
@@ -850,7 +852,7 @@ func getResources(t *testing.T, test Test, resourcesDir string) ([]v1.APIResourc
 	var resources []*unstructured.Unstructured
 	var rL []v1.APIResource
 	require.NoError(t, filepath.Walk(resourcesDir,
-		func(path string, info os.FileInfo, err error) error {
+		func(path string, _ os.FileInfo, err error) error {
 			if path == resourcesDir {
 				return nil
 			}

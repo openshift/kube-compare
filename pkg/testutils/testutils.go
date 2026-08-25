@@ -1,3 +1,4 @@
+// Package testutils provides testing utilities.
 package testutils
 
 import (
@@ -12,6 +13,7 @@ import (
 
 var tempRegex *regexp.Regexp
 
+// GetFile gets or updates a test file.
 func GetFile(t *testing.T, fileName, value string, update bool) string {
 	if update {
 		t.Log("update golden file")
@@ -29,17 +31,23 @@ func GetFile(t *testing.T, fileName, value string, update bool) string {
 func getTempRegex(t *testing.T) *regexp.Regexp {
 	if tempRegex == nil {
 		tDir, err := os.MkdirTemp("", "tempDirProbe")
-		defer os.RemoveAll(tDir)
+		defer func() {
+			if err := os.RemoveAll(tDir); err != nil {
+				t.Errorf("failed to remove temporary probe directory: %v", err)
+			}
+		}()
 		require.NoError(t, err)
 		tempRegex = regexp.MustCompile(path.Dir(tDir) + `/(?:LIVE|MERGED)-[0-9]*`)
 	}
 	return tempRegex
 }
 
+// FixupOptions holds options for fixing up test data.
 type FixupOptions struct {
 	UseRealHash bool
 }
 
+// RemoveInconsistentInfo removes inconsistent info from test data.
 func RemoveInconsistentInfo(t *testing.T, text string, opt FixupOptions) string {
 	// remove diff tool generated temp directory path
 	re := getTempRegex(t)

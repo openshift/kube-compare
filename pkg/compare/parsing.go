@@ -18,6 +18,7 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
+// Reference defines a reference.
 type Reference interface {
 	GetAPIVersion() string
 	GetTemplates() []ReferenceTemplate
@@ -26,6 +27,7 @@ type Reference interface {
 	GetTemplateFunctionFiles() []string
 }
 
+// ReferenceTemplate defines a reference template.
 type ReferenceTemplate interface {
 	GetFieldsToOmit(fieldsToOmit FieldsToOmit) []*ManifestPathV1
 	Exec(params map[string]any) (*unstructured.Unstructured, error)
@@ -37,12 +39,14 @@ type ReferenceTemplate interface {
 	GetDescription() string
 }
 
+// TemplateConfig defines template configuration.
 type TemplateConfig interface {
 	GetAllowMerge() bool
 	GetFieldsToOmitRefs() []string
-	GetInlineDiffFuncs() map[string]inlineDiffType
+	GetInlineDiffFuncs() map[string]InlineDiffType
 }
 
+// FieldsToOmit defines fields to omit.
 type FieldsToOmit interface {
 	GetDefault() string
 	GetItems() map[string][]*ManifestPathV1
@@ -57,6 +61,7 @@ const (
 	templatesFunctionsCantBeParsed = "an error occurred while parsing the template function files specified in the config. error: %w"
 )
 
+// GetReference gets the reference.
 func GetReference(fsys fs.FS, referenceFileName string) (Reference, error) {
 	var verCheck map[string]any
 	err := parseYaml(fsys, referenceFileName, &verCheck, refConfNotExistsError, refConfigNotInFormat)
@@ -94,14 +99,17 @@ func parseYaml[T any](fsys fs.FS, filePath string, structType *T, fileNotFoundEr
 	return nil
 }
 
+// UserConfig holds user config.
 type UserConfig struct {
 	CorrelationSettings CorrelationSettings `json:"correlationSettings"`
 }
 
+// CorrelationSettings holds correlation settings.
 type CorrelationSettings struct {
 	ManualCorrelation ManualCorrelation `json:"manualCorrelation"`
 }
 
+// ManualCorrelation holds manual correlation.
 type ManualCorrelation struct {
 	CorrelationPairs map[string]string `json:"correlationPairs"`
 }
@@ -116,6 +124,7 @@ func parseDiffConfig(filePath string) (UserConfig, error) {
 	return result, err
 }
 
+// ParseTemplates parses templates.
 func ParseTemplates(ref Reference, fsys fs.FS) ([]ReferenceTemplate, error) {
 	if strings.EqualFold(ref.GetAPIVersion(), ReferenceVersionV1) {
 		refV1 := ref.(*ReferenceV1)
@@ -177,10 +186,12 @@ func parseTemplatesCommon[T parsableTemplate](templates []T, functionFiles []str
 	return result, errors.Join(errs...) // nolint:wrapcheck
 }
 
+// CRMetadata holds metadata.
 type CRMetadata struct {
 	Description string `json:"description,omitempty"`
 }
 
+// ValidationIssue holds a validation issue.
 type ValidationIssue struct {
 	Msg        string                `json:"Msg,omitempty"`
 	CRs        []string              `json:"CRs,omitempty"`

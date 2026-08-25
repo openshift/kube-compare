@@ -1,6 +1,8 @@
-// SPDX-License-Identifier:Apache-2.0
-
+// Package main provides the CLI.
 package main
+
+// Package main provides the CLI.
+// SPDX-License-Identifier:Apache-2.0
 
 import (
 	"fmt"

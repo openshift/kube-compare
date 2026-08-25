@@ -95,7 +95,11 @@ func TestConvert(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			cmd := NewCmd()
 			dirName, err := os.MkdirTemp("", strings.ReplaceAll(test.name, " ", ""))
-			defer os.RemoveAll(dirName)
+			defer func() {
+				if err := os.RemoveAll(dirName); err != nil {
+					t.Errorf("failed to clean up temporary directory: %v", err)
+				}
+			}()
 			chartDir := path.Join(dirName, test.name)
 			require.NoError(t, err)
 
@@ -161,19 +165,27 @@ func CopyDir(src, dst string) error {
 }
 
 // copyFile copies a file from src to dst
-func copyFile(srcFile, dstFile string) error {
+func copyFile(srcFile, dstFile string) (err error) {
 	// Open source file
 	in, err := os.Open(srcFile)
 	if err != nil {
 		return fmt.Errorf("failed to open source file: %w", err)
 	}
-	defer in.Close()
+	defer func() {
+		if cerr := in.Close(); cerr != nil && err == nil {
+			err = fmt.Errorf("failed to close source file: %w", cerr)
+		}
+	}()
 
 	out, err := os.Create(dstFile)
 	if err != nil {
 		return fmt.Errorf("failed to create destination file: %w", err)
 	}
-	defer out.Close()
+	defer func() {
+		if cerr := out.Close(); cerr != nil && err == nil {
+			err = fmt.Errorf("failed to close destination file: %w", cerr)
+		}
+	}()
 
 	_, err = io.Copy(out, in)
 	if err != nil {

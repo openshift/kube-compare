@@ -1,6 +1,8 @@
-// SPDX-License-Identifier:Apache-2.0
-
+// Package generate provides generation utilities.
 package generate
+
+// Package generate provides generation utilities.
+// SPDX-License-Identifier:Apache-2.0
 
 import (
 	"fmt"
