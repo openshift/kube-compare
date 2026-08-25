@@ -123,7 +123,7 @@ const (
 	diffLabelMerged                 = "MERGED"
 	diffLabelLive                   = "LIVE"
 	warningTypeInferredNotValidated = "InferredResourcesNotValidated"
-	noTemplateForGeneration         = "Requested user override generation but no entires for which template to generate overrides for"
+	noTemplateForGeneration         = "Requested user override generation but no entries for which template to generate overrides for"
 	noReason                        = "Reason required when generating overrides"
 )
 
