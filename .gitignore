@@ -30,3 +30,6 @@ Dockerfile.cross
 
 # Release artifacts
 dist/*
+
+# Do not ignore any files downloaded into vendor/ by go mod vendor
+!vendor/**
