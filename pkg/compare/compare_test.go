@@ -338,9 +338,23 @@ func defaultTest(name string) Test {
 }
 
 func matchErrorRegexCheck(msg string) Check {
+	// Trim the optional `(?s)` flag prefix if it's there so we can wrap the whole thing
+	cleanMsg := msg
+	hasDotAll := strings.HasPrefix(msg, "(?s)")
+	if hasDotAll {
+		cleanMsg = strings.TrimPrefix(msg, "(?s)")
+	}
+
+	// Create the regex using a wrapper that ensures start and end anchors.
+	// We need to account for a possible newline at the very end of the string from `kubectl` behavior
+	pattern := "^error: " + cleanMsg + "\nerror code:2\n?$"
+	if hasDotAll {
+		pattern = "(?s)" + pattern
+	}
+
 	return Check{
 		checkType: matchRegex,
-		value:     strings.Join([]string{`error: ` + msg, `error code:2`}, "\n"),
+		value:     pattern,
 	}
 }
 
@@ -387,6 +401,8 @@ func TestOmitFieldsLabelPrefixRemovesKeyedEntries(t *testing.T) {
 func TestCompareRun(t *testing.T) {
 
 	tests := []Test{
+		defaultTest("Reference Contains Symlink Outside Root").
+			withChecks(Checks{Out: defaultCheckOut, Err: matchErrorRegexCheck(`(?s)an error occurred while parsing template: templates/passwd\.yaml specified in the config. error: template: pattern matches no files: .templates/passwd\.yaml.`)}),
 		defaultTest("No Input").
 			skipReferenceFlag(),
 		defaultTest("Reference Config File Doesnt Exist"),
