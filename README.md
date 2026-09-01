@@ -62,6 +62,12 @@ Extract a reference configuration from a container image and compare with a loca
 kubectl cluster-compare -r container://<IMAGE>:<TAG>:/home/ztp/reference/metadata.yaml -f ./crsdir -R
 ```
 
+Allow comparing sensitive resource kinds from a live cluster (e.g. `Secret`, `OAuthAccessToken`):
+
+```bash
+kubectl cluster-compare -r ./reference/metadata.yaml --allow-sensitive-kinds
+```
+
 The tool can also be used to generate a reference configuration, from either a running cluster or against an `oc must-gather` output. A configuration file must be created to specify what resources should be captured. An example configuration is available: [generate-config.yaml](./docs/example/generate-config.yaml).
 
 Generate a reference configuration from a running cluster:
