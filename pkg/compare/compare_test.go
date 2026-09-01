@@ -189,9 +189,10 @@ type Test struct {
 	envVar                map[string]string
 	fixupOpts             testutils.FixupOptions
 
-	userOverridePath   string
-	templToGenPatchFor []string
-	overrideGenReason  string
+	userOverridePath    string
+	templToGenPatchFor  []string
+	overrideGenReason   string
+	allowSensitiveKinds bool
 }
 
 func (test *Test) getTestDir() string {
@@ -214,6 +215,7 @@ func (test Test) Clone() Test {
 		userOverridePath:      test.userOverridePath,
 		templToGenPatchFor:    slices.Clone(test.templToGenPatchFor),
 		overrideGenReason:     test.overrideGenReason,
+		allowSensitiveKinds:   test.allowSensitiveKinds,
 		referenceFileName:     test.referenceFileName,
 		badAPIResources:       test.badAPIResources,
 		envVar:                maps.Clone(test.envVar),
@@ -337,6 +339,12 @@ func defaultTest(name string) Test {
 	}
 }
 
+func (test Test) withAllowSensitiveKinds() Test {
+	ret := test.Clone()
+	ret.allowSensitiveKinds = true
+	return ret
+}
+
 func matchErrorRegexCheck(msg string) Check {
 	return Check{
 		checkType: matchRegex,
@@ -422,7 +430,8 @@ func TestCompareRun(t *testing.T) {
 		defaultTest("Templates Contain Kind That Is Not Recognizable In Live Cluster").
 			withModes([]Mode{{Live, LocalRef}, {Live, URL}}),
 		defaultTest("All Required Templates Exist And There Are No Diffs").
-			withModes([]Mode{{Live, LocalRef}, {Local, LocalRef}, {Local, URL}, {Live, URL}}),
+			withModes([]Mode{{Live, LocalRef}, {Local, LocalRef}, {Local, URL}, {Live, URL}}).
+			withAllowSensitiveKinds(),
 		defaultTest("Diff in Custom Omitted Fields Isnt Shown").
 			withModes([]Mode{{Live, LocalRef}, {Local, LocalRef}, {Local, URL}}),
 		defaultTest("Diff in Custom Omitted Fields Isnt Shown All Quoted"),
@@ -437,11 +446,14 @@ func TestCompareRun(t *testing.T) {
 			withModes([]Mode{{Live, LocalRef}, {Local, LocalRef}}).
 			withUserConfig(userConfigFileName),
 		defaultTest("Only Required Resources Of Required Component Are Reported Missing (Optional Resources Not Reported)").
-			withModes([]Mode{{Live, LocalRef}, {Local, LocalRef}}),
+			withModes([]Mode{{Live, LocalRef}, {Local, LocalRef}}).
+			withAllowSensitiveKinds(),
 		defaultTest("Required Resources Of Optional Component Are Not Reported Missing").
-			withModes([]Mode{{Live, LocalRef}, {Local, LocalRef}}),
+			withModes([]Mode{{Live, LocalRef}, {Local, LocalRef}}).
+			withAllowSensitiveKinds(),
 		defaultTest("Required Resources Of Optional Component Are Reported Missing If At Least One Of Resources In Group Is Included").
-			withModes([]Mode{{Live, LocalRef}, {Local, LocalRef}}),
+			withModes([]Mode{{Live, LocalRef}, {Local, LocalRef}}).
+			withAllowSensitiveKinds(),
 		defaultTest("Ref Template In Sub Dir Not Reported Missing").
 			withModes([]Mode{{Live, LocalRef}, {Local, LocalRef}, {Local, URL}}),
 		defaultTest("Ref Template In Sub Dir Works With Manual Correlation").
@@ -515,7 +527,8 @@ func TestCompareRun(t *testing.T) {
 		defaultTest("Reference Has Valid Version"),
 		defaultTest("Reference Has Invalid Version"),
 		defaultTest("All Required Templates Exist And There Are No Diffs Ref V2").
-			withModes([]Mode{{Live, LocalRef}, {Local, LocalRef}, {Local, URL}, {Live, URL}}),
+			withModes([]Mode{{Live, LocalRef}, {Local, LocalRef}, {Local, URL}, {Live, URL}}).
+			withAllowSensitiveKinds(),
 
 		defaultTest("Reference V2 Too Many Keys In Component Group"),
 		defaultTest("Reference V2 Only One").
@@ -643,6 +656,7 @@ func TestCompareRun(t *testing.T) {
 			withSubTestSuffix("Bad API Resources").
 			withBadAPIResources().
 			withModes([]Mode{{Live, LocalRef}}).
+			withAllowSensitiveKinds().
 			withChecks(defaultChecks.withPrefixedSuffix("badAPI")),
 
 		defaultTest("Reference V2 Diff in Custom Omitted Fields Isnt Shown").
@@ -806,6 +820,10 @@ func getCommand(t *testing.T, test *Test, modeIndex int, tf *cmdtesting.TestFact
 		for _, templPath := range test.templToGenPatchFor {
 			require.NoError(t, cmd.Flags().Set("generate-override-for", templPath))
 		}
+	}
+
+	if test.allowSensitiveKinds {
+		require.NoError(t, cmd.Flags().Set("allow-sensitive-kinds", "true"))
 	}
 
 	if test.overrideGenReason != "" {
