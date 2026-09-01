@@ -174,6 +174,7 @@ type Options struct {
 	generateOutputDir string
 
 	TmpDir string
+	RefDir *os.Root
 
 	diff *diff.DiffProgram
 	genericiooptions.IOStreams
@@ -348,7 +349,12 @@ func (o *Options) GetRefFS() (fs.FS, error) {
 				if err != nil {
 					return nil, err
 				}
-				return os.DirFS(containerPath), nil
+				root, err := os.OpenRoot(containerPath)
+				if err != nil {
+					return nil, fmt.Errorf("failed to open root %s: %w", containerPath, err)
+				}
+				o.RefDir = root
+				return root.FS(), nil
 			}
 		}
 		return nil, fmt.Errorf("temporary directory could not be accessed, see logs for details")
@@ -357,7 +363,12 @@ func (o *Options) GetRefFS() (fs.FS, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to get absolute path: %w", err)
 	}
-	return os.DirFS(rootPath), nil
+	root, err := os.OpenRoot(rootPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open root %s: %w", rootPath, err)
+	}
+	o.RefDir = root
+	return root.FS(), nil
 }
 
 // Complete completes the options.
