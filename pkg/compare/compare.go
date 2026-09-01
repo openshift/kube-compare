@@ -8,6 +8,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -174,6 +175,7 @@ type Options struct {
 	generateOutputDir string
 
 	TmpDir string
+	RefDir *os.Root
 
 	diff *diff.DiffProgram
 	genericiooptions.IOStreams
@@ -331,13 +333,13 @@ func diffError(err error) exec.ExitError {
 	return nil
 }
 
-// GetRefFS returns the reference file system.
-func (o *Options) GetRefFS() (fs.FS, error) {
+// GetRefFS returns the reference file system and an optional closer for it.
+func (o *Options) GetRefFS() (fs.FS, io.Closer, error) {
 	referenceDir := filepath.Dir(o.ReferenceConfig)
 	if isURL(o.ReferenceConfig) {
 		// filepath.Dir removes one / from http://
 		referenceDir = strings.Replace(referenceDir, "/", "//", 1)
-		return HTTPFS{baseURL: referenceDir, httpGet: httpgetImpl}, nil
+		return HTTPFS{baseURL: referenceDir, httpGet: httpgetImpl}, nil, nil
 	}
 	if isContainer(o.ReferenceConfig) {
 		// filepath.Dir removes one / from container://
@@ -346,18 +348,28 @@ func (o *Options) GetRefFS() (fs.FS, error) {
 			if info, err := os.Stat(o.TmpDir); err == nil && info.IsDir() { // Does directory exist?
 				containerPath, err := getReferencesFromContainer(referenceDir, o.TmpDir)
 				if err != nil {
-					return nil, err
+					return nil, nil, err
 				}
-				return os.DirFS(containerPath), nil
+				root, err := os.OpenRoot(containerPath)
+				if err != nil {
+					return nil, nil, fmt.Errorf("failed to open root %s: %w", containerPath, err)
+				}
+				o.RefDir = root
+				return root.FS(), root, nil
 			}
 		}
-		return nil, fmt.Errorf("temporary directory could not be accessed, see logs for details")
+		return nil, nil, fmt.Errorf("temporary directory could not be accessed, see logs for details")
 	}
 	rootPath, err := filepath.Abs(referenceDir)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get absolute path: %w", err)
+		return nil, nil, fmt.Errorf("failed to get absolute path: %w", err)
 	}
-	return os.DirFS(rootPath), nil
+	root, err := os.OpenRoot(rootPath)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to open root %s: %w", rootPath, err)
+	}
+	o.RefDir = root
+	return root.FS(), root, nil
 }
 
 // Complete completes the options.
@@ -400,9 +412,16 @@ func (o *Options) Complete(f kcmdutil.Factory, cmd *cobra.Command, args []string
 		return errors.New(refFileNotExistsError)
 	}
 
-	cfs, err := o.GetRefFS()
+	cfs, refFSCloser, err := o.GetRefFS()
 	if err != nil {
 		return err
+	}
+	if refFSCloser != nil {
+		defer func() {
+			if closeErr := refFSCloser.Close(); closeErr != nil {
+				klog.Warningf("failed to close reference root: %v", closeErr)
+			}
+		}()
 	}
 
 	referenceFileName := filepath.Base(o.ReferenceConfig)

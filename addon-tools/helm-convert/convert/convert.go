@@ -68,9 +68,16 @@ func convertToHelm(o *Options) error {
 	crsWithDefaults := make(map[string]map[string]interface{})
 
 	compareOptions := compare.Options{ReferenceConfig: o.refPath, TmpDir: ""}
-	cfs, err := compareOptions.GetRefFS()
+	cfs, refFSCloser, err := compareOptions.GetRefFS()
 	if err != nil {
 		return fmt.Errorf("failed to get filesystem of cluster-compare reference %w", err)
+	}
+	if refFSCloser != nil {
+		defer func() {
+			if closeErr := refFSCloser.Close(); closeErr != nil {
+				fmt.Fprintf(os.Stderr, "warning: failed to close reference root: %v\n", closeErr)
+			}
+		}()
 	}
 
 	templates, helperFuncs, err := getTemplates(cfs, filepath.Base(o.refPath))
