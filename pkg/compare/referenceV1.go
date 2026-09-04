@@ -250,23 +250,23 @@ func (rf ReferenceTemplateV1) GetFieldsToOmit(fieldsToOmit FieldsToOmit) []*Mani
 		return result
 	}
 
-	for _, feildsRef := range rf.Config.FieldsToOmitRefs {
-		result = append(result, items[feildsRef]...)
+	for _, fieldsRef := range rf.Config.FieldsToOmitRefs {
+		result = append(result, items[fieldsRef]...)
 	}
 	return result
 }
 
 const (
-	fieldsToOmitRefsNotFound = `fieldsToOmitRefs entry "%s" not found it fieldsToOmit Items`
+	fieldsToOmitRefsNotFound = `fieldsToOmitRefs entry "%s" not found in fieldsToOmit Items`
 )
 
 // ValidateFieldsToOmit validates the fields to omit.
 func (rf ReferenceTemplateV1) ValidateFieldsToOmit(fieldsToOmit FieldsToOmit) error {
 	errs := make([]error, 0)
 	items := fieldsToOmit.GetItems()
-	for _, feildsRef := range rf.Config.FieldsToOmitRefs {
-		if _, ok := items[feildsRef]; !ok {
-			errs = append(errs, fmt.Errorf(fieldsToOmitRefsNotFound, feildsRef))
+	for _, fieldsRef := range rf.Config.FieldsToOmitRefs {
+		if _, ok := items[fieldsRef]; !ok {
+			errs = append(errs, fmt.Errorf(fieldsToOmitRefsNotFound, fieldsRef))
 		}
 	}
 	return errors.Join(errs...)
@@ -279,7 +279,7 @@ func (rf ReferenceTemplateV1) Exec(params map[string]any) (*unstructured.Unstruc
 	var buf bytes.Buffer
 	err := rf.Execute(&buf, params)
 	if err != nil {
-		return nil, fmt.Errorf("failed to constuct template: %w", err)
+		return nil, fmt.Errorf("failed to construct template: %w", err)
 	}
 	data := make(map[string]any)
 	content := buf.Bytes()

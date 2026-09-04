@@ -269,7 +269,7 @@ func (rf ReferenceTemplateV2) validateConfigPerField() error {
 		listedPath, err := pathToList(pathToKey)
 		if err != nil {
 			return fmt.Errorf("reference contains template with config per field with pathToKey that is not in "+
-				"supoorted format. path: %s. error: %v", pathToKey, err)
+				"supported format. path: %s. error: %v", pathToKey, err)
 		}
 		diffFn, ok := InlineDiffs[inlineDiffFunc]
 		if !ok {
@@ -603,7 +603,7 @@ func (comp ComponentV2) getTemplates(component *PartV2) []*ReferenceTemplateV2 {
 }
 
 func (comp ComponentV2) getValidationIssues(matchedTemplates map[string]int) (ValidationIssue, int) {
-	// Because of the validation in ComponentV2.validate we should ave one and only one
+	// Because of the validation in ComponentV2.validate we should have one and only one
 	return comp.parts[0].getMissingCRs(matchedTemplates)
 }
 
