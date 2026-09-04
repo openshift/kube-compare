@@ -24,8 +24,8 @@ const (
 	coreAPIVersion         = "v1"
 )
 
-// Correlator provides an abstraction that allow the usage of different Resource correlation logics
-// in the kubectl cluster-compare. The correlation process Matches for each Resource a template.
+// Correlator provides an abstraction that allows the usage of different Resource correlation logics
+// in the kubectl cluster-compare. The correlation process matches a template for each resource.
 type Correlator[T CorrelationEntry] interface {
 	Match(*unstructured.Unstructured) ([]T, error)
 }
@@ -81,7 +81,7 @@ type CorrelationEntry interface {
 	GetMetadata() *unstructured.Unstructured
 }
 
-// ExactMatchCorrelator Matches templates by exact match between a predefined config including pairs of Resource names and there equivalent template.
+// ExactMatchCorrelator matches templates by exact match between a predefined config including pairs of Resource names and their equivalent template.
 // The names of the resources are in the apiVersion-kind-namespace-name format.
 // For fields that are not namespaced apiVersion-kind-name format will be used.
 type ExactMatchCorrelator[T CorrelationEntry] struct {
@@ -116,10 +116,10 @@ func (c ExactMatchCorrelator[T]) Match(object *unstructured.Unstructured) ([]T, 
 	return []T{temp}, nil
 }
 
-// GroupCorrelator Matches templates by hashing predefined fields.
-// All The templates are indexed by  hashing groups of `indexed` fields. The `indexed` fields can be nested.
+// GroupCorrelator matches templates by hashing predefined fields.
+// All the templates are indexed by  hashing groups of `indexed` fields. The `indexed` fields can be nested.
 // Resources will be attempted to be matched with hashing by the group with the largest amount of `indexed` fields.
-// In case a Resource Matches by a hash a group of templates the group correlator will continue looking for a match
+// In case a resource matches by a hash a group of templates the group correlator will continue looking for a match
 // (with groups with less `indexed fields`) until it finds a distinct match, in case it doesn't, MultipleMatches error
 // will be returned.
 // Templates will be only indexed by a group of fields only if all fields in group are not templated.
@@ -127,7 +127,7 @@ type GroupCorrelator[T CorrelationEntry] struct {
 	fieldCorrelators []*FieldCorrelator[T]
 }
 
-// NewGroupCorrelator creates a new GroupCorrelator using inputted fieldGroups and generated GroupFunctions and templatesByGroups.
+// NewGroupCorrelator creates a new GroupCorrelator using input fieldGroups and generated GroupFunctions and templatesByGroups.
 // The templates will be divided into different kinds of groups based on the fields that are templated. Templates will be added
 // to the kind of group that contains the biggest amount of fully defined `indexed` fields.
 // For fieldsGroups =  {{{"metadata", "namespace"}, {"kind"}}, {{"kind"}}} and the following templates: [fixedKindTemplate, fixedNamespaceKindTemplate]
@@ -219,7 +219,7 @@ func (c *GroupCorrelator[T]) Match(object *unstructured.Unstructured) ([]T, erro
 	return []T{}, UnknownMatch{Resource: object}
 }
 
-// MetricsTracker Matches templates by using an existing correlator and gathers summary info related the correlation.
+// MetricsTracker matches templates by using an existing correlator and gathers summary info related to the correlation.
 type MetricsTracker struct {
 	UnMatchedCRs          []*unstructured.Unstructured
 	unMatchedLock         sync.Mutex
