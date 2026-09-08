@@ -113,6 +113,10 @@ To Run a known valid reference configuration with a support archive output:
 
 `kubectl cluster-compare -r <referenceConfigurationDirectory> -f "must-gather*/*/cluster-scoped-resources","must-gather*/*/namespaces" -R`
 
+To allow comparing sensitive resource kinds from a live cluster (e.g. `Secret`, `OAuthAccessToken`):
+
+`kubectl cluster-compare -r <referenceConfigurationDirectory> --allow-sensitive-kinds`
+
 ## Understanding the output
 
 ### States of a Reference Configuration CR after running the tool
