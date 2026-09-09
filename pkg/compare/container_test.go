@@ -123,8 +123,8 @@ func TestRunEngineCommand(t *testing.T) {
 		engine engine
 		args   []string
 	}{
-		{engine{podman, false, "container123", "/tmp/dir/"}, []string{"run", "hello-world"}},
-		{engine{docker, true, "container123", "/tmp/dir/"}, []string{"run", "hello-world"}},
+		{engine{podman, false, "container123", "/tmp/dir/"}, []string{"create", "hello-world"}},
+		{engine{docker, true, "container123", "/tmp/dir/"}, []string{"create", "hello-world"}},
 	}
 
 	for _, test := range tests {
@@ -235,7 +235,7 @@ func TestPullAndRunContainer(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		err := test.engine.pullAndRunContainer(test.image)
+		err := test.engine.pullContainer(test.image)
 		if test.expectError {
 			if err == nil {
 				t.Errorf("Expected error but got nil")
