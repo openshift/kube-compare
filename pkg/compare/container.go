@@ -1,6 +1,7 @@
 package compare
 
 import (
+	"errors"
 	"fmt"
 	"os/exec"
 	"path/filepath"
@@ -60,12 +61,21 @@ func (engine *engine) runEngineCommand(args ...string) ([]byte, error) {
 	var err error
 	if engine.requiresSudo {
 		args = append([]string{engine.name}, args...) // Prepend engine name to args
-		out, err = execCommand("sudo", args...).CombinedOutput()
+		klog.V(1).Infof("Running sudo %v", args)
+		out, err = execCommand("sudo", args...).Output()
 	} else {
-		out, err = execCommand(engine.name, args...).CombinedOutput()
+		klog.V(1).Infof("Running %s %v", engine.name, args)
+		out, err = execCommand(engine.name, args...).Output()
+	}
+	if err != nil {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			return out, fmt.Errorf("%s :: %s :: %w", out, exitErr.Stderr, exitErr)
+		}
+		return out, fmt.Errorf("%s :: %w", out, err)
 	}
 
-	return out, err //nolint:wrapcheck  // We want to return unaltered errors, this is a wrapper around exec.Command()
+	return out, nil
 }
 
 // newEngine checks if Podman or Docker are in the system's PATH, and returns an engine with a name and a boolean
@@ -83,39 +93,33 @@ var newEngine = func() (*engine, error) {
 }
 
 // pullContainer pulls an image, runs it using the provided engine, and stores the corresponding containerID in the engine struct
-func (engine *engine) pullAndRunContainer(image string) error {
-	// run because copy requires a running or stopped container
-	// -d to output container ID
-	out, err := engine.runEngineCommand("run", "-d", image)
+func (engine *engine) pullContainer(image string) error {
+	// create the container so we can cp out of it
+	out, err := engine.runEngineCommand("create", image)
 	if err != nil {
-		return fmt.Errorf("could not pull/run container: %s", out)
+		return fmt.Errorf("could not create container: %w", err)
 	}
 	engine.containerID = strings.TrimSpace(string(out)) // Convert bytes to string and trim new line
+	klog.V(1).Infof("Created container %s", engine.containerID)
 	return nil
 }
 
 // extractReferences copies the directory in the container that contains the reference configs into a temporary directory,
 // and stores the path to the new directory in the engine struct.
 func (engine *engine) extractReferences(pathToMetadata, dname string) error {
-
-	out, err := engine.runEngineCommand("cp", engine.containerID+":"+pathToMetadata, dname)
+	_, err := engine.runEngineCommand("cp", engine.containerID+":"+pathToMetadata, dname)
 	if err != nil {
-		return fmt.Errorf("could not copy templates from container: %s", out)
+		return fmt.Errorf("could not copy templates from container: %w", err)
 	}
 	engine.tempDir = filepath.Join(dname, filepath.Base(pathToMetadata))
 	return nil
 }
 
-// cleanup stops and removes the container used to extract the reference configs.
+// cleanup removes the container used to extract the reference configs.
 func (engine *engine) cleanup() {
-	out, err := engine.runEngineCommand("stop", engine.containerID)
+	_, err := engine.runEngineCommand("rm", engine.containerID)
 	if err != nil {
-		// Print errors as warnings rather than returning, since stopping and removing the container is not vital.
-		klog.Warningf("Warning: Could not stop container: %s", out)
-	}
-	out, err = engine.runEngineCommand("rm", engine.containerID)
-	if err != nil {
-		klog.Warningf("Warning: Could not remove container: %s", out)
+		klog.Warningf("Warning: Could not remove container: %s", err)
 	}
 }
 
@@ -132,7 +136,7 @@ func getReferencesFromContainer(path, tempContainerRefDir string) (string, error
 		return "", err
 	}
 
-	err = engine.pullAndRunContainer(parsedPath.image)
+	err = engine.pullContainer(parsedPath.image)
 	if err != nil {
 		return "", err
 	}
