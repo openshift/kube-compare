@@ -76,5 +76,10 @@ func NormalizeInlineDiffReference(value string, options []InlineDiffOption) stri
 			normalized.WriteString(line)
 		}
 	}
-	return normalized.String()
+	result := normalized.String()
+	if !strings.HasSuffix(value, "\n") && strings.HasSuffix(result, "\n") {
+		result = strings.TrimSuffix(result, "\n")
+		result = strings.TrimSuffix(result, "\r")
+	}
+	return result
 }

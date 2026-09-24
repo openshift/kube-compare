@@ -41,6 +41,22 @@ func TestNormalizeInlineDiffReference(t *testing.T) {
 			},
 			expected: "keep\n",
 		},
+		{
+			name:  "final hash comment without trailing LF",
+			value: "keep\n# note",
+			options: []InlineDiffOption{
+				IgnoreReferenceHashCommentLines,
+			},
+			expected: "keep",
+		},
+		{
+			name:  "final slash comment without trailing CRLF",
+			value: "keep\r\n// note",
+			options: []InlineDiffOption{
+				IgnoreReferenceSlashCommentLines,
+			},
+			expected: "keep",
+		},
 	}
 
 	for _, test := range tests {
