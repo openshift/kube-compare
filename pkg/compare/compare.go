@@ -988,7 +988,7 @@ type InfoObject struct {
 	FieldsToOmit            []*ManifestPathV1
 	allowMerge              bool
 	userOverrides           []*UserOverride
-	templateFieldConf       map[string]InlineDiffType
+	templateFieldConf       map[string]InlineDiffConfig
 }
 
 // Live Returns the cluster version of the object
@@ -1076,7 +1076,8 @@ func (obj InfoObject) runInlineDiffFuncs() error {
 	preprocessedValues := make([]DiffValues, 0, len(obj.templateFieldConf))
 	sharedCapturegroups := CapturedValues{}
 	for _, pathToKey := range sortedPaths {
-		inlineDiffFunc := obj.templateFieldConf[pathToKey]
+		inlineDiffConfig := obj.templateFieldConf[pathToKey]
+		inlineDiffFunc := inlineDiffConfig.InlineDiffFunc
 		listedPath, err := pathToList(pathToKey)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("failed to parse path of field %s that uses inline diff func: %w", pathToKey, err))
@@ -1100,6 +1101,7 @@ func (obj InfoObject) runInlineDiffFuncs() error {
 			continue
 		}
 		diffFn := InlineDiffs[inlineDiffFunc]
+		value = NormalizeInlineDiffReference(value, inlineDiffConfig.InlineDiffOptions)
 		err = diffFn.Validate(value)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("failed to validate the inline diff for field %s, %w", pathToKey, err))

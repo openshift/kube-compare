@@ -631,6 +631,11 @@ func TestCompareRun(t *testing.T) {
 			withSubTestSuffix("With Diff Across Capturegroups and Regex").
 			withMetadataFile("metadata-with-diff-across-capture-groups-and-regex-mismatch.yaml").
 			withChecks(defaultChecks.withPrefixedSuffix("WithDiffAcrossCapturegroupsAndRegexMismatch")),
+		defaultTest("ReferenceV2InlineDiffOptions"),
+		defaultTest("ReferenceV2InlineDiffOptions").
+			withSubTestSuffix("With Real Mismatch").
+			withMetadataFile("metadata-with-mismatch.yaml").
+			withChecks(defaultChecks.withPrefixedSuffix("withMismatch")),
 		defaultTest("ReferenceV2PerFieldMatcherValidation").
 			withSubTestSuffix("Matcher Does Not exist").
 			withMetadataFile("metadata-does-not-exist.yaml").

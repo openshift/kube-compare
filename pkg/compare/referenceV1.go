@@ -221,8 +221,8 @@ func (config ReferenceTemplateConfigV1) GetAllowMerge() bool {
 }
 
 // GetInlineDiffFuncs returns the inline diff functions.
-func (config ReferenceTemplateConfigV1) GetInlineDiffFuncs() map[string]InlineDiffType {
-	return map[string]InlineDiffType{}
+func (config ReferenceTemplateConfigV1) GetInlineDiffFuncs() map[string]InlineDiffConfig {
+	return map[string]InlineDiffConfig{}
 }
 
 // GetFieldsToOmitRefs returns the fields to omit references.
