@@ -63,7 +63,9 @@ expected_version() {
 
 verify_binary() {
     local binary=$1 expected=$2 expected_name
-    local output command_name version_word actual_version build_date extra
+    local output_file output_fd output extra output_debug
+    local output_pattern command_name actual_version build_date canonical_output
+    local date_probe normalized_date
 
     case "$(basename "${binary}")" in
         kubectl-cluster_compare) expected_name=cluster-compare ;;
@@ -72,15 +74,57 @@ verify_binary() {
         *) fail "Unexpected release binary: ${binary}" ;;
     esac
 
-    output=$("${binary}" --version) || fail "Failed to read version from ${binary}."
-    read -r command_name version_word actual_version build_date extra <<<"${output}"
+    output_file=$(mktemp) || fail "Failed to create temporary file for version output."
+    if ! "${binary}" --version >"${output_file}"; then
+        rm -f "${output_file}"
+        fail "Failed to read version from ${binary}."
+    fi
 
-    [[ "${command_name}" == "${expected_name}" &&
-        "${version_word}" == "version" &&
-        "${actual_version}" == "${expected}" &&
-        "${build_date}" =~ ^\([0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])T([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]Z\)$ &&
-        -z "${extra:-}" ]] ||
-        fail "Unexpected version output from $(basename "${binary}"): ${output}; expected ${expected_name} version ${expected} (RFC3339 date)."
+    # Read stdout from a file so command substitution cannot discard trailing
+    # newlines. A canonical response is exactly one newline-terminated line.
+    output=
+    extra=
+    exec {output_fd}<"${output_file}"
+    if ! IFS= read -r output <&"${output_fd}" ||
+        IFS= read -r extra <&"${output_fd}" ||
+        [[ -n "${extra}" ]]; then
+        exec {output_fd}<&-
+        printf -v output_debug '%q' "$(<"${output_file}")"
+        rm -f "${output_file}"
+        fail "Unexpected version output from $(basename "${binary}"): ${output_debug}; expected exactly one canonical newline-terminated output line."
+    fi
+    exec {output_fd}<&-
+
+    output_pattern='^([^[:space:]]+) version ([^[:space:]]+) \(([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z)\)$'
+    if [[ "${output}" =~ ${output_pattern} ]]; then
+        command_name=${BASH_REMATCH[1]}
+        actual_version=${BASH_REMATCH[2]}
+        build_date=${BASH_REMATCH[3]}
+    else
+        rm -f "${output_file}"
+        fail "Unexpected version output from $(basename "${binary}"): ${output}; expected ${expected_name} version ${expected} (RFC3339 UTC date)."
+    fi
+
+    canonical_output="${expected_name} version ${expected} (${build_date})"
+    if [[ "${command_name}" != "${expected_name}" ||
+        "${actual_version}" != "${expected}" ||
+        "${output}" != "${canonical_output}" ]] ||
+        ! printf '%s\n' "${canonical_output}" | cmp -s - "${output_file}"; then
+        rm -f "${output_file}"
+        fail "Unexpected version output from $(basename "${binary}"): ${output}; expected ${expected_name} version ${expected} (RFC3339 UTC date)."
+    fi
+    rm -f "${output_file}"
+
+    command -v date >/dev/null 2>&1 ||
+        fail "Cannot validate build date for $(basename "${binary}"): date utility is unavailable."
+    if ! date_probe=$(LC_ALL=C date --utc --date='2000-02-29T00:00:00Z' '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null) ||
+        [[ "${date_probe}" != "2000-02-29T00:00:00Z" ]]; then
+        fail "Cannot validate build date for $(basename "${binary}"): a GNU-compatible date utility is required."
+    fi
+    if ! normalized_date=$(LC_ALL=C date --utc --date="${build_date}" '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null) ||
+        [[ "${normalized_date}" != "${build_date}" ]]; then
+        fail "Unexpected version output from $(basename "${binary}"): build date ${build_date} is not a real RFC3339 UTC instant."
+    fi
 
     echo "$(basename "${binary}"): ${output}"
 }

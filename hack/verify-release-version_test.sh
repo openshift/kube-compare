@@ -49,6 +49,7 @@ date=2026-09-27T01:35:39Z
 valid_main="cluster-compare version ${version} (${date})"
 valid_helm="helm-convert version ${version} (${date})"
 valid_report="create-report version ${version} (${date})"
+valid_leap_date="cluster-compare version ${version} (2024-02-29T23:59:59Z)"
 fixture="${tmp_dir}/fixture"
 mkdir -p "${fixture}"
 
@@ -59,6 +60,31 @@ grep -Fx "helm-convert: ${valid_helm}" "${tmp_dir}/positive.out"
 grep -Fx "report-creator: ${valid_report}" "${tmp_dir}/positive.out"
 echo "PASS: packaged binaries report the exact expected version"
 
+write_binary "${fixture}/kubectl-cluster_compare" "${valid_leap_date}"
+EXPECTED_RELEASE_VERSION=${version} "${verify_script}" --binary linux_amd64_v1 "${fixture}/kubectl-cluster_compare"
+echo "PASS: valid leap-day timestamp accepted"
+
+declare -a invalid_names=(
+    stale-version
+    prefixed-version
+    suffixed-version
+    sentinel-version
+    unknown-date
+    date-without-time
+    invalid-month
+    impossible-february-date
+    invalid-non-leap-day
+    invalid-april-date
+    invalid-hour
+    multiline-output
+    trailing-blank-line
+    leading-text
+    trailing-text
+    leading-space
+    trailing-space
+    repeated-spaces
+    tab-separated
+)
 declare -a invalid_outputs=(
     "cluster-compare version 1.2.2 (${date})"
     "cluster-compare version 11.2.3 (${date})"
@@ -67,13 +93,52 @@ declare -a invalid_outputs=(
     "cluster-compare version ${version} (unknown)"
     "cluster-compare version ${version} (2026-09-27)"
     "cluster-compare version ${version} (2026-19-27T01:35:39Z)"
+    "cluster-compare version ${version} (2026-02-31T01:35:39Z)"
+    "cluster-compare version ${version} (2025-02-29T01:35:39Z)"
+    "cluster-compare version ${version} (2026-04-31T01:35:39Z)"
+    "cluster-compare version ${version} (2026-09-27T24:35:39Z)"
+    "${valid_main}"$'\n'"UNEXPECTED EXTRA LINE"
+    "${valid_main}"$'\n'
+    "leading text ${valid_main}"
+    "${valid_main} trailing text"
+    " ${valid_main}"
+    "${valid_main} "
+    "cluster-compare  version ${version} (${date})"
+    $'cluster-compare\tversion 1.2.3 (2026-09-27T01:35:39Z)'
 )
 
 for index in "${!invalid_outputs[@]}"; do
-    make_archives "${fixture}" "${invalid_outputs[${index}]}" "${valid_helm}" "${valid_report}"
-    expect_failure "invalid-output-${index}" "Unexpected version output" \
-        env EXPECTED_RELEASE_VERSION=${version} DIST_DIR="${fixture}/dist" "${verify_script}"
+    write_binary "${fixture}/kubectl-cluster_compare" "${invalid_outputs[${index}]}"
+    expect_failure "${invalid_names[${index}]}" "Unexpected version output" \
+        env EXPECTED_RELEASE_VERSION=${version} "${verify_script}" --binary linux_amd64_v1 \
+        "${fixture}/kubectl-cluster_compare"
 done
+
+declare -a mapped_binaries=(kubectl-cluster_compare helm-convert report-creator)
+declare -a invalid_mappings=(
+    "kubectl-cluster_compare version ${version} (${date})"
+    "cluster-compare version ${version} (${date})"
+    "report-creator version ${version} (${date})"
+)
+
+for index in "${!mapped_binaries[@]}"; do
+    binary=${mapped_binaries[${index}]}
+    write_binary "${fixture}/${binary}" "${invalid_mappings[${index}]}"
+    expect_failure "invalid-${binary}-mapping" "Unexpected version output" \
+        env EXPECTED_RELEASE_VERSION=${version} "${verify_script}" --binary linux_amd64_v1 \
+        "${fixture}/${binary}"
+done
+
+date_failure_path="${tmp_dir}/date-failure-path"
+mkdir -p "${date_failure_path}"
+printf '%s\n' '#!/bin/bash' 'exit 1' >"${date_failure_path}/date"
+chmod +x "${date_failure_path}/date"
+write_binary "${fixture}/kubectl-cluster_compare" "${valid_main}"
+expect_failure date-validation-unavailable "GNU-compatible date utility is required" \
+    env PATH="${date_failure_path}:${PATH}" EXPECTED_RELEASE_VERSION=${version} \
+    "${verify_script}" --binary linux_amd64_v1 "${fixture}/kubectl-cluster_compare"
+
+make_archives "${fixture}" "${valid_main}" "${valid_helm}" "${valid_report}"
 
 rm -f "${fixture}/dist/kube-compare_addon_tools_linux_amd64.tar.gz"
 expect_failure missing-artifact "Expected release archive not found" \
@@ -85,6 +150,7 @@ EXPECTED_RELEASE_VERSION=${version} "${verify_script}" --binary darwin_arm64_v8.
 
 fake_path="${tmp_dir}/fake-path"
 mkdir -p "${fake_path}"
+# shellcheck disable=SC2016 # The fixture script must expand its own arguments.
 printf '%s\n' '#!/bin/bash' '[[ "$1 $2" == "env GOHOSTOS" ]] && echo darwin || echo arm64' >"${fake_path}/go"
 chmod +x "${fake_path}/go"
 expect_failure unsupported-host "supported only on linux/amd64; detected darwin/arm64" \
