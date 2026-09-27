@@ -144,6 +144,11 @@ rm -f "${fixture}/dist/kube-compare_addon_tools_linux_amd64.tar.gz"
 expect_failure missing-artifact "Expected release archive not found" \
     env EXPECTED_RELEASE_VERSION=${version} DIST_DIR="${fixture}/dist" "${verify_script}"
 
+make_archives "${fixture}" "${valid_main}" "${valid_helm}" "${valid_report}"
+printf 'not a gzip archive\n' >"${fixture}/dist/kube-compare_addon_tools_linux_amd64.tar.gz"
+expect_failure corrupt-artifact "tar:" \
+    env EXPECTED_RELEASE_VERSION=${version} DIST_DIR="${fixture}/dist" "${verify_script}"
+
 write_binary "${fixture}/kubectl-cluster_compare" "${valid_main}"
 EXPECTED_RELEASE_VERSION=${version} "${verify_script}" --binary linux_amd64_v1 "${fixture}/kubectl-cluster_compare"
 EXPECTED_RELEASE_VERSION=${version} "${verify_script}" --binary darwin_arm64_v8.0 "${fixture}/does-not-exist"
