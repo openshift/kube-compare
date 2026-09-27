@@ -4,6 +4,9 @@ IMAGE_NAME=kube-compare
 
 PACKAGE_NAME          := github.com/openshift/kube-compare
 GOLANG_CROSS_VERSION  ?= v1.26.5
+# Non-publishing dry runs may override this explicitly, for example:
+# make release-dry-run RELEASE_DRY_RUN_VERSION=1.2.3
+RELEASE_DRY_RUN_VERSION ?= $(shell git describe --tags --abbrev=0 2>/dev/null | sed -e 's/^v//')
 
 # Auto-detect host OS and architecture if not explicitly set
 HOST_OS := $(shell go env GOOS)
@@ -113,7 +116,7 @@ install-user:
 	@echo '  export PATH="$$HOME/.local/bin:$$PATH"'
 
 .PHONY: test-all
-test-all: test test-report-creator test-helm-convert
+test-all: test test-report-creator test-helm-convert test-release-version
 
 .PHONY: test
 test: ## Run tests for pkg/
@@ -134,6 +137,10 @@ build-helm-convert:
 .PHONY: test-helm-convert
 test-helm-convert:
 	go test --race ./addon-tools/helm-convert/*/
+
+.PHONY: test-release-version
+test-release-version:
+	hack/verify-release-version_test.sh
 
 .PHONY: golangci-lint
 golangci-lint: ## Run golangci-lint against code.
@@ -166,23 +173,26 @@ image-build: ## Build container image for kube-compare
 
 .PHONY: release-dry-run
 release-dry-run:
-	@hack/verify-release-version.sh --preflight
+	@EXPECTED_RELEASE_VERSION=$(RELEASE_DRY_RUN_VERSION) hack/verify-release-version.sh --preflight
 	@$(ENGINE) run \
 		--rm \
 		-e CGO_ENABLED=1 \
+		-e EXPECTED_RELEASE_VERSION=$(RELEASE_DRY_RUN_VERSION) \
 		$(CONTAINER_SOCKETOPT) \
 		-v `pwd`:/go/src/$(PACKAGE_NAME)$(CONTAINER_MOUNTOPT) \
 		-w /go/src/$(PACKAGE_NAME) \
 		ghcr.io/goreleaser/goreleaser-cross:${GOLANG_CROSS_VERSION} \
 		release --clean --skip=validate --skip=publish
-	hack/verify-release-version.sh
+	EXPECTED_RELEASE_VERSION=$(RELEASE_DRY_RUN_VERSION) hack/verify-release-version.sh
 
 .PHONY: release
 release:
+	@RELEASE_REQUIRE_EXACT_TAG=1 hack/verify-release-version.sh --preflight
 	@$(ENGINE) run \
 		--rm \
 		-e GITHUB_TOKEN=$(GITHUB_TOKEN) \
 		-e CGO_ENABLED=1 \
+		-e RELEASE_REQUIRE_EXACT_TAG=1 \
 		-v `pwd`:/go/src/$(PACKAGE_NAME)$(CONTAINER_MOUNTOPT) \
 		-w /go/src/$(PACKAGE_NAME) \
 		ghcr.io/goreleaser/goreleaser-cross:${GOLANG_CROSS_VERSION} \

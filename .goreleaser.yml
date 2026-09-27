@@ -21,6 +21,9 @@ builds:
     ldflags: -s -w
       -X main.version={{ .Version }}
       -X main.date={{ .Date }}
+    hooks:
+      post:
+        - hack/verify-release-version.sh --binary "{{ .Target }}" "{{ .Path }}"
   - id: helm-convert
     binary: helm-convert
     goos:
@@ -37,6 +40,9 @@ builds:
     ldflags: -s -w
       -X main.version={{ .Version }}
       -X main.date={{ .Date }}
+    hooks:
+      post:
+        - hack/verify-release-version.sh --binary "{{ .Target }}" "{{ .Path }}"
   - id: report-creator
     binary: report-creator
     goos:
@@ -53,6 +59,9 @@ builds:
     ldflags: -s -w
       -X main.version={{ .Version }}
       -X main.date={{ .Date }}
+    hooks:
+      post:
+        - hack/verify-release-version.sh --binary "{{ .Target }}" "{{ .Path }}"
 archives:
   - id: kube-compare
     builds:
