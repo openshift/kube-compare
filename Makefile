@@ -166,6 +166,7 @@ image-build: ## Build container image for kube-compare
 
 .PHONY: release-dry-run
 release-dry-run:
+	@hack/verify-release-version.sh --preflight
 	@$(ENGINE) run \
 		--rm \
 		-e CGO_ENABLED=1 \
@@ -174,6 +175,7 @@ release-dry-run:
 		-w /go/src/$(PACKAGE_NAME) \
 		ghcr.io/goreleaser/goreleaser-cross:${GOLANG_CROSS_VERSION} \
 		release --clean --skip=validate --skip=publish
+	hack/verify-release-version.sh
 
 .PHONY: release
 release:
