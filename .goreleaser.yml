@@ -19,7 +19,11 @@ builds:
       - GO111MODULE=on
     main: cmd/kubectl-cluster_compare.go
     ldflags: -s -w
-      -X github.com/openshift/kube-compare/pkg/version.version=
+      -X main.version={{ .Version }}
+      -X main.date={{ .Date }}
+    hooks:
+      post:
+        - hack/verify-release-version.sh --binary "{{ .Target }}" "{{ .Path }}"
   - id: helm-convert
     binary: helm-convert
     goos:
@@ -34,7 +38,11 @@ builds:
       - GO111MODULE=on
     main: addon-tools/helm-convert/helm-convert.go
     ldflags: -s -w
-      -X github.com/openshift/kube-compare/addon-tools/helm-convert/version.version=
+      -X main.version={{ .Version }}
+      -X main.date={{ .Date }}
+    hooks:
+      post:
+        - hack/verify-release-version.sh --binary "{{ .Target }}" "{{ .Path }}"
   - id: report-creator
     binary: report-creator
     goos:
@@ -49,7 +57,11 @@ builds:
       - GO111MODULE=on
     main: addon-tools/report-creator/report-creator.go
     ldflags: -s -w
-      -X github.com/openshift/kube-compare/addon-tools/report-creator/version.version=
+      -X main.version={{ .Version }}
+      -X main.date={{ .Date }}
+    hooks:
+      post:
+        - hack/verify-release-version.sh --binary "{{ .Target }}" "{{ .Path }}"
 archives:
   - id: kube-compare
     builds:
