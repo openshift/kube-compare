@@ -8,21 +8,21 @@ import (
 	"unicode"
 )
 
-// InlineDiffOption controls reference-only preprocessing before an inline diff.
+// InlineDiffOption controls preprocessing before an inline diff.
 type InlineDiffOption string
 
 const (
-	// IgnoreReferenceHashCommentLines ignores reference lines whose first
+	// IgnoreHashComments ignores lines whose first
 	// non-whitespace character is '#'.
-	IgnoreReferenceHashCommentLines InlineDiffOption = "ignoreReferenceHashCommentLines"
-	// IgnoreReferenceSlashCommentLines ignores reference lines whose first
+	IgnoreHashComments InlineDiffOption = "ignoreHashComments"
+	// IgnoreSlashComments ignores lines whose first
 	// non-whitespace characters are '//'.
-	IgnoreReferenceSlashCommentLines InlineDiffOption = "ignoreReferenceSlashCommentLines"
+	IgnoreSlashComments InlineDiffOption = "ignoreSlashComments"
 )
 
 var inlineDiffOptionOrder = []InlineDiffOption{
-	IgnoreReferenceHashCommentLines,
-	IgnoreReferenceSlashCommentLines,
+	IgnoreHashComments,
+	IgnoreSlashComments,
 }
 
 // ValidateInlineDiffOptions validates the configured inline-diff options.
@@ -45,9 +45,9 @@ func ValidateInlineDiffOptions(options []InlineDiffOption) error {
 	return nil
 }
 
-// NormalizeInlineDiffReference applies inline-diff options to the reference
-// value only. It preserves all non-comment content and its original line ends.
-func NormalizeInlineDiffReference(value string, options []InlineDiffOption) string {
+// NormalizeInlineDiffValue applies inline-diff options to a comparison value.
+// It preserves all non-comment content and its original line ends.
+func NormalizeInlineDiffValue(value string, options []InlineDiffOption) string {
 	enabled := make(map[InlineDiffOption]bool, len(options))
 	for _, option := range options {
 		enabled[option] = true
@@ -63,9 +63,9 @@ func NormalizeInlineDiffReference(value string, options []InlineDiffOption) stri
 				continue
 			}
 			switch option {
-			case IgnoreReferenceHashCommentLines:
+			case IgnoreHashComments:
 				ignore = strings.HasPrefix(trimmedLine, "#")
-			case IgnoreReferenceSlashCommentLines:
+			case IgnoreSlashComments:
 				ignore = strings.HasPrefix(trimmedLine, "//")
 			}
 			if ignore {

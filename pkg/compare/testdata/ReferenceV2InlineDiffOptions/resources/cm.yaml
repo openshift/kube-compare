@@ -5,8 +5,12 @@ metadata:
   namespace: default
 data:
   regex: |-
+    # live hash comment differs from the reference
+    // live slash comment differs from the reference
     release: 42 # inline marker
     endpoint: https://example.test/#fragment
   capturegroups: |-
+    # live hash comment differs from the reference
+    // live slash comment differs from the reference
     release: 42 # inline marker
     endpoint: https://example.test/#fragment

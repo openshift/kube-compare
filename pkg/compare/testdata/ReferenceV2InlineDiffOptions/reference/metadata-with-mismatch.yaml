@@ -10,10 +10,10 @@ parts:
                 - pathToKey: data.regex
                   inlineDiffFunc: regex
                   inlineDiffOptions:
-                    - ignoreReferenceSlashCommentLines
-                    - ignoreReferenceHashCommentLines
+                    - ignoreSlashComments
+                    - ignoreHashComments
                 - pathToKey: data.capturegroups
                   inlineDiffFunc: capturegroups
                   inlineDiffOptions:
-                    - ignoreReferenceHashCommentLines
-                    - ignoreReferenceSlashCommentLines
+                    - ignoreHashComments
+                    - ignoreSlashComments

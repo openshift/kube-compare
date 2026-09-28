@@ -985,15 +985,16 @@ type InfoObject struct {
 	templateSource          string
 	injectedObjFromTemplate *unstructured.Unstructured
 	clusterObj              *unstructured.Unstructured
+	comparisonLiveObj       *unstructured.Unstructured
 	FieldsToOmit            []*ManifestPathV1
 	allowMerge              bool
 	userOverrides           []*UserOverride
 	templateFieldConf       map[string]InlineDiffConfig
 }
 
-// Live Returns the cluster version of the object
+// Live returns the comparison-only copy of the cluster object.
 func (obj InfoObject) Live() runtime.Object {
-	return obj.clusterObj
+	return obj.comparisonLiveObj
 }
 
 // MergeError represents an error during merge.
@@ -1010,6 +1011,7 @@ func (e MergeError) Error() string {
 func (obj *InfoObject) initializeObjData(temp ReferenceTemplate, clusterCR *unstructured.Unstructured) error {
 	obj.clusterObj = clusterCR
 	omitFields(obj.clusterObj.Object, obj.FieldsToOmit)
+	obj.comparisonLiveObj = obj.clusterObj.DeepCopy()
 
 	var err error
 	klog.V(1).Infof("Executing template %s", temp.GetPath())
@@ -1092,7 +1094,7 @@ func (obj InfoObject) runInlineDiffFuncs() error {
 			errs = append(errs, fmt.Errorf("failed to acces value in template of field %s that uses inline diff func: Not found", pathToKey))
 			continue
 		}
-		clusterValue, exist, err := NestedString(obj.clusterObj.Object, listedPath...)
+		clusterValue, exist, err := NestedString(obj.comparisonLiveObj.Object, listedPath...)
 		if !exist {
 			continue // if value does not appear in cluster CR then there will be a diff anyway and this is not an error
 		}
@@ -1101,7 +1103,12 @@ func (obj InfoObject) runInlineDiffFuncs() error {
 			continue
 		}
 		diffFn := InlineDiffs[inlineDiffFunc]
-		value = NormalizeInlineDiffReference(value, inlineDiffConfig.InlineDiffOptions)
+		value = NormalizeInlineDiffValue(value, inlineDiffConfig.InlineDiffOptions)
+		clusterValue = NormalizeInlineDiffValue(clusterValue, inlineDiffConfig.InlineDiffOptions)
+		if err := SetNestedString(obj.comparisonLiveObj.Object, clusterValue, listedPath...); err != nil {
+			errs = append(errs, fmt.Errorf("failed to update comparison value in cluster cr for field %s, %w", pathToKey, err))
+			continue
+		}
 		err = diffFn.Validate(value)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("failed to validate the inline diff for field %s, %w", pathToKey, err))

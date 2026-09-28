@@ -551,31 +551,34 @@ parts:
           inlineDiffFunc: regex # Inline function
 ```
 
-##### Reference-only inline diff options
+##### Inline diff options
 
 Each `perField` entry can include `inlineDiffOptions`, a list of typed options
-that preprocess only the reference value before that field's inline-diff
-function is validated and run. The live cluster value is never changed.
+that preprocess both the reference value and a comparison-only copy of the live
+cluster value before that field's inline-diff function is validated and run.
+The original live cluster value is not changed.
 
 ```yaml
         - pathToKey: data.bigTextBlock
           inlineDiffFunc: regex
           inlineDiffOptions:
-          - ignoreReferenceHashCommentLines
-          - ignoreReferenceSlashCommentLines
+          - ignoreHashComments
+          - ignoreSlashComments
 ```
 
 Supported options are:
 
-- `ignoreReferenceHashCommentLines`: ignore a reference line whose first
-  non-whitespace character is `#`.
-- `ignoreReferenceSlashCommentLines`: ignore a reference line whose first
-  non-whitespace characters are `//`.
+- `ignoreHashComments`: ignore a line whose first non-whitespace character is
+  `#`.
+- `ignoreSlashComments`: ignore a line whose first non-whitespace characters
+  are `//`.
 
-These options remove complete reference lines only. They do not remove inline
-suffixes, URL fragments, or other content such as `value # marker`,
-`https://example.test/#fragment`, or `foo#bar`. Both LF and CRLF line endings
-are supported. Unknown options and repeated options are rejected.
+These options remove complete comment-only lines from both sides of the
+comparison, so adding, removing, or changing those lines does not produce a
+difference. They do not remove inline suffixes, URL fragments, or other content
+such as `value # marker`, `https://example.test/#fragment`, or `foo#bar`. Both
+LF and CRLF line endings are supported. Unknown options and repeated options
+are rejected.
 
 Supported inline diff functions:
 

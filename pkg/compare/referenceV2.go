@@ -286,7 +286,7 @@ func (rf ReferenceTemplateV2) validateConfigPerField() error {
 		}
 		value, exist, err := NestedString(rf.metadata.Object, listedPath...)
 		if err == nil && exist {
-			value = NormalizeInlineDiffReference(value, fieldConf.InlineDiffOptions)
+			value = NormalizeInlineDiffValue(value, fieldConf.InlineDiffOptions)
 			if err := diffFn.Validate(value); err != nil {
 				return fmt.Errorf("reference contains template with config per field with InlineDiffFunc that fails "+
 					"validation. InlineDiffFunc: %s. error: %v", inlineDiffFunc, err)
