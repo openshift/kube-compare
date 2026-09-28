@@ -1,0 +1,2 @@
+error: "an error occurred while parsing template: templates/passwd.yaml specified in the config. error: template: pattern matches no files: `templates/passwd.yaml`"
+error code:2
