@@ -372,8 +372,8 @@ func convertToHelmTemplate(cfs fs.FS, t compare.ReferenceTemplate, helmValues ma
 {{- end }}
 {{- range $values -}}
 ---
-%v 
-{{ end -}}
+%v
+{{- end -}}
 `
 	data, err := fs.ReadFile(cfs, t.GetIdentifier())
 	if err != nil {
