@@ -256,16 +256,24 @@ type ReferenceTemplateConfigV2 struct {
 }
 
 // GetInlineDiffFuncs returns inline diff funcs.
-func (config ReferenceTemplateConfigV2) GetInlineDiffFuncs() map[string]InlineDiffType {
-	diffFuncs := make(map[string]InlineDiffType)
+func (config ReferenceTemplateConfigV2) GetInlineDiffFuncs() map[string]InlineDiffConfig {
+	diffFuncs := make(map[string]InlineDiffConfig)
 	for _, fieldConf := range config.PerField {
-		diffFuncs[fieldConf.PathToKey] = fieldConf.InlineDiffFunc
+		diffFuncs[fieldConf.PathToKey] = InlineDiffConfig{
+			InlineDiffFunc:    fieldConf.InlineDiffFunc,
+			InlineDiffOptions: fieldConf.InlineDiffOptions,
+		}
 	}
 	return diffFuncs
 }
 
 func (rf ReferenceTemplateV2) validateConfigPerField() error {
-	for pathToKey, inlineDiffFunc := range rf.GetConfig().GetInlineDiffFuncs() {
+	for index, fieldConf := range rf.Config.PerField {
+		pathToKey := fieldConf.PathToKey
+		inlineDiffFunc := fieldConf.InlineDiffFunc
+		if err := ValidateInlineDiffOptions(fieldConf.InlineDiffOptions); err != nil {
+			return fmt.Errorf("reference contains template with config.perField[%d] pathToKey %q with invalid inlineDiffOptions: %w", index, pathToKey, err)
+		}
 		listedPath, err := pathToList(pathToKey)
 		if err != nil {
 			return fmt.Errorf("reference contains template with config per field with pathToKey that is not in "+
@@ -278,6 +286,7 @@ func (rf ReferenceTemplateV2) validateConfigPerField() error {
 		}
 		value, exist, err := NestedString(rf.metadata.Object, listedPath...)
 		if err == nil && exist {
+			value = NormalizeInlineDiffValue(value, fieldConf.InlineDiffOptions)
 			if err := diffFn.Validate(value); err != nil {
 				return fmt.Errorf("reference contains template with config per field with InlineDiffFunc that fails "+
 					"validation. InlineDiffFunc: %s. error: %v", inlineDiffFunc, err)
@@ -292,8 +301,15 @@ func (rf ReferenceTemplateV2) validateConfigPerField() error {
 
 // PerFieldConfigV2 holds per field config.
 type PerFieldConfigV2 struct {
-	PathToKey      string         `json:"pathToKey,omitempty"`
-	InlineDiffFunc InlineDiffType `json:"inlineDiffFunc,omitempty"`
+	PathToKey         string             `json:"pathToKey,omitempty"`
+	InlineDiffFunc    InlineDiffType     `json:"inlineDiffFunc,omitempty"`
+	InlineDiffOptions []InlineDiffOption `json:"inlineDiffOptions,omitempty"`
+}
+
+// InlineDiffConfig contains the inline-diff function and options for one field.
+type InlineDiffConfig struct {
+	InlineDiffFunc    InlineDiffType
+	InlineDiffOptions []InlineDiffOption
 }
 
 // InlineDiffType represents the type of inline diff.

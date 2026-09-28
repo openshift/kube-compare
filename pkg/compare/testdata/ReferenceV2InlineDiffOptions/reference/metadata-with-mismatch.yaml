@@ -1,0 +1,19 @@
+apiVersion: v2
+parts:
+  - name: ExamplePart
+    components:
+      - name: ConfigMaps
+        allOf:
+          - path: cm-mismatch.yaml
+            config:
+              perField:
+                - pathToKey: data.regex
+                  inlineDiffFunc: regex
+                  inlineDiffOptions:
+                    - ignoreSlashComments
+                    - ignoreHashComments
+                - pathToKey: data.capturegroups
+                  inlineDiffFunc: capturegroups
+                  inlineDiffOptions:
+                    - ignoreHashComments
+                    - ignoreSlashComments

@@ -551,6 +551,35 @@ parts:
           inlineDiffFunc: regex # Inline function
 ```
 
+##### Inline diff options
+
+Each `perField` entry can include `inlineDiffOptions`, a list of typed options
+that preprocess both the reference value and a comparison-only copy of the live
+cluster value before that field's inline-diff function is validated and run.
+The original live cluster value is not changed.
+
+```yaml
+        - pathToKey: data.bigTextBlock
+          inlineDiffFunc: regex
+          inlineDiffOptions:
+          - ignoreHashComments
+          - ignoreSlashComments
+```
+
+Supported options are:
+
+- `ignoreHashComments`: ignore a line whose first non-whitespace character is
+  `#`.
+- `ignoreSlashComments`: ignore a line whose first non-whitespace characters
+  are `//`.
+
+These options remove complete comment-only lines from both sides of the
+comparison, so adding, removing, or changing those lines does not produce a
+difference. They do not remove inline suffixes, URL fragments, or other content
+such as `value # marker`, `https://example.test/#fragment`, or `foo#bar`. Both
+LF and CRLF line endings are supported. Unknown options and repeated options
+are rejected.
+
 Supported inline diff functions:
 
 ##### Regex Inline Diff Function

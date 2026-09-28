@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: inline-diff-options
+  namespace: default
+data:
+  regex: |-
+    # invalid regex (?<
+    // invalid regex (
+    release: (?<version>[0-9]+) # inline marker
+    endpoint: https://example.test/#expected-fragment
+  capturegroups: |-
+    # generated reference hash
+    // generated reference comment
+    release: (?<version>[0-9]+) # inline marker
+    endpoint: https://example.test/#expected-fragment
