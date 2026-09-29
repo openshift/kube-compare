@@ -2,7 +2,7 @@
 {{- if .Values.cr}}
 {{- $values = .Values.cr }}
 {{- end }}
-{{- range $values -}}
+{{- range $values }}
 ---
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
@@ -15,5 +15,4 @@ rules:
   - apiGroups: [ "metrics.k8s.io" ]
     resources: [ "pods", "nodes" ]
     verbs: [ "get", "list", "watch" ]
- 
-{{ end -}}
+{{- end -}}

@@ -2,7 +2,7 @@
 {{- if .Values.crb}}
 {{- $values = .Values.crb }}
 {{- end }}
-{{- range $values -}}
+{{- range $values }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -16,5 +16,4 @@ subjects:
   - kind: ServiceAccount
     name: kubernetes-dashboard
     namespace: kubernetes-dashboard
- 
-{{ end -}}
+{{- end -}}

@@ -2,7 +2,7 @@
 {{- if .Values.cm}}
 {{- $values = .Values.cm }}
 {{- end }}
-{{- range $values -}}
+{{- range $values }}
 ---
 kind: ConfigMap
 apiVersion: v1
@@ -11,5 +11,4 @@ metadata:
     k8s-app: kubernetes-dashboard
   name: kubernetes-dashboard-settings
   namespace: kubernetes-dashboard
- 
-{{ end -}}
+{{- end -}}

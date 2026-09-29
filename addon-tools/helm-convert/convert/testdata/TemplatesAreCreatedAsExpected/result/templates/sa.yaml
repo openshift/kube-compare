@@ -2,7 +2,7 @@
 {{- if .Values.sa}}
 {{- $values = .Values.sa }}
 {{- end }}
-{{- range $values -}}
+{{- range $values }}
 ---
 apiVersion: {{ .apiVersion }}
 kind: ServiceAccount
@@ -11,5 +11,4 @@ metadata:
     k8s-app: kubernetes-dashboard
   name: {{ .metadata.name }}
   namespace: kubernetes-dashboard
- 
-{{ end -}}
+{{- end -}}

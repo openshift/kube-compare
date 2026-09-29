@@ -2,7 +2,7 @@
 {{- if .Values.rb}}
 {{- $values = .Values.rb }}
 {{- end }}
-{{- range $values -}}
+{{- range $values }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -19,5 +19,4 @@ subjects:
   - kind: ServiceAccount
     name: kubernetes-dashboard
     namespace: kubernetes-dashboard
- 
-{{ end -}}
+{{- end -}}
