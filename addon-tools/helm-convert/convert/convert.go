@@ -366,11 +366,20 @@ func lookupSubstitution(content, compName string) string {
 }
 
 func convertToHelmTemplate(cfs fs.FS, t compare.ReferenceTemplate, helmValues map[string]any) (string, error) {
+	// The range emits each resource as "\n---\n<content>". Keeping the newline
+	// before "---" (note "{{- range $values }}" ends with "}}", not "-}}") makes
+	// every resource start on its own line, so when .Values.<component> holds
+	// multiple entries a resource is never glued onto the previous resource's
+	// final line (which would produce invalid YAML). "{{- end -}}" then trims
+	// both the whitespace after the last resource's <content> and this template's
+	// own trailing newline, so no spurious blank line is emitted; Helm in turn
+	// drops the single leading newline before the first "---" when it writes the
+	// rendered manifest, leaving exactly one clean trailing newline per file.
 	var templateStructure = `{{- $values := list (dict)}}
 {{- if .Values.%v}}
 {{- $values = .Values.%v }}
 {{- end }}
-{{- range $values -}}
+{{- range $values }}
 ---
 %v
 {{- end -}}
@@ -390,6 +399,13 @@ func convertToHelmTemplate(cfs fs.FS, t compare.ReferenceTemplate, helmValues ma
 
 	// Replace all lookupCR/lookupCRs with canned data
 	content = lookupSubstitution(content, compName)
+
+	// Normalize trailing whitespace so the wrapper alone controls the spacing
+	// between rendered resources. Source CRs may end with zero, one, or several
+	// trailing newlines; stripping them here keeps the generated template tidy
+	// and makes the rendered output deterministic regardless of the source's
+	// trailing whitespace.
+	content = strings.TrimRight(content, " \t\r\n")
 
 	helmTemplate := fmt.Sprintf(templateStructure, compName, compName, content)
 
