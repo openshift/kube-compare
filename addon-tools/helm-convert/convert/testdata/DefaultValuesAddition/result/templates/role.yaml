@@ -2,7 +2,7 @@
 {{- if .Values.role}}
 {{- $values = .Values.role }}
 {{- end }}
-{{- range $values -}}
+{{- range $values }}
 ---
 kind: Role
 apiVersion: {{ .apiVersion }}
@@ -31,5 +31,4 @@ rules:
     resources: [ "services/proxy" ]
     resourceNames: [ "heapster", "http:heapster:", "https:heapster:", "dashboard-metrics-scraper", "http:dashboard-metrics-scraper" ]
     verbs: [ "get" ]
- 
-{{ end -}}
+{{- end -}}

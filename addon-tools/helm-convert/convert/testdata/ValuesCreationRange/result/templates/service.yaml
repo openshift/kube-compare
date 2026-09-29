@@ -2,7 +2,7 @@
 {{- if .Values.service}}
 {{- $values = .Values.service }}
 {{- end }}
-{{- range $values -}}
+{{- range $values }}
 ---
 kind: Service
 apiVersion: v1
@@ -12,5 +12,4 @@ spec:
     - port: {{ .port }}
       targetPort: {{ .targetPort }}
     {{ end }}
- 
-{{ end -}}
+{{- end -}}

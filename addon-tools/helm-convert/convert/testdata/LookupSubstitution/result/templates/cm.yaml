@@ -2,7 +2,7 @@
 {{- if .Values.cm}}
 {{- $values = .Values.cm }}
 {{- end }}
-{{- range $values -}}
+{{- range $values }}
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -19,5 +19,4 @@ data:
   {{- end }}
   value1: {{ $value | toYaml }}
   value2: {{ $plainObj.data.fieldname | toYaml }}
- 
-{{ end -}}
+{{- end -}}

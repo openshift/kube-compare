@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .metadata.name }}
+  namespace: {{ .metadata.namespace }}
+data:
+  key: value

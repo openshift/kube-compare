@@ -2,7 +2,7 @@
 {{- if .Values.sa}}
 {{- $values = .Values.sa }}
 {{- end }}
-{{- range $values -}}
+{{- range $values }}
 ---
 apiVersion: {{ .apiVersion }}
 kind: ServiceAccount
@@ -15,5 +15,4 @@ spec:
   value: |-
     Long string with 100 capturegroup
     And another (?<two>[a-z0-9]*) capturegorup
- 
-{{ end -}}
+{{- end -}}

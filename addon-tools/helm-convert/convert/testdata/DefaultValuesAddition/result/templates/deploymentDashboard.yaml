@@ -2,7 +2,7 @@
 {{- if .Values.deploymentDashboard}}
 {{- $values = .Values.deploymentDashboard }}
 {{- end }}
-{{- range $values -}}
+{{- range $values }}
 ---
 kind: Deployment
 apiVersion: apps/v1
@@ -70,5 +70,4 @@ spec:
       tolerations:
         - key: node-role.kubernetes.io/master
           effect: NoSchedule
- 
-{{ end -}}
+{{- end -}}

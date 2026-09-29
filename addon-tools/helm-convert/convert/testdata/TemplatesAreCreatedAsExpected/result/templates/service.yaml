@@ -2,7 +2,7 @@
 {{- if .Values.service}}
 {{- $values = .Values.service }}
 {{- end }}
-{{- range $values -}}
+{{- range $values }}
 ---
 kind: Service
 apiVersion: v1
@@ -19,5 +19,4 @@ spec:
     {{ end }}
   selector:
     k8s-app: {{if .spec.selector}}{{ index .spec.selector "k8s-app" }}{{ end }}
- 
-{{ end -}}
+{{- end -}}

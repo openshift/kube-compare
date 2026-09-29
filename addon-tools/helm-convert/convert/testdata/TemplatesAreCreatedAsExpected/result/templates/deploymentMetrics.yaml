@@ -2,7 +2,7 @@
 {{- if .Values.deploymentMetrics}}
 {{- $values = .Values.deploymentMetrics }}
 {{- end }}
-{{- range $values -}}
+{{- range $values }}
 ---
 kind: Deployment
 apiVersion: apps/v1
@@ -23,5 +23,4 @@ spec:
         k8s-app: dashboard-metrics-scraper
     spec:
 {{ if .spec.template.spec }}{{ .spec.template.spec | toYaml | indent 5 }}{{ end }}
- 
-{{ end -}}
+{{- end -}}

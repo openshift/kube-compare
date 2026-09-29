@@ -1,0 +1,7 @@
+parts:
+  - name: ExamplePart
+    components:
+      - name: Instances
+        type: Required
+        requiredTemplates:
+          - path: cm.yaml
