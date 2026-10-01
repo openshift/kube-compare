@@ -9,7 +9,6 @@ import (
 	"io"
 	"os"
 	"path"
-	"path/filepath"
 	"strings"
 
 	"github.com/google/go-containerregistry/pkg/v1"
@@ -141,11 +140,20 @@ func applyImageLayers(
 	staging string,
 	metadataPath string,
 	limits extractionLimits,
-) error {
+) (resultErr error) {
 	manifest, layers, err := validatedImageLayers(image, limits)
 	if err != nil {
 		return err
 	}
+	extractionRoot, err := os.OpenRoot(staging)
+	if err != nil {
+		return fmt.Errorf("opening reference staging directory: %w", err)
+	}
+	defer func() {
+		if err := extractionRoot.Close(); err != nil {
+			resultErr = errors.Join(resultErr, fmt.Errorf("closing reference staging directory: %w", err))
+		}
+	}()
 
 	visibility := visibilityState{
 		files:      make(map[string]bool),
@@ -194,7 +202,7 @@ func applyImageLayers(
 			ctx,
 			layers[layerIndex],
 			manifest.Layers[layerIndex].MediaType,
-			staging,
+			extractionRoot,
 			limits,
 			&compressedBudget,
 			&uncompressedBudget,
@@ -205,8 +213,7 @@ func applyImageLayers(
 		}
 	}
 
-	metadataHostPath := filepath.Join(staging, filepath.FromSlash(selected.metadataName))
-	metadataInfo, err := os.Lstat(metadataHostPath)
+	metadataInfo, err := extractionRoot.Lstat(selected.metadataName)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return fmt.Errorf("requested metadata file was not found in image")
@@ -259,7 +266,7 @@ func applyImageLayer(
 	ctx context.Context,
 	layer v1.Layer,
 	mediaType types.MediaType,
-	staging string,
+	extractionRoot *os.Root,
 	limits extractionLimits,
 	compressedBudget *byteBudget,
 	uncompressedBudget *byteBudget,
@@ -295,7 +302,7 @@ func applyImageLayer(
 	}()
 
 	boundedUncompressed := &budgetReader{ctx: ctx, reader: decoded, budget: uncompressedBudget}
-	if err := applyLayerTar(ctx, tar.NewReader(boundedUncompressed), staging, limits, visibility, selected); err != nil {
+	if err := applyLayerTar(ctx, tar.NewReader(boundedUncompressed), extractionRoot, limits, visibility, selected); err != nil {
 		return err
 	}
 	if _, err := io.Copy(io.Discard, boundedUncompressed); err != nil {
@@ -366,7 +373,7 @@ func closeWithContext(name string, closer io.Closer) error {
 func applyLayerTar(
 	ctx context.Context,
 	tarReader *tar.Reader,
-	staging string,
+	extractionRoot *os.Root,
 	limits extractionLimits,
 	visibility *visibilityState,
 	selected *selectedState,
@@ -441,11 +448,14 @@ func applyLayerTar(
 		if !selectedEntry {
 			continue
 		}
+		if err := validatePortableSelectedPath(relative); err != nil {
+			return err
+		}
 		selected.entries++
 		if selected.entries > limits.maxSelectedEntries {
 			return fmt.Errorf("selected reference contains more than %d entries", limits.maxSelectedEntries)
 		}
-		if err := materializeSelectedEntry(tarReader, header, staging, relative, limits, selected); err != nil {
+		if err := materializeSelectedEntry(tarReader, header, extractionRoot, relative, limits, selected); err != nil {
 			return err
 		}
 	}
@@ -476,7 +486,7 @@ func selectedRelativePath(archiveName, selectedParent string) (string, bool) {
 }
 
 func normalizeArchivePath(name string, typeflag byte, limits extractionLimits) (string, error) {
-	if name == "" || strings.ContainsRune(name, '\x00') || strings.ContainsAny(name, "\\:") {
+	if name == "" || strings.ContainsRune(name, '\x00') {
 		return "", errUnsafeArchivePath
 	}
 	if strings.HasSuffix(name, "/") {
@@ -503,13 +513,27 @@ func normalizeArchivePath(name string, typeflag byte, limits extractionLimits) (
 		return "", fmt.Errorf("archive path exceeds %d bytes", limits.maxPathBytes)
 	}
 	for _, component := range strings.Split(cleaned, "/") {
-		if component == "" || len(component) > limits.maxPathComponentBytes ||
-			strings.HasSuffix(component, ".") || strings.HasSuffix(component, " ") ||
-			isWindowsReservedName(component) {
+		if component == "" || len(component) > limits.maxPathComponentBytes {
 			return "", errUnsafeArchivePath
 		}
 	}
 	return cleaned, nil
+}
+
+func validatePortableSelectedPath(name string) error {
+	if name == "." {
+		return nil
+	}
+	if strings.ContainsAny(name, "\\:") {
+		return errUnsafeArchivePath
+	}
+	for _, component := range strings.Split(name, "/") {
+		if strings.HasSuffix(component, ".") || strings.HasSuffix(component, " ") ||
+			isWindowsReservedName(component) {
+			return errUnsafeArchivePath
+		}
+	}
+	return nil
 }
 
 func isWindowsReservedName(component string) bool {
@@ -557,7 +581,7 @@ func inWhiteoutDir(files map[string]bool, file string) bool {
 func materializeSelectedEntry(
 	tarReader io.Reader,
 	header *tar.Header,
-	staging string,
+	extractionRoot *os.Root,
 	relative string,
 	limits extractionLimits,
 	selected *selectedState,
@@ -568,7 +592,7 @@ func materializeSelectedEntry(
 
 	switch header.Typeflag {
 	case tar.TypeDir:
-		return createExtractedDirectory(staging, relative, selected)
+		return createExtractedDirectory(extractionRoot, relative, selected)
 	case tar.TypeReg, tar.TypeRegA: //nolint:staticcheck // TypeRegA is required for old-style tar compatibility.
 		if relative == "." {
 			return fmt.Errorf("selected reference root is not a directory")
@@ -579,7 +603,7 @@ func materializeSelectedEntry(
 		if header.Size > limits.maxSelectedBytes-selected.selectedBytes {
 			return fmt.Errorf("selected reference files exceed %d bytes", limits.maxSelectedBytes)
 		}
-		if err := createExtractedFile(staging, relative, header.Size, tarReader, selected); err != nil {
+		if err := createExtractedFile(extractionRoot, relative, header.Size, tarReader, selected); err != nil {
 			return err
 		}
 		selected.selectedBytes += header.Size
@@ -606,7 +630,7 @@ func hasSparseMetadata(header *tar.Header) bool {
 	return false
 }
 
-func createExtractedDirectory(staging, relative string, selected *selectedState) error {
+func createExtractedDirectory(extractionRoot *os.Root, relative string, selected *selectedState) error {
 	if relative == "." {
 		return nil
 	}
@@ -621,14 +645,13 @@ func createExtractedDirectory(staging, relative string, selected *selectedState)
 		selected.nodes[relative] = existing
 		return nil
 	}
-	if err := ensureExtractedParents(staging, relative, selected); err != nil {
+	if err := ensureExtractedParents(extractionRoot, relative, selected); err != nil {
 		return err
 	}
 	if err := selected.nodeBudget.retain(relative); err != nil {
 		return err
 	}
-	hostPath := filepath.Join(staging, filepath.FromSlash(relative))
-	if err := os.Mkdir(hostPath, 0o700); err != nil {
+	if err := extractionRoot.Mkdir(relative, 0o700); err != nil {
 		selected.nodeBudget.release(relative)
 		return fmt.Errorf("creating extracted directory: %w", err)
 	}
@@ -637,7 +660,7 @@ func createExtractedDirectory(staging, relative string, selected *selectedState)
 }
 
 func createExtractedFile(
-	staging string,
+	extractionRoot *os.Root,
 	relative string,
 	size int64,
 	contents io.Reader,
@@ -646,15 +669,14 @@ func createExtractedFile(
 	if _, found := selected.nodes[relative]; found {
 		return fmt.Errorf("selected path has duplicate or conflicting entries")
 	}
-	if err := ensureExtractedParents(staging, relative, selected); err != nil {
+	if err := ensureExtractedParents(extractionRoot, relative, selected); err != nil {
 		return err
 	}
 	if err := selected.nodeBudget.retain(relative); err != nil {
 		return err
 	}
 
-	hostPath := filepath.Join(staging, filepath.FromSlash(relative))
-	file, err := os.OpenFile(hostPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+	file, err := extractionRoot.OpenFile(relative, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
 	if err != nil {
 		selected.nodeBudget.release(relative)
 		return fmt.Errorf("creating extracted file: %w", err)
@@ -671,7 +693,7 @@ func createExtractedFile(
 	return nil
 }
 
-func ensureExtractedParents(staging, relative string, selected *selectedState) error {
+func ensureExtractedParents(extractionRoot *os.Root, relative string, selected *selectedState) error {
 	parent := path.Dir(relative)
 	if parent == "." {
 		return nil
@@ -693,8 +715,7 @@ func ensureExtractedParents(staging, relative string, selected *selectedState) e
 		if err := selected.nodeBudget.retain(current); err != nil {
 			return err
 		}
-		hostPath := filepath.Join(staging, filepath.FromSlash(current))
-		if err := os.Mkdir(hostPath, 0o700); err != nil {
+		if err := extractionRoot.Mkdir(current, 0o700); err != nil {
 			selected.nodeBudget.release(current)
 			return fmt.Errorf("creating extracted parent: %w", err)
 		}

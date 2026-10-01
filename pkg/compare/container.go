@@ -16,6 +16,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 )
 
 const (
@@ -177,22 +178,38 @@ func pullRemoteImageWithTransport(
 	ref name.Reference,
 	keychain authn.Keychain,
 	platform v1.Platform,
-	transport http.RoundTripper,
+	roundTripper http.RoundTripper,
 ) (v1.Image, error) {
 	image, err := remote.Image(
 		ref,
 		remote.WithContext(ctx),
 		remote.WithAuthFromKeychain(keychain),
 		remote.WithPlatform(platform),
-		remote.WithTransport(httpsOnlyTransport{delegate: transport}),
+		remote.WithTransport(httpsOnlyTransport{delegate: roundTripper}),
 	)
 	if err != nil {
 		if ctxErr := ctx.Err(); ctxErr != nil {
-			return nil, fmt.Errorf("pulling image %q from registry: %w", ref.Context().Name(), ctxErr)
+			return nil, fmt.Errorf("pulling image from registry: %w", ctxErr)
+		}
+		for _, known := range []error{
+			errCredentialHelper,
+			errCredentialHelperOutput,
+			errCredentialConfiguration,
+		} {
+			if errors.Is(err, known) {
+				return nil, fmt.Errorf("pulling image from registry: %w", known)
+			}
+		}
+		var transportErr *transport.Error
+		if errors.As(err, &transportErr) {
+			return nil, fmt.Errorf(
+				"pulling image from registry failed with HTTP status %d",
+				transportErr.StatusCode,
+			)
 		}
 		// Registry response bodies are untrusted and may reflect authorization
-		// data. Keep the externally returned error operation-only.
-		return nil, fmt.Errorf("pulling image %q from registry failed", ref.Context().Name())
+		// data. Keep the fallback externally returned error operation-only.
+		return nil, errors.New("pulling image from registry failed")
 	}
 	return image, nil
 }

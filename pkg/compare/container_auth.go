@@ -143,7 +143,10 @@ func (keychain *safeDefaultKeychain) ResolveContext(
 		return nil, err
 	}
 	if configFile == nil {
-		return authn.Anonymous, nil
+		if os.Getenv(configfile.DockerEnvConfigKey) == "" {
+			return authn.Anonymous, nil
+		}
+		configFile = configfile.New("")
 	}
 
 	environmentAuth, environmentAuthValid := parseDockerAuthEnvironment(os.Getenv(configfile.DockerEnvConfigKey))

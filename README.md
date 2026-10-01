@@ -70,10 +70,13 @@ Tagless names use the normal Docker defaults (`docker.io` and `latest`).
 
 Images are pulled directly from a TLS-enabled external registry for
 `linux/<current host architecture>`; Docker and Podman engines, daemon sockets,
-and local image caches are not used. Registry authentication checks Docker
-configuration first, then `REGISTRY_AUTH_FILE`, then Podman's XDG runtime and
-configuration auth files. Configured `docker-credential-*` helpers must be on
-`PATH`. Plain HTTP registries are not enabled.
+and local image caches are not used. Registry authentication checks
+`DOCKER_AUTH_CONFIG` first. It then reads exactly one auth file: the Docker
+configuration if one exists; otherwise `REGISTRY_AUTH_FILE`; otherwise Podman's
+XDG runtime or configuration auth file. Other auth files are not consulted when
+the selected file has no matching registry entry. Configured
+`docker-credential-*` helpers must be on `PATH`. Plain HTTP registries are not
+enabled.
 
 Registry content is treated as untrusted. Extraction is limited to 128 layers,
 2 GiB each for declared compressed, actual compressed, and aggregate

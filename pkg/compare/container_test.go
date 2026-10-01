@@ -32,6 +32,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	"github.com/google/go-containerregistry/pkg/v1/static"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/klauspost/compress/zstd"
@@ -160,6 +161,12 @@ func (anonymousKeychain) Resolve(authn.Resource) (authn.Authenticator, error) {
 	return authn.Anonymous, nil
 }
 
+type errorKeychain struct{ err error }
+
+func (keychain errorKeychain) Resolve(authn.Resource) (authn.Authenticator, error) {
+	return nil, keychain.err
+}
+
 func TestHTTPSOnlyTransportRejectsBeforeDelegate(t *testing.T) {
 	delegateCalls := 0
 	transport := httpsOnlyTransport{delegate: roundTripperFunc(func(*http.Request) (*http.Response, error) {
@@ -207,7 +214,91 @@ func TestPullRemoteImageUsesTLSForLocalhost(t *testing.T) {
 	assert.Equal(t, wantDigest, gotDigest)
 }
 
-func TestNormalizeArchivePathPortable(t *testing.T) {
+func TestPullRemoteImageReportsSafeDiagnostics(t *testing.T) {
+	reference, err := name.NewTag("registry.internal.example/customer/private-reference:v1")
+	require.NoError(t, err)
+	platform := v1.Platform{OS: "linux", Architecture: runtime.GOARCH}
+	assertReferenceRedacted := func(t *testing.T, err error) {
+		t.Helper()
+		assert.NotContains(t, err.Error(), "registry.internal.example")
+		assert.NotContains(t, err.Error(), "customer/private-reference")
+	}
+
+	t.Run("known credential category", func(t *testing.T) {
+		_, err := pullRemoteImageWithTransport(
+			context.Background(),
+			reference,
+			errorKeychain{err: fmt.Errorf("wrapped secret: %w", errCredentialHelper)},
+			platform,
+			roundTripperFunc(func(*http.Request) (*http.Response, error) {
+				t.Fatal("network should not be reached after keychain failure")
+				return nil, nil
+			}),
+		)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, errCredentialHelper)
+		assert.NotContains(t, err.Error(), "wrapped secret")
+		assertReferenceRedacted(t, err)
+	})
+
+	t.Run("HTTP status without response body", func(t *testing.T) {
+		_, err := pullRemoteImageWithTransport(
+			context.Background(),
+			reference,
+			anonymousKeychain{},
+			platform,
+			roundTripperFunc(func(request *http.Request) (*http.Response, error) {
+				return &http.Response{
+					StatusCode: http.StatusUnauthorized,
+					Header:     http.Header{"Content-Type": {"application/json"}},
+					Body: io.NopCloser(strings.NewReader(
+						`{"errors":[{"code":"UNAUTHORIZED","message":"response-secret-sentinel"}]}`,
+					)),
+					Request: request,
+				}, nil
+			}),
+		)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "HTTP status 401")
+		assert.NotContains(t, err.Error(), "response-secret-sentinel")
+		assertReferenceRedacted(t, err)
+
+		var transportErr *transport.Error
+		assert.False(t, errors.As(err, &transportErr), "returned error must not expose registry diagnostics")
+	})
+
+	t.Run("unknown failure is operation-only", func(t *testing.T) {
+		_, err := pullRemoteImageWithTransport(
+			context.Background(),
+			reference,
+			anonymousKeychain{},
+			platform,
+			roundTripperFunc(func(*http.Request) (*http.Response, error) {
+				return nil, errors.New("network-secret-sentinel")
+			}),
+		)
+		require.EqualError(t, err, "pulling image from registry failed")
+		assertReferenceRedacted(t, err)
+	})
+
+	t.Run("context cancellation category", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		_, err := pullRemoteImageWithTransport(
+			ctx,
+			reference,
+			anonymousKeychain{},
+			platform,
+			roundTripperFunc(func(*http.Request) (*http.Response, error) {
+				return nil, ctx.Err()
+			}),
+		)
+		require.ErrorIs(t, err, context.Canceled)
+		assertReferenceRedacted(t, err)
+	})
+}
+
+func TestNormalizeArchivePathStructural(t *testing.T) {
 	limits := testLimits()
 	tests := []struct {
 		name      string
@@ -228,15 +319,12 @@ func TestNormalizeArchivePathPortable(t *testing.T) {
 		{name: "traversal", input: "../metadata.yaml", wantError: true},
 		{name: "embedded traversal", input: "ref/../metadata.yaml", wantError: true},
 		{name: "double slash root", input: "//server/share", wantError: true},
-		{name: "backslash", input: `ref\metadata.yaml`, wantError: true},
-		{name: "leading slash drive", input: "/C:/ref/metadata.yaml", wantError: true},
-		{name: "alternate stream", input: "ref/metadata.yaml:stream", wantError: true},
+		{name: "backslash is valid Linux name", input: `ref\metadata.yaml`, expected: `ref\metadata.yaml`},
+		{name: "colon is valid Linux name", input: "usr/share/man/File::Spec.3pm.gz", expected: "usr/share/man/File::Spec.3pm.gz"},
 		{name: "nul", input: "ref/meta\x00data.yaml", wantError: true},
-		{name: "reserved", input: "ref/NUL", wantError: true},
-		{name: "reserved extension", input: "ref/con.txt", wantError: true},
-		{name: "reserved case", input: "ref/Com1.yaml", wantError: true},
-		{name: "trailing dot", input: "ref/name.", wantError: true},
-		{name: "trailing space", input: "ref/name ", wantError: true},
+		{name: "reserved name is valid in layer", input: "src/aux.go", expected: "src/aux.go"},
+		{name: "trailing dot is valid in layer", input: "ref/name.", expected: "ref/name."},
+		{name: "trailing space is valid in layer", input: "ref/name ", expected: "ref/name "},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -247,6 +335,28 @@ func TestNormalizeArchivePathPortable(t *testing.T) {
 			}
 			require.NoError(t, err)
 			assert.Equal(t, test.expected, actual)
+		})
+	}
+}
+
+func TestValidatePortableSelectedPath(t *testing.T) {
+	for _, valid := range []string{".", "metadata.yaml", "templates/example.yaml"} {
+		t.Run("valid-"+valid, func(t *testing.T) {
+			require.NoError(t, validatePortableSelectedPath(valid))
+		})
+	}
+	for _, invalid := range []string{
+		`ref\metadata.yaml`,
+		"C:/ref/metadata.yaml",
+		"metadata.yaml:stream",
+		"NUL",
+		"con.txt",
+		"Com1.yaml",
+		"name.",
+		"name ",
+	} {
+		t.Run("invalid-"+invalid, func(t *testing.T) {
+			assert.ErrorIs(t, validatePortableSelectedPath(invalid), errUnsafeArchivePath)
 		})
 	}
 }
@@ -378,6 +488,14 @@ func testSelectedState(t *testing.T, limits extractionLimits) *selectedState {
 	return selected
 }
 
+func testExtractionRoot(t *testing.T) *os.Root {
+	t.Helper()
+	root, err := os.OpenRoot(t.TempDir())
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, root.Close()) })
+	return root
+}
+
 func TestApplyImageLayersWhiteoutsAndModes(t *testing.T) {
 	lower := uncompressedLayer(t,
 		tarEntry{name: "ref/metadata.yaml", contents: "old", mode: 0o777},
@@ -475,6 +593,34 @@ func TestApplyImageLayersIgnoresOutsideSpecialEntries(t *testing.T) {
 		tarEntry{name: "ref/metadata.yaml", contents: "ok"},
 	)
 	require.NoError(t, applyImageLayers(context.Background(), imageFromLayers(t, layer), t.TempDir(), "/ref/metadata.yaml", testLimits()))
+}
+
+func TestApplyImageLayersIgnoresOutsideNonPortableLinuxNames(t *testing.T) {
+	layer := uncompressedLayer(t,
+		tarEntry{name: `outside/system-systemd\x2dcryptsetup.slice`, contents: "linux"},
+		tarEntry{name: "outside/File::Spec.3pm.gz", contents: "linux"},
+		tarEntry{name: "outside/aux.go", contents: "linux"},
+		tarEntry{name: "ref/metadata.yaml", contents: "ok"},
+	)
+	require.NoError(t, applyImageLayers(
+		context.Background(),
+		imageFromLayers(t, layer),
+		t.TempDir(),
+		"/ref/metadata.yaml",
+		testLimits(),
+	))
+}
+
+func TestApplyImageLayersRejectsSelectedNonPortableNames(t *testing.T) {
+	for _, name := range []string{`ref/name\with-backslash`, "ref/name:stream", "ref/aux.go"} {
+		t.Run(name, func(t *testing.T) {
+			err := applyImageLayers(context.Background(), imageFromLayers(t, uncompressedLayer(t,
+				tarEntry{name: "ref/metadata.yaml", contents: "metadata"},
+				tarEntry{name: name, contents: "unsafe"},
+			)), t.TempDir(), "/ref/metadata.yaml", testLimits())
+			assert.ErrorIs(t, err, errUnsafeArchivePath)
+		})
+	}
 }
 
 func TestApplyImageLayersRejectsInvalidWhiteoutTargets(t *testing.T) {
@@ -1009,16 +1155,17 @@ func TestSelectedNodeBudgetStopsDeepParentExpansion(t *testing.T) {
 func TestSelectedHeaderDeclaredSizeValidation(t *testing.T) {
 	limits := testLimits()
 	selected := testSelectedState(t, limits)
+	extractionRoot := testExtractionRoot(t)
 	header := &tar.Header{Name: "metadata.yaml", Typeflag: tar.TypeReg, Size: -1}
-	err := materializeSelectedEntry(bytes.NewReader(nil), header, t.TempDir(), "metadata.yaml", limits, selected)
+	err := materializeSelectedEntry(bytes.NewReader(nil), header, extractionRoot, "metadata.yaml", limits, selected)
 	require.Error(t, err)
 
 	header.Size = limits.maxFileBytes + 1
-	err = materializeSelectedEntry(bytes.NewReader(nil), header, t.TempDir(), "metadata.yaml", limits, selected)
+	err = materializeSelectedEntry(bytes.NewReader(nil), header, extractionRoot, "metadata.yaml", limits, selected)
 	require.Error(t, err)
 
 	header = &tar.Header{Name: "metadata.yaml", Typeflag: tar.TypeGNUSparse}
-	err = materializeSelectedEntry(bytes.NewReader(nil), header, t.TempDir(), "metadata.yaml", limits, testSelectedState(t, limits))
+	err = materializeSelectedEntry(bytes.NewReader(nil), header, extractionRoot, "metadata.yaml", limits, testSelectedState(t, limits))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "sparse")
 
@@ -1027,9 +1174,24 @@ func TestSelectedHeaderDeclaredSizeValidation(t *testing.T) {
 		Typeflag:   tar.TypeReg,
 		PAXRecords: map[string]string{"GNU.sparse.size": "10"},
 	}
-	err = materializeSelectedEntry(bytes.NewReader(nil), header, t.TempDir(), "metadata.yaml", limits, testSelectedState(t, limits))
+	err = materializeSelectedEntry(bytes.NewReader(nil), header, extractionRoot, "metadata.yaml", limits, testSelectedState(t, limits))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "sparse")
+}
+
+func TestExtractionRootConfinesFileCreation(t *testing.T) {
+	parent := t.TempDir()
+	staging := filepath.Join(parent, "staging")
+	require.NoError(t, os.Mkdir(staging, 0o700))
+	root, err := os.OpenRoot(staging)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, root.Close()) })
+
+	selected := testSelectedState(t, testLimits())
+	err = createExtractedFile(root, "../escaped", 1, strings.NewReader("x"), selected)
+	require.Error(t, err)
+	_, statErr := os.Stat(filepath.Join(parent, "escaped"))
+	assert.ErrorIs(t, statErr, os.ErrNotExist)
 }
 
 func TestBudgetReaderExactBoundaryAndLimit(t *testing.T) {
@@ -1438,6 +1600,14 @@ func TestSafeDefaultKeychainFilesAndPrecedence(t *testing.T) {
 }
 
 func TestSafeDefaultKeychainCompatibilityCases(t *testing.T) {
+	t.Run("Docker auth environment without files", func(t *testing.T) {
+		isolatedCredentialEnvironment(t)
+		t.Setenv("DOCKER_AUTH_CONFIG", `{"auths":{"example.test":{"auth":"`+encodedAuth("env-only-user", "env-only-password")+`"}}}`)
+		authConfig := resolveAuth(t, &safeDefaultKeychain{runner: execCredentialHelperRunner{maxOutput: 1 << 20}})
+		assert.Equal(t, "env-only-user", authConfig.Username)
+		assert.Equal(t, "env-only-password", authConfig.Password)
+	})
+
 	t.Run("explicit Docker config", func(t *testing.T) {
 		isolatedCredentialEnvironment(t)
 		dockerConfig := t.TempDir()
@@ -1693,6 +1863,8 @@ func TestCredentialHelperFailureRedactionAndBounds(t *testing.T) {
 		require.NoError(t, captureErr)
 		require.Error(t, pullErr)
 		assert.Contains(t, pullErr.Error(), "pulling image")
+		assert.NotContains(t, pullErr.Error(), "example.test")
+		assert.NotContains(t, pullErr.Error(), "team/reference")
 		for _, sentinel := range []string{"stdout-secret-sentinel", "stderr-secret-sentinel"} {
 			assert.NotContains(t, pullErr.Error(), sentinel)
 			assert.NotContains(t, captured, sentinel)
