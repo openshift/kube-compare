@@ -2,6 +2,7 @@ package convert
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"flag"
 	"fmt"
@@ -13,12 +14,30 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"testing/fstest"
 	"text/template"
 
+	"github.com/openshift/kube-compare/pkg/compare"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"sigs.k8s.io/yaml"
 )
+
+type temporaryRootFS struct {
+	inner    fs.FS
+	tempRoot string
+}
+
+func (referenceFS temporaryRootFS) Open(name string) (fs.File, error) {
+	if _, err := os.Stat(referenceFS.tempRoot); err != nil {
+		return nil, fmt.Errorf("temporary root was removed before reference read: %w", err)
+	}
+	file, err := referenceFS.inner.Open(name)
+	if err != nil {
+		return nil, fmt.Errorf("opening temporary reference file: %w", err)
+	}
+	return file, nil
+}
 
 var update = flag.Bool("update", false, "update .golden files")
 
@@ -137,6 +156,96 @@ func TestConvert(t *testing.T) {
 			require.NoError(t, diffDirs(chartDir, resultDir))
 		})
 	}
+}
+
+func TestConvertContainerReferenceTemporaryRootLifecycle(t *testing.T) {
+	containerReference := "container://example.test/reference:v1:/reference/metadata.yaml"
+	sourceReferenceDir := filepath.Join(testDirs, "ValuesCreationIfClause", "reference")
+
+	t.Run("retained through successful conversion and removed afterward", func(t *testing.T) {
+		var observedRoot string
+		options := Options{
+			refPath:          containerReference,
+			outputDir:        filepath.Join(t.TempDir(), "chart"),
+			chartDescription: "test chart",
+			chartVersion:     "1",
+			getReferenceFS: func(ctx context.Context, compareOptions *compare.Options) (fs.FS, error) {
+				require.NoError(t, ctx.Err())
+				assert.Equal(t, containerReference, compareOptions.ReferenceConfig)
+				observedRoot = compareOptions.TmpDir
+				_, err := os.Stat(observedRoot)
+				require.NoError(t, err)
+
+				extracted := filepath.Join(observedRoot, "extracted")
+				require.NoError(t, CopyDir(sourceReferenceDir, extracted))
+				return temporaryRootFS{inner: os.DirFS(extracted), tempRoot: observedRoot}, nil
+			},
+		}
+
+		require.NoError(t, convertToHelm(context.Background(), &options))
+		require.NotEmpty(t, observedRoot)
+		_, err := os.Stat(observedRoot)
+		assert.ErrorIs(t, err, os.ErrNotExist)
+	})
+
+	t.Run("removed after reference read error", func(t *testing.T) {
+		var observedRoot string
+		options := Options{
+			refPath:          containerReference,
+			outputDir:        filepath.Join(t.TempDir(), "chart"),
+			chartDescription: "test chart",
+			chartVersion:     "1",
+			getReferenceFS: func(_ context.Context, compareOptions *compare.Options) (fs.FS, error) {
+				observedRoot = compareOptions.TmpDir
+				return temporaryRootFS{inner: fstest.MapFS{}, tempRoot: observedRoot}, nil
+			},
+		}
+
+		err := convertToHelm(context.Background(), &options)
+		require.Error(t, err)
+		require.NotEmpty(t, observedRoot)
+		_, statErr := os.Stat(observedRoot)
+		assert.ErrorIs(t, statErr, os.ErrNotExist)
+	})
+
+	t.Run("cleanup error is returned after success", func(t *testing.T) {
+		cleanupErr := errors.New("cleanup failed")
+		options := Options{
+			refPath:          containerReference,
+			outputDir:        filepath.Join(t.TempDir(), "chart"),
+			chartDescription: "test chart",
+			chartVersion:     "1",
+			getReferenceFS: func(_ context.Context, compareOptions *compare.Options) (fs.FS, error) {
+				extracted := filepath.Join(compareOptions.TmpDir, "extracted")
+				require.NoError(t, CopyDir(sourceReferenceDir, extracted))
+				return os.DirFS(extracted), nil
+			},
+			removeAll: func(path string) error {
+				require.NoError(t, os.RemoveAll(path))
+				return cleanupErr
+			},
+		}
+		err := convertToHelm(context.Background(), &options)
+		assert.ErrorIs(t, err, cleanupErr)
+	})
+
+	t.Run("cleanup error is joined with conversion error", func(t *testing.T) {
+		cleanupErr := errors.New("cleanup failed")
+		conversionErr := errors.New("reference failed")
+		options := Options{
+			refPath: containerReference,
+			getReferenceFS: func(context.Context, *compare.Options) (fs.FS, error) {
+				return nil, conversionErr
+			},
+			removeAll: func(path string) error {
+				require.NoError(t, os.RemoveAll(path))
+				return cleanupErr
+			},
+		}
+		err := convertToHelm(context.Background(), &options)
+		assert.ErrorIs(t, err, conversionErr)
+		assert.ErrorIs(t, err, cleanupErr)
+	})
 }
 
 // CopyDir recursively copies files from source to destination directory

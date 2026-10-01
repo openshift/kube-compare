@@ -2,6 +2,8 @@
 package convert
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -35,11 +37,11 @@ Optionally, you can specify a directory containing existing custom resources (CR
 The resulting Helm chart will include templates for each reference and will use the values.yaml file to define the variables needed to create CRs. 
 The tool helps automate the creation of values.yaml and supports default values extraction from existing CRs. For detailed usage and examples, refer to the documentation.`,
 
-		RunE: func(_ *cobra.Command, _ []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			if options.refPath == "" {
 				return fmt.Errorf("path to reference config file is required, pass by -r/--reference")
 			}
-			return convertToHelm(&options)
+			return convertToHelm(cmd.Context(), &options)
 		},
 	}
 	cmd.Flags().StringVarP(&options.refPath, "reference", "r", "", "Path to reference config file.")
@@ -59,16 +61,43 @@ type Options struct {
 	valuesPath       string
 	chartDescription string
 	chartVersion     string
+	getReferenceFS   func(context.Context, *compare.Options) (fs.FS, error)
+	makeTempDir      func(string, string) (string, error)
+	removeAll        func(string) error
 }
 
-func convertToHelm(o *Options) error {
+func convertToHelm(ctx context.Context, o *Options) (resultErr error) {
+	makeTempDir := o.makeTempDir
+	if makeTempDir == nil {
+		makeTempDir = os.MkdirTemp
+	}
+	removeAll := o.removeAll
+	if removeAll == nil {
+		removeAll = os.RemoveAll
+	}
+	tempRoot, err := makeTempDir("", "helm-convert-reference-")
+	if err != nil {
+		return fmt.Errorf("failed to create temporary reference directory: %w", err)
+	}
+	defer func() {
+		if err := removeAll(tempRoot); err != nil {
+			resultErr = errors.Join(resultErr, fmt.Errorf("failed to remove temporary reference directory: %w", err))
+		}
+	}()
+
 	helmTemplates := make(map[string]string)
 	helmValues := make(map[string]any)
 	var preValues map[string]any
 	crsWithDefaults := make(map[string]map[string]interface{})
 
-	compareOptions := compare.Options{ReferenceConfig: o.refPath, TmpDir: ""}
-	cfs, err := compareOptions.GetRefFS()
+	compareOptions := compare.Options{ReferenceConfig: o.refPath, TmpDir: tempRoot}
+	getReferenceFS := o.getReferenceFS
+	if getReferenceFS == nil {
+		getReferenceFS = func(ctx context.Context, options *compare.Options) (fs.FS, error) {
+			return options.GetRefFSContext(ctx)
+		}
+	}
+	cfs, err := getReferenceFS(ctx, &compareOptions)
 	if err != nil {
 		return fmt.Errorf("failed to get filesystem of cluster-compare reference %w", err)
 	}
