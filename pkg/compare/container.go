@@ -1,152 +1,287 @@
 package compare
 
 import (
+	"context"
 	"errors"
 	"fmt"
-	"os/exec"
-	"path/filepath"
+	"io/fs"
+	"net/http"
+	"os"
+	"path"
+	"runtime"
 	"strings"
+	"time"
 
-	"k8s.io/klog/v2"
+	"github.com/google/go-containerregistry/pkg/authn"
+	"github.com/google/go-containerregistry/pkg/name"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 )
 
-type engine struct {
-	name         string
-	requiresSudo bool
-	containerID  string
-	tempDir      string
-}
+const (
+	containerScheme      = "container://"
+	containerPathDivider = ":/"
+	registryReadTimeout  = 5 * time.Minute
+)
 
-const containerScheme = "container://"
-
-// isContainer reports whether the given path is a reference to a file in a container by verifying if it starts with "container://".
+// isContainer reports whether path uses the container reference scheme.
 func isContainer(path string) bool {
 	return strings.HasPrefix(path, containerScheme)
 }
 
-type parsedPath struct {
-	image string
-	path  string
+type containerReference struct {
+	image        name.Reference
+	metadataPath string
 }
 
-// parsePath returns the image and referencePath (path to the directory for metadata.yaml), given a path
-// of the form container://<IMAGE>:<TAG>:/path_to_metadata.yaml
-func parsePath(path string) (parsedPath, error) {
-	path = strings.TrimPrefix(path, containerScheme)
-
-	// Split on ':', removing empty strings from slice. Removes errant colons from string,
-	// so container://<IMAGE>:::<TAG>::::::/path/to/metadata.yaml will still work, but
-	// paths with leading and trailing colons won't.
-	f := func(c rune) bool {
-		return c == ':'
+// parsePath parses container://<image-reference>:/<absolute-metadata-path>.
+func parsePath(raw string) (containerReference, error) {
+	if !isContainer(raw) {
+		return containerReference{}, containerPathError()
 	}
-	sections := strings.FieldsFunc(path, f)
 
-	if len(sections) == 3 {
-		image := sections[0] + ":" + sections[1]
-		referencePath := sections[2]
-		return parsedPath{image: image, path: referencePath}, nil
+	remainder := strings.TrimPrefix(raw, containerScheme)
+	divider := strings.LastIndex(remainder, containerPathDivider)
+	if divider <= 0 {
+		return containerReference{}, containerPathError()
 	}
-	return parsedPath{image: "", path: ""}, fmt.Errorf("incorrect path passed to -r, it must follow this format: container://<IMAGE>:<TAG>:/path/to/metadata.yaml")
-}
 
-// Use var's so that we can mock functions in tests.
-var execCommand = exec.Command
-var lookPath = exec.LookPath
-
-// runEngineCommand runs a podman/docker command with sudo if necessary.
-// Returns the stdout (out) and stderr (err) of the command.
-func (engine *engine) runEngineCommand(args ...string) ([]byte, error) {
-	var out []byte
-	var err error
-	if engine.requiresSudo {
-		args = append([]string{engine.name}, args...) // Prepend engine name to args
-		klog.V(1).Infof("Running sudo %v", args)
-		out, err = execCommand("sudo", args...).Output()
-	} else {
-		klog.V(1).Infof("Running %s %v", engine.name, args)
-		out, err = execCommand(engine.name, args...).Output()
+	imageName := remainder[:divider]
+	metadataPath := remainder[divider+1:]
+	if imageName == "" || metadataPath == "" || !path.IsAbs(metadataPath) ||
+		strings.HasSuffix(metadataPath, "/") || strings.ContainsAny(metadataPath, "\x00\\:") {
+		return containerReference{}, containerPathError()
 	}
-	if err != nil {
-		var exitErr *exec.ExitError
-		if errors.As(err, &exitErr) {
-			return out, fmt.Errorf("%s :: %s :: %w", out, exitErr.Stderr, exitErr)
+	for _, component := range strings.Split(metadataPath, "/") {
+		if component == ".." {
+			return containerReference{}, containerPathError()
 		}
-		return out, fmt.Errorf("%s :: %w", out, err)
 	}
 
-	return out, nil
-}
-
-// newEngine checks if Podman or Docker are in the system's PATH, and returns an engine with a name and a boolean
-// that indicates if sudo is needed for future commands. Prefers Podman. Returns an error if neither engine is found.
-var newEngine = func() (*engine, error) {
-	if _, err := lookPath("podman"); err == nil {
-		return &engine{name: "podman", requiresSudo: false}, nil
+	metadataPath = path.Clean(metadataPath)
+	if metadataPath == "/" || path.Base(metadataPath) == "." {
+		return containerReference{}, containerPathError()
 	}
 
-	if _, err := lookPath("docker"); err == nil {
-		_, err = execCommand("docker", "images").Output() // If this errors out, we need to use sudo, return true.
-		return &engine{name: "docker", requiresSudo: err != nil}, nil
-	}
-	return &engine{name: "", requiresSudo: false}, fmt.Errorf("you do not have Podman or Docker on your PATH")
-}
-
-// pullContainer pulls an image, runs it using the provided engine, and stores the corresponding containerID in the engine struct
-func (engine *engine) pullContainer(image string) error {
-	// create the container so we can cp out of it
-	out, err := engine.runEngineCommand("create", image)
+	image, err := name.ParseReference(imageName)
 	if err != nil {
-		return fmt.Errorf("could not create container: %w", err)
+		// The parser can repeat its input. Do not include or wrap it because a
+		// malformed reference may contain credential-like material.
+		return containerReference{}, containerPathError()
 	}
-	engine.containerID = strings.TrimSpace(string(out)) // Convert bytes to string and trim new line
-	klog.V(1).Infof("Created container %s", engine.containerID)
+
+	return containerReference{image: image, metadataPath: metadataPath}, nil
+}
+
+func containerPathError() error {
+	return fmt.Errorf(
+		"incorrect path passed to -r, it must follow this format: %s<IMAGE>:/absolute/path/to/metadata.yaml",
+		containerScheme,
+	)
+}
+
+type extractionLimits struct {
+	maxLayers                 int
+	maxDeclaredCompressed     int64
+	maxActualCompressed       int64
+	maxUncompressed           int64
+	maxRawHeaders             int
+	maxStateEntries           int
+	maxStateKeyBytes          int64
+	maxSelectedEntries        int
+	maxSelectedNodes          int
+	maxSelectedKeyBytes       int64
+	maxFileBytes              int64
+	maxSelectedBytes          int64
+	maxPathBytes              int
+	maxPathComponentBytes     int
+	maxZstdWindowBytes        uint64
+	maxCredentialHelperOutput int
+}
+
+var defaultExtractionLimits = extractionLimits{
+	maxLayers:                 128,
+	maxDeclaredCompressed:     2 << 30,
+	maxActualCompressed:       2 << 30,
+	maxUncompressed:           2 << 30,
+	maxRawHeaders:             100_000,
+	maxStateEntries:           100_000,
+	maxStateKeyBytes:          32 << 20,
+	maxSelectedEntries:        10_000,
+	maxSelectedNodes:          100_000,
+	maxSelectedKeyBytes:       32 << 20,
+	maxFileBytes:              32 << 20,
+	maxSelectedBytes:          256 << 20,
+	maxPathBytes:              4_096,
+	maxPathComponentBytes:     255,
+	maxZstdWindowBytes:        64 << 20,
+	maxCredentialHelperOutput: 1 << 20,
+}
+
+type imagePuller func(context.Context, name.Reference, authn.Keychain, v1.Platform) (v1.Image, error)
+type imageApplier func(context.Context, v1.Image, string, string, extractionLimits) error
+
+type registryReader struct {
+	pull      imagePuller
+	apply     imageApplier
+	keychain  authn.Keychain
+	platform  v1.Platform
+	limits    extractionLimits
+	removeAll func(string) error
+	publish   func(string, string) error
+	lstat     func(string) (fs.FileInfo, error)
+}
+
+func newRegistryReader() registryReader {
+	limits := defaultExtractionLimits
+	return registryReader{
+		pull:  pullRemoteImage,
+		apply: applyImageLayers,
+		keychain: &safeDefaultKeychain{
+			runner: execCredentialHelperRunner{maxOutput: limits.maxCredentialHelperOutput},
+		},
+		platform:  v1.Platform{OS: "linux", Architecture: runtime.GOARCH},
+		limits:    limits,
+		removeAll: os.RemoveAll,
+		publish:   renameNoReplace,
+		lstat:     os.Lstat,
+	}
+}
+
+type httpsOnlyTransport struct {
+	delegate http.RoundTripper
+}
+
+func (transport httpsOnlyTransport) RoundTrip(request *http.Request) (*http.Response, error) {
+	if request == nil || request.URL == nil || request.URL.Scheme != "https" {
+		return nil, errors.New("registry request requires HTTPS")
+	}
+	response, err := transport.delegate.RoundTrip(request)
+	if err != nil {
+		return nil, fmt.Errorf("sending HTTPS registry request: %w", err)
+	}
+	return response, nil
+}
+
+func pullRemoteImage(
+	ctx context.Context,
+	ref name.Reference,
+	keychain authn.Keychain,
+	platform v1.Platform,
+) (v1.Image, error) {
+	return pullRemoteImageWithTransport(ctx, ref, keychain, platform, remote.DefaultTransport)
+}
+
+func pullRemoteImageWithTransport(
+	ctx context.Context,
+	ref name.Reference,
+	keychain authn.Keychain,
+	platform v1.Platform,
+	roundTripper http.RoundTripper,
+) (v1.Image, error) {
+	image, err := remote.Image(
+		ref,
+		remote.WithContext(ctx),
+		remote.WithAuthFromKeychain(keychain),
+		remote.WithPlatform(platform),
+		remote.WithTransport(httpsOnlyTransport{delegate: roundTripper}),
+	)
+	if err != nil {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return nil, fmt.Errorf("pulling image from registry: %w", ctxErr)
+		}
+		for _, known := range []error{
+			errCredentialHelper,
+			errCredentialHelperOutput,
+			errCredentialConfiguration,
+		} {
+			if errors.Is(err, known) {
+				return nil, fmt.Errorf("pulling image from registry: %w", known)
+			}
+		}
+		var transportErr *transport.Error
+		if errors.As(err, &transportErr) {
+			return nil, fmt.Errorf(
+				"pulling image from registry failed with HTTP status %d",
+				transportErr.StatusCode,
+			)
+		}
+		// Registry response bodies are untrusted and may reflect authorization
+		// data. Keep the fallback externally returned error operation-only.
+		return nil, errors.New("pulling image from registry failed")
+	}
+	return image, nil
+}
+
+// getReferencesFromContainer pulls and extracts the reference directory into tempRoot.
+func getReferencesFromContainer(ctx context.Context, raw, tempRoot string) (string, error) {
+	reference, err := parsePath(raw)
+	if err != nil {
+		return "", err
+	}
+	return newRegistryReader().extract(ctx, reference, tempRoot)
+}
+
+func (reader registryReader) extract(
+	ctx context.Context,
+	reference containerReference,
+	tempRoot string,
+) (result string, resultErr error) {
+	info, err := os.Stat(tempRoot)
+	if err != nil {
+		return "", fmt.Errorf("temporary directory could not be accessed: %w", err)
+	}
+	if !info.IsDir() {
+		return "", fmt.Errorf("temporary path is not a directory: %s", tempRoot)
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, registryReadTimeout)
+	defer cancel()
+
+	image, err := reader.pull(ctx, reference.image, reader.keychain, reader.platform)
+	if err != nil {
+		return "", err
+	}
+
+	staging, err := os.MkdirTemp(tempRoot, ".container-reference-*.partial")
+	if err != nil {
+		return "", fmt.Errorf("creating reference staging directory: %w", err)
+	}
+	if err := os.Chmod(staging, 0o700); err != nil {
+		return "", errors.Join(
+			fmt.Errorf("securing reference staging directory: %w", err),
+			removeTemporaryPath(staging, reader.removeAll),
+		)
+	}
+	published := false
+	defer func() {
+		if !published {
+			resultErr = errors.Join(resultErr, removeTemporaryPath(staging, reader.removeAll))
+		}
+	}()
+
+	if err := reader.apply(ctx, image, staging, reference.metadataPath, reader.limits); err != nil {
+		return "", err
+	}
+
+	finalPath := strings.TrimSuffix(staging, ".partial")
+	if _, err := reader.lstat(finalPath); !errors.Is(err, os.ErrNotExist) {
+		if err == nil {
+			return "", fmt.Errorf("reference destination already exists: %s", finalPath)
+		}
+		return "", fmt.Errorf("checking reference destination: %w", err)
+	}
+	if err := reader.publish(staging, finalPath); err != nil {
+		return "", fmt.Errorf("publishing extracted reference: %w", err)
+	}
+	published = true
+	return finalPath, nil
+}
+
+func removeTemporaryPath(path string, removeAll func(string) error) error {
+	if err := removeAll(path); err != nil {
+		return fmt.Errorf("removing partial reference directory: %w", err)
+	}
 	return nil
-}
-
-// extractReferences copies the directory in the container that contains the reference configs into a temporary directory,
-// and stores the path to the new directory in the engine struct.
-func (engine *engine) extractReferences(pathToMetadata, dname string) error {
-	_, err := engine.runEngineCommand("cp", engine.containerID+":"+pathToMetadata, dname)
-	if err != nil {
-		return fmt.Errorf("could not copy templates from container: %w", err)
-	}
-	engine.tempDir = filepath.Join(dname, filepath.Base(pathToMetadata))
-	return nil
-}
-
-// cleanup removes the container used to extract the reference configs.
-func (engine *engine) cleanup() {
-	_, err := engine.runEngineCommand("rm", engine.containerID)
-	if err != nil {
-		klog.Warningf("Warning: Could not remove container: %s", err)
-	}
-}
-
-// getReferencesFromContainer uses a path to an image and a metadata.yaml within that image, and extracts the reference configs
-// to a local temporary directory. Returns the path to this directory.
-func getReferencesFromContainer(path, tempContainerRefDir string) (string, error) {
-	engine, err := newEngine()
-	if err != nil {
-		return "", err
-	}
-
-	parsedPath, err := parsePath(path)
-	if err != nil {
-		return "", err
-	}
-
-	err = engine.pullContainer(parsedPath.image)
-	if err != nil {
-		return "", err
-	}
-
-	defer engine.cleanup()
-
-	err = engine.extractReferences(parsedPath.path, tempContainerRefDir)
-	if err != nil {
-		return "", err
-	}
-
-	return engine.tempDir, nil
 }
