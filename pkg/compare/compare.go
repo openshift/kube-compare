@@ -143,13 +143,14 @@ var OutputFormats = []string{JSON, Yaml, PatchYaml, Junit}
 
 // Options holds command options.
 type Options struct {
-	CRs                resource.FilenameOptions
-	ReferenceConfig    string
-	diffConfigFileName string
-	diffAll            bool
-	verboseOutput      bool
-	ShowManagedFields  bool
-	OutputFormat       string
+	CRs                 resource.FilenameOptions
+	ReferenceConfig     string
+	diffConfigFileName  string
+	diffAll             bool
+	verboseOutput       bool
+	ShowManagedFields   bool
+	OutputFormat        string
+	AllowSensitiveKinds bool
 
 	builder                *resource.Builder
 	correlator             *MultiCorrelator[ReferenceTemplate]
@@ -286,6 +287,7 @@ func NewCmd(f kcmdutil.Factory, streams genericiooptions.IOStreams) *cobra.Comma
 		"If present, In live mode will try to match all resources that are from the types mentioned in the reference. "+
 			"In local mode will try to match all resources passed to the command")
 	cmd.Flags().BoolVarP(&options.verboseOutput, "verbose", "v", options.verboseOutput, "Increases the verbosity of the tool")
+	cmd.Flags().BoolVar(&options.AllowSensitiveKinds, "allow-sensitive-kinds", options.AllowSensitiveKinds, "Allow listing sensitive resource kinds (e.g., Secret) from the live cluster.")
 
 	cmd.Flags().StringVarP(&options.generateConfig, "generate-config", "g", "", "Path to generate config file. When set, generates reference from the live cluster or from a must-gather directory given by a single -f path instead of comparing.")
 	cmd.Flags().StringVar(&options.generateOutputDir, "output-dir", "", "Output directory for generated reference (overrides config file setting). Only used with -g.")
@@ -535,8 +537,23 @@ func (o *Options) setupOverrideCorrelators() error {
 // are not supported by the user a warning will be created.
 func (o *Options) setLiveSearchTypes(f kcmdutil.Factory) error {
 	kindSet := make(map[string][]ReferenceTemplate)
+	sensitiveDenylist := []string{"Secret", "OAuthAccessToken", "OAuthClient", "ServiceAccount"}
+	skippedSensitiveKinds := []string{}
+
 	for _, t := range o.templates {
-		kindSet[t.GetMetadata().GetKind()] = append(kindSet[t.GetMetadata().GetKind()], t)
+		kind := t.GetMetadata().GetKind()
+		if !o.AllowSensitiveKinds && slices.Contains(sensitiveDenylist, kind) {
+			if !slices.Contains(skippedSensitiveKinds, kind) {
+				skippedSensitiveKinds = append(skippedSensitiveKinds, kind)
+			}
+			continue
+		}
+		kindSet[kind] = append(kindSet[kind], t)
+	}
+
+	if len(skippedSensitiveKinds) > 0 {
+		sort.Strings(skippedSensitiveKinds)
+		klog.Warningf("Skipping sensitive resource kinds requested by reference: %s. Use --allow-sensitive-kinds to include them.", strings.Join(skippedSensitiveKinds, ", "))
 	}
 
 	c, err := f.ToDiscoveryClient()
