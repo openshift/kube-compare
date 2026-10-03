@@ -7,6 +7,10 @@ import (
 	"time"
 )
 
+// zeroDuration is the time attribute value for testsuites, testsuite, and testcase elements.
+// JUnit expects elapsed seconds; kube-compare does not track per-test duration.
+const zeroDuration = "0"
+
 // TestSuites is a collection of JUnit test suites.
 type TestSuites struct {
 	XMLName  xml.Name `xml:"testsuites"`
@@ -22,7 +26,7 @@ type TestSuites struct {
 func NewTestSuites(name string) *TestSuites {
 	testSuites := TestSuites{
 		Name: name,
-		Time: time.Now().Format(time.RFC3339),
+		Time: zeroDuration,
 	}
 	return &testSuites
 }
@@ -54,6 +58,9 @@ type TestSuite struct {
 }
 
 func (id *TestSuite) AddCase(tcase TestCase) {
+	if tcase.Time == "" {
+		tcase.Time = zeroDuration
+	}
 	id.TestCases = append(id.TestCases, tcase)
 	id.Tests += 1
 	if tcase.Failure != nil {
@@ -98,11 +105,10 @@ type Failure struct {
 }
 
 func NewTestSuite(name string) TestSuite {
-	timestamp := time.Now().Format(time.RFC3339)
 	return TestSuite{
 		Name:      name,
-		Timestamp: timestamp,
-		Time:      timestamp,
+		Timestamp: time.Now().Format(time.RFC3339),
+		Time:      zeroDuration,
 	}
 }
 
