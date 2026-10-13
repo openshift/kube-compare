@@ -4,6 +4,7 @@ package compare
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -173,7 +174,12 @@ type Options struct {
 	generateConfig    string
 	generateOutputDir string
 
+	// TmpDir is a caller-owned temporary root used for container references.
+	// The caller must retain it until all reads from the returned fs.FS finish
+	// and remove it afterward.
 	TmpDir string
+
+	containerReferenceReader func(context.Context, string, string) (string, error)
 
 	diff *diff.DiffProgram
 	genericiooptions.IOStreams
@@ -331,8 +337,16 @@ func diffError(err error) exec.ExitError {
 	return nil
 }
 
-// GetRefFS returns the reference file system.
+// GetRefFS returns the reference file system. For container references TmpDir
+// must remain available until the caller finishes using the returned fs.FS.
 func (o *Options) GetRefFS() (fs.FS, error) {
+	return o.GetRefFSContext(context.Background())
+}
+
+// GetRefFSContext returns the reference file system and applies ctx to
+// registry authentication, pulling, and extraction. The caller owns TmpDir for
+// the complete lifetime of a returned container fs.FS.
+func (o *Options) GetRefFSContext(ctx context.Context) (fs.FS, error) {
 	referenceDir := filepath.Dir(o.ReferenceConfig)
 	if isURL(o.ReferenceConfig) {
 		// filepath.Dir removes one / from http://
@@ -340,18 +354,15 @@ func (o *Options) GetRefFS() (fs.FS, error) {
 		return HTTPFS{baseURL: referenceDir, httpGet: httpgetImpl}, nil
 	}
 	if isContainer(o.ReferenceConfig) {
-		// filepath.Dir removes one / from container://
-		referenceDir = strings.Replace(referenceDir, "/", "//", 1)
-		if o.TmpDir != "" {
-			if info, err := os.Stat(o.TmpDir); err == nil && info.IsDir() { // Does directory exist?
-				containerPath, err := getReferencesFromContainer(referenceDir, o.TmpDir)
-				if err != nil {
-					return nil, err
-				}
-				return os.DirFS(containerPath), nil
-			}
+		reader := o.containerReferenceReader
+		if reader == nil {
+			reader = getReferencesFromContainer
 		}
-		return nil, fmt.Errorf("temporary directory could not be accessed, see logs for details")
+		containerPath, err := reader(ctx, o.ReferenceConfig, o.TmpDir)
+		if err != nil {
+			return nil, err
+		}
+		return os.DirFS(containerPath), nil
 	}
 	rootPath, err := filepath.Abs(referenceDir)
 	if err != nil {
@@ -400,7 +411,7 @@ func (o *Options) Complete(f kcmdutil.Factory, cmd *cobra.Command, args []string
 		return errors.New(refFileNotExistsError)
 	}
 
-	cfs, err := o.GetRefFS()
+	cfs, err := o.GetRefFSContext(cmd.Context())
 	if err != nil {
 		return err
 	}

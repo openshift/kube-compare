@@ -62,6 +62,32 @@ Extract a reference configuration from a container image and compare with a loca
 kubectl cluster-compare -r container://<IMAGE>:<TAG>:/home/ztp/reference/metadata.yaml -f ./crsdir -R
 ```
 
+Container references use the exact syntax
+`container://<docker-or-oci-image-reference>:/<absolute-POSIX-path-to-metadata>`.
+The final `:/` separates the image reference from the path in the image, so
+registry ports, tags, digests, and tag-plus-digest references are supported.
+Tagless names use the normal Docker defaults (`docker.io` and `latest`).
+
+Images are pulled directly from a TLS-enabled external registry for
+`linux/<current host architecture>`; Docker and Podman engines, daemon sockets,
+and local image caches are not used. Registry authentication checks
+`DOCKER_AUTH_CONFIG` first. It then reads exactly one auth file: the Docker
+configuration if one exists; otherwise `REGISTRY_AUTH_FILE`; otherwise Podman's
+XDG runtime or configuration auth file. Other auth files are not consulted when
+the selected file has no matching registry entry. Configured
+`docker-credential-*` helpers must be on `PATH`. Plain HTTP registries are not
+enabled.
+
+Registry content is treated as untrusted. Extraction is limited to 128 layers,
+2 GiB each for declared compressed, actual compressed, and aggregate
+uncompressed layer data, 100,000 raw tar headers and retained layer-state
+entries, 100,000 retained selected filesystem nodes, 32 MiB each of retained
+layer-state and selected-node path data, 10,000 selected archive entries,
+32 MiB per selected file, and 256 MiB across selected files. Zstd layers use
+a 64 MiB maximum decoder window. Only directories and regular files in the
+selected reference subtree are materialized; links, devices, FIFOs, sparse
+files, and other special entries there are rejected.
+
 The tool can also be used to generate a reference configuration, from either a running cluster or against an `oc must-gather` output. A configuration file must be created to specify what resources should be captured. An example configuration is available: [generate-config.yaml](./docs/example/generate-config.yaml).
 
 Generate a reference configuration from a running cluster:
