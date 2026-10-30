@@ -2,6 +2,7 @@
 package convert
 
 import (
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -61,16 +62,29 @@ type Options struct {
 	chartVersion     string
 }
 
-func convertToHelm(o *Options) error {
+func convertToHelm(o *Options) (retErr error) {
 	helmTemplates := make(map[string]string)
 	helmValues := make(map[string]any)
 	var preValues map[string]any
 	crsWithDefaults := make(map[string]map[string]interface{})
 
 	compareOptions := compare.Options{ReferenceConfig: o.refPath, TmpDir: ""}
-	cfs, err := compareOptions.GetRefFS()
+	cfs, refFSCloser, err := compareOptions.GetRefFS()
 	if err != nil {
 		return fmt.Errorf("failed to get filesystem of cluster-compare reference %w", err)
+	}
+	if refFSCloser != nil {
+		defer func() {
+			if closeErr := refFSCloser.Close(); closeErr != nil {
+				if _, writeErr := fmt.Fprintf(os.Stderr, "warning: failed to close reference root: %v\n", closeErr); writeErr != nil {
+					retErr = errors.Join(
+						retErr,
+						fmt.Errorf("failed to close reference root: %w", closeErr),
+						fmt.Errorf("failed to write reference root close warning: %w", writeErr),
+					)
+				}
+			}
+		}()
 	}
 
 	templates, helperFuncs, err := getTemplates(cfs, filepath.Base(o.refPath))

@@ -303,6 +303,50 @@ func TestCleanup(_ *testing.T) {
 	}
 }
 
+func TestGetRefFSFromContainer(t *testing.T) {
+	oldExecCommand, oldLookPath := execCommand, lookPath
+	execCommand = fakeExecCommand
+	lookPath = func(string) (string, error) { return "/usr/bin/podman", nil }
+	defer func() {
+		execCommand = oldExecCommand
+		lookPath = oldLookPath
+	}()
+
+	tmpDir := t.TempDir()
+	referenceDir := filepath.Join(tmpDir, "reference")
+	if err := os.MkdirAll(referenceDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(referenceDir, "marker"), []byte("container reference"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	options := Options{
+		ReferenceConfig: "container://image:tag:/etc/reference/metadata.yaml",
+		TmpDir:          tmpDir,
+	}
+	refFS, closer, err := options.GetRefFS()
+	if err != nil {
+		t.Fatalf("GetRefFS() error = %v", err)
+	}
+	if closer == nil {
+		t.Fatal("GetRefFS() returned no closer for the container reference root")
+	}
+	defer func() {
+		if err := closer.Close(); err != nil {
+			t.Errorf("closing container reference root: %v", err)
+		}
+	}()
+
+	file, err := refFS.Open("marker")
+	if err != nil {
+		t.Fatalf("opening file from container reference filesystem: %v", err)
+	}
+	if err := file.Close(); err != nil {
+		t.Fatalf("closing file from container reference filesystem: %v", err)
+	}
+}
+
 func TestGetReferencesFromContainer(t *testing.T) {
 	// Override execCommand with a fake function
 	execCommand = fakeExecCommand
